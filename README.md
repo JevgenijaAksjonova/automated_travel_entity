@@ -1,3 +1,3 @@
 # robotics
 
-![][automated.jpg]
+![alt text](automated.jpg)
