@@ -1,1 +1,3 @@
 # robotics
+
+![][automated.jpg]
