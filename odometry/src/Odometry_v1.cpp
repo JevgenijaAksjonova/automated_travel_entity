@@ -43,7 +43,7 @@ OdometryPublisher::OdometryPublisher(int frequency){
     encoding_delta = std::vector<double>(2,0);
 
     odom_publisher = n.advertise<nav_msgs::Odometry>("odom", 1);
-    encoder_subscriber = n.subscribe("/kobuki/encoders", 1, &StraightWalker::encoderCallback, this);
+    encoder_subscriber = n.subscribe("/odom", 1, &OdometryPublisher::encoderCallback, this);
 
 
 }
@@ -69,18 +69,21 @@ void OdometryPublisher::calculateNewPosition(){
 
     ros::Time current_time, last_time;
 
-    std::vector<double> estimated_w(2, 0.0);
+    std::vector<double> dphi_dt(2, 0.0);
 
-    estimated_w[0] = (encoding_delta[0])/(tick_per_rotation)*wheel_r*2*pi;
-    estimated_w[1] = (encoding_delta[1])/(tick_per_rotation)*wheel_r*2*pi;
+    dphi_dt[0] = ((encoding_delta[0])/(tick_per_rotation)*2*pi)/dt;
+    dphi_dt[1] = ((encoding_delta[1])/(tick_per_rotation)*2*pi)/dt;
 
-    double linear_v = ((estimated_w[0] + estimated_w[1])/2)/dt;
-    double angular_v = ((estimated_w[0] - estimated_w[1])/base_d)/dt;
+    double linear_v = (wheel_r/2)*(dphi_dt[0] + dphi_dt[1]);
+    double angular_w = (wheel_r/base_d)*(dphi_dt[0] - dphi_dt[1]);
+
+    double vx = linear_v*(cos(current_pose.theta);
+    double vy = linear_v*(sin(current_pose.theta);
 
 
-    current_pose.x += linear_v*(cos(current_pose.theta)*dt;
-    current_pose.y += linear_v*(1/control_frequenzy)*sin(current_pose.theta)*dt;
-    current_pose.theta += angular_v*(dt);
+    current_pose.x += linear_v*dt*(cos(current_pose.theta);
+    current_pose.y += linear_v*dt*sin(current_pose.theta);
+    current_pose.theta += angular_w*dt;
 
 
     tf::TransformBroadcaster odom_broadcaster;
@@ -110,16 +113,15 @@ void OdometryPublisher::calculateNewPosition(){
     odom_msg.pose.pose.position.z = 0.0;
     odom_msg.pose.pose.orientation = odom_quat;
 
+    //set the velocity
+    odom_msg.child_frame_id = "base_link";
+    odom_msg.twist.twist.linear.x = vx;
+    odom_msg.twist.twist.linear.y = vy;
+    odom_msg.twist.twist.angular.z = angular_w;
 
-
+    odom_publisher.publish(odom_msg);
 
     ROS_INFO("new Position [%f] [%f] [%f] ", current_pose.x, current_pose.y, current_pose.theta);
-
-
-    //Not finished!
-    odom_msg.pose = pwr1;
-    odom_msg.twist = pwr2;
-    ROS_INFO("Current power [%d], [%d]\n", pwr1, pwr2);
 
 }
 
