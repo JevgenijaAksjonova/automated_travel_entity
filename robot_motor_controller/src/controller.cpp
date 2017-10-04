@@ -84,10 +84,11 @@ void motorMessageReceiverLeft( const phidgets::motor_encoder & msgRecEncoderLeft
 	//ROS_INFO_STREAM("Left Encoder Message Receive!");
 
 	motor.angular_velocity_left = float(msgRecEncoderLeft.count-last_count_left)*2.0*3.1415/48.0/(ros::Time::now().toSec()-last_encoder_time_left.toSec() );// rad/s
-
-	ROS_INFO_STREAM("leftReal:"<<motor.angular_velocity_left);
+  
   last_encoder_time_left =ros::Time::now();
   last_count_left = msgRecEncoderLeft.count;
+	ROS_INFO_STREAM("leftReal:"<<motor.angular_velocity_left);
+
 }
 
 //Callback function 2: encoder right
@@ -95,10 +96,11 @@ void motorMessageReceiverRight( const phidgets::motor_encoder & msgRecEncoderRig
 	//ROS_INFO_STREAM("Right Encoder Message Receive!");
 //msgRecEncoderRight.count-last_count_right  Right Wheel Rotate in oppsite direction
   motor.angular_velocity_right = float(msgRecEncoderRight.count-last_count_right)*2.0*3.1415/48.0/(ros::Time::now().toSec()-last_encoder_time_right.toSec() );// rad/s
-
-	ROS_INFO_STREAM("rightReal"<<motor.angular_velocity_right);
+  
   last_encoder_time_right =ros::Time::now();
   last_count_right = msgRecEncoderRight.count;
+	ROS_INFO_STREAM("rightReal"<<motor.angular_velocity_right);
+
 }
 
 
@@ -114,9 +116,10 @@ void refMessageReceiver( const geometry_msgs::Twist & msgRecTwist){
 	reference.angular_velocity_right = float(msgRecTwist.linear.x*2.0+msgRecTwist.angular.z*0.23)/(2.0*0.0352);// rad/s
 
 	//ROS_INFO_STREAM("Vref:"<<msgRec2.linear.x<<"  OmegaRef="<<msgRec2.angular.z );
-
 	//ROS_INFO_STREAM("leftREF=" <<reference.angular_velocity_left <<"  rightREF=" <<reference.angular_velocity_right);
 
+	if (reference.angular_velocity_left  > 200.0)  reference.angular_velocity_left  =  200.0;   //Protect //Can be removed with analysis 
+	if (reference.angular_velocity_right  > 200.0)  reference.angular_velocity_right  =  200.0;
 }
 
 
@@ -163,7 +166,7 @@ int main (int argc, char **argv){
 	//ROS_INFO_STREAM("Sending PWM:"	<< "Left=" << msg_left.data <<"Right" << msg_right.data	);
 
 	ros::spinOnce();
-	count++;
+
 
 //------------------------------------------------------------------------------------------------------
 	//ROS_INFO_STREAM("leftWheel="<<motor.angular_velocity_left <<"rightWheel="<<motor.angular_velocity_right );
