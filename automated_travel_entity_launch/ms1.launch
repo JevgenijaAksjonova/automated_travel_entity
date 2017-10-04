@@ -1,6 +1,6 @@
 <launch>
+	<rosparam  file="$(find robot_motor_controller)/param.yaml" command="load"/>
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
-
 </launch>

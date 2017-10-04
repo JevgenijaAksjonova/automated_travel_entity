@@ -42,10 +42,10 @@ float error1 = 0;
 float error2 = 0;
 float int_error1 = 0;
 float int_error2 = 0;
-float kp1 = 0.5;     // Need tuning
-float ki1 = 0.1;      // Need tuning
-float kp2 = 0.5;     // Need tuning
-float ki2 = 0.1;      // Need tuning
+float kp1 = 0.0;     // Need tuning
+float ki1 = 0.0;      // Need tuning
+float kp2 = 0.0;     // Need tuning
+float ki2 = 0.0;      // Need tuning
 float pwm1 = 0;   //Output is Float32 (float 32, double 64 bits)
 float pwm2 = 0;
 
@@ -130,7 +130,15 @@ int main (int argc, char **argv){
 
 	ros::init(argc, argv,"controller"); //Initialize the node, and set default name
 	ros::NodeHandle nh;	//Establish this node with Master(roscore)
-
+	if(!nh.getParam("/motor/pid/left/kp",kp1)){
+		ROS_ERROR("failed to detect parameter left");
+		return 1;
+	}
+	if(!nh.getParam("/motor/pid/right/kp",kp2)){
+		ROS_ERROR("failed to detect parameter right");
+		return 1;
+	}
+	
 	ros::Publisher pub_pwm_left  = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel/left",1);  
 	ros::Publisher pub_pwm_right = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel/right",1);  
 	//Create publisher: pub_pwm	// msg_type(use :: for /) //topic_name //buffer_size
@@ -166,7 +174,7 @@ int main (int argc, char **argv){
 	//ROS_INFO_STREAM("Sending PWM:"	<< "Left=" << msg_left.data <<"Right" << msg_right.data	);
 
 	ros::spinOnce();
-
+   
 
 //------------------------------------------------------------------------------------------------------
 	//ROS_INFO_STREAM("leftWheel="<<motor.angular_velocity_left <<"rightWheel="<<motor.angular_velocity_right );
@@ -175,8 +183,12 @@ int main (int argc, char **argv){
 	loop_rate.sleep(); //sleep 		
 
 	}
-
 //end loop
+	std_msgs::Float32 stop_msg_left,stop_msg_right;
+        stop_msg_left.data = 0;
+	stop_msg_right.data = 0;
+	pub_pwm_left.publish(stop_msg_left);
+	pub_pwm_right.publish(stop_msg_right);
 	ROS_INFO_STREAM("ROS stop");
 	return 0;
 }
