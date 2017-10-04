@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>odometr</name>
+  <name>odometry</name>
   <version>0.0.0</version>
   <description>The odometry package</description>
 
@@ -10,12 +10,15 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>geometry_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>tf</build_depend>
+
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>geometry_msgs</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>tf</run_depend>
 
-  <depend package="tf"/>
-  <depend package="nav_msgs"/>
   <export>
 
   </export>

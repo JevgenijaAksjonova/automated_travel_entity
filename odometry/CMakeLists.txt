@@ -5,6 +5,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   geometry_msgs
+  tf
+  nav_msgs
 )
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -16,4 +18,5 @@ catkin_package()
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-
+add_executable(odometry src/odometry.cpp)
+target_link_libraries(odometry ${catkin_LIBRARIES})
