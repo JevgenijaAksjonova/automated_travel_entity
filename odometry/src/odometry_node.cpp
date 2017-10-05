@@ -114,8 +114,9 @@ void calculateNewPosition(){
     odom_msg.pose.pose.position.x = xpos;
     odom_msg.pose.pose.position.y = ypos;
     odom_msg.pose.pose.position.z = 0.0;
-    odom_msg.pose.pose.orientation = odom_quat;
-
+    tf::Quaternion q;
+    q.setRPY(0, 0, theta);
+    transform.setRotation(q);
     //set the velocity
     odom_msg.child_frame_id = "base_link";
     odom_msg.twist.twist.linear.x = vx;
