@@ -1,0 +1,5 @@
+<launch>
+	<include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch"/>
+	<node pkg="tf" type="static_transform_publisher" name="camera_static_transform" args="1 1 1 0 0 0 1 base_link camera 100" />
+	<node pkg="camera" name="object_candidate_spotter" type="spotter.py" output="log"/>
+</launch>

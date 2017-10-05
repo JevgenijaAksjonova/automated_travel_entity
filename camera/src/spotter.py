@@ -3,15 +3,19 @@
 import rospy
 import roslib
 from geometry_msgs.msg import PointStamped
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+from sensor_msgs.msg import Image
 
-
+def image_callback(image):
+    pass
 def main():
     #Main fucntion. Put everything here
     pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
+    image_sub = rospy.Subscriber("/camera/rgb/image_color",Image,image_callback)
     rospy.init_node("talker")
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
-
         foo = PointStamped()
         foo.header.frame_id = "camera"
         foo.header.stamp = rospy.Time.now()

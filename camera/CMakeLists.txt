@@ -5,7 +5,12 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   geometry_msgs
+  #opencv2
+  #cv_bridge
+  #rospy
+  #std_msgs
 )
+find_package(OpenCV 2 REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -16,4 +21,3 @@ catkin_package()
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-
