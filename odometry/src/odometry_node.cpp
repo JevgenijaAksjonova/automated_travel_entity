@@ -103,7 +103,9 @@ void calculateNewPosition(){
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
     tf::Transform transform;
     transform.setOrigin( tf::Vector3(xpos, ypos, 0.0) );
-    transform.setRotation(odom_quat);
+    tf::Quaternion q;
+    q.setRPY(0, 0, theta);
+    transform.setRotation(q);
     odom_broadcaster.sendTransform(tf::StampedTransform(transform, current_time, "odom", "base_link"));
 
     // Publish odometry message
@@ -114,9 +116,7 @@ void calculateNewPosition(){
     odom_msg.pose.pose.position.x = xpos;
     odom_msg.pose.pose.position.y = ypos;
     odom_msg.pose.pose.position.z = 0.0;
-    tf::Quaternion q;
-    q.setRPY(0, 0, theta);
-    transform.setRotation(q);
+
     //set the velocity
     odom_msg.child_frame_id = "base_link";
     odom_msg.twist.twist.linear.x = vx;
