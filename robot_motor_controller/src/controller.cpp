@@ -63,9 +63,9 @@ void pwmCalc(){
 	pwm1 = (kp1*error1+ki1*int_error1);
 	
 	if (pwm1 > 30.0)  pwm1 =  30.0;  //To protect the motor
-    if (pwm1 < -30.0) pwm1 = -30.0;  //To protect the motor
+	if (pwm1 < -30.0) pwm1 = -30.0;  //To protect the motor
 	
-	ROS_INFO_STREAM("leftPWM:"<<pwm1);
+	//ROS_INFO_STREAM("leftPWM:"<<pwm1);
   //Right
 	error2 = reference.angular_velocity_right - motor.angular_velocity_right;
 	int_error2 = int_error2 + error2* T;	//T = 0.1
@@ -74,7 +74,7 @@ void pwmCalc(){
 	if (pwm2 > 30.0)  pwm2 =  30.0;
 	if (pwm2 < -30.0) pwm2 = -30.0; 
 		
-	ROS_INFO_STREAM("RightPWM:"<<pwm2);
+	//ROS_INFO_STREAM("RightPWM:"<<pwm2);
 }
 
 
@@ -116,13 +116,14 @@ void refMessageReceiver( const geometry_msgs::Twist & msgRecTwist){
 	reference.angular_velocity_right = float(msgRecTwist.linear.x*2.0+msgRecTwist.angular.z*0.23)/(2.0*0.0352);// rad/s
 
 	//ROS_INFO_STREAM("Vref:"<<msgRec2.linear.x<<"  OmegaRef="<<msgRec2.angular.z );
-	//ROS_INFO_STREAM("leftREF=" <<reference.angular_velocity_left <<"  rightREF=" <<reference.angular_velocity_right);
+	ROS_INFO_STREAM("leftREF=" <<reference.angular_velocity_left <<"  rightREF=" <<reference.angular_velocity_right);
 
-	if (reference.angular_velocity_left  > 200.0)  reference.angular_velocity_left  =  200.0;   //Protect //Can be removed with analysis 
-	if (reference.angular_velocity_right > 200.0)  reference.angular_velocity_right  =  200.0;
+	if (reference.angular_velocity_left  > 400.0)  reference.angular_velocity_left  =  400.0;   //Protect //Can be removed with analysis 
+	if (reference.angular_velocity_right > 400.0)  reference.angular_velocity_right  =  400.0;
 
-	if (reference.angular_velocity_left  < -200.0)  reference.angular_velocity_left  =  -200.0;   //Protect //Can be removed with analysis 
-	if (reference.angular_velocity_right < -200.0)  reference.angular_velocity_right  =  -200.0;
+	if (reference.angular_velocity_left  < -400.0)  reference.angular_velocity_left  =  -400.0;   //Protect //Can be removed with analysis 
+	if (reference.angular_velocity_right < -400.0)  reference.angular_velocity_right  =  -400.0;
+
 }
 
 
