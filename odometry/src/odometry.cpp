@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include <ras_lab1_msgs/Encoders.h>
+#include <phidgets/motor_encoder.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <math.h>
@@ -13,7 +13,8 @@ class OdometryPublisher{
 public:
     ros::NodeHandle n;
     ros::Publisher odom_publisher;
-    ros::Subscriber encoder_subscriber;
+    ros::Subscriber encoder_subscriber_left;
+    ros::Subscriber encoder_subscriber_right;
     double xpos;
     double ypos;
     double theta;
@@ -29,37 +30,54 @@ OdometryPublisher(int frequency){
     ypos = 0;
     theta = 0;
 
-    encoding_abs = std::vector<int>(2,0);
+    encoding_abs_prev = std::vector<int>(2,0);
+    encoding_abs_new = std::vector<int>(2,0);
     encoding_delta = std::vector<double>(2,0);
+    first_loop = 1;
 
     odom_publisher = n.advertise<nav_msgs::Odometry>("odom", 1);
-    encoder_subscriber = n.subscribe("/odom", 1, &OdometryPublisher::encoderCallback, this);
+    encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
+    encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
+
 
 
 }
 
 
-void encoderCallback(const ras_lab1_msgs::Encoders::ConstPtr& msg){
-    encoding_abs[0] = msg->encoder1;
-    encoding_abs[1] = msg->encoder2;
+void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr& msg){
+    encoding_abs_new[0] = msg->count;
 
-    encoding_delta[0] = (double) (msg->delta_encoder1);
-    encoding_delta[1] = (double) (msg->delta_encoder2);
+
+}
+
+void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr& msg){
+    encoding_abs_new[1] = msg->count;
 
 }
 
 
 void calculateNewPosition(){
-    double wheel_r = 0.0352;
-    double base_d = 0.23;
+    double wheel_r = 0.04;
+    double base_d = 0.21;
     double pi = 3.1416;
-    double tick_per_rotation = 360;
+    double tick_per_rotation = 900;
     double control_frequenzy = 10; //10 hz
     double dt = 1/control_frequenzy;
 
     ros::Time current_time = ros::Time::now();
 
     std::vector<double> dphi_dt(2, 0.0);
+
+    if(first_loop){
+        encoding_abs_prev[0] = encoding_abs_new[0];
+        encoding_abs_prev[1] = encoding_abs_new[1];
+    }
+
+    encoding_delta[0] = encoding_abs_new[0] - encoding_abs_prev[0];
+    encoding_delta[1] = encoding_abs_new[1] - encoding_abs_prev[1];
+
+
+
 
     dphi_dt[0] = ((encoding_delta[0])/(tick_per_rotation)*2*pi)/dt;
     dphi_dt[1] = ((encoding_delta[1])/(tick_per_rotation)*2*pi)/dt;
@@ -115,9 +133,11 @@ void calculateNewPosition(){
 
 }
 private:
-    std::vector<int> encoding_abs;
+    std::vector<int> encoding_abs_prev;
+    std::vector<int> encoding_abs_new;
     std::vector<double> encoding_delta;
     int control_frequency;
+    int first_loop;
 };
 
 
