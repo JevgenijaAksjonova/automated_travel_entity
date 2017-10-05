@@ -93,8 +93,11 @@ void calculateNewPosition(){
     xpos += linear_v*dt*cos(theta);
     ypos += linear_v*dt*sin(theta);
     theta += angular_w*dt;
-    if(theta > 2*pi){
+    if(theta > pi){
         theta = theta-2*pi;
+    }
+    if(theta<-pi){
+        theta = theta+2*pi;
     }
 
 
@@ -116,6 +119,7 @@ void calculateNewPosition(){
     odom_msg.pose.pose.position.x = xpos;
     odom_msg.pose.pose.position.y = ypos;
     odom_msg.pose.pose.position.z = 0.0;
+    odom.pose.pose.orientation = odom_quat;
 
     //set the velocity
     odom_msg.child_frame_id = "base_link";
