@@ -93,6 +93,9 @@ void calculateNewPosition(){
     xpos += linear_v*dt*cos(theta);
     ypos += linear_v*dt*sin(theta);
     theta += angular_w*dt;
+    if(theta > 2*pi){
+        theta = theta-2*pi;
+    }
 
 
     tf::TransformBroadcaster odom_broadcaster;
