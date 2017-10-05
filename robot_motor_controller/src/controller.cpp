@@ -55,6 +55,7 @@ ros::Time last_encoder_time_right;
 int32_t   last_count_right;
 ros::Time last_pwm_time;
 
+ros::Time last_slow_time1,last_slow_time2;
 // Control function
 void pwmCalc(){
   pwm_delta_t = ros::Time::now().toSec() - last_pwm_time .toSec();
@@ -70,16 +71,20 @@ void pwmCalc(){
     last_pwm_time = ros::Time::now();
 
   //Debug
-    ROS_INFO_STREAM( "left Error"<<(int)error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
-    if (pwm1 > 30.0)   {pwm1 =  30.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
-    if (pwm1 < -30.0)  {pwm1 =  -30.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
+    ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
+    if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
+    if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
+    //if ((pwm1 > -8.5)&&(pwm1 < 8.5))   {last_slow_time1 =ros::Time::now(); }  //To protect the motor
+    //if (ros::Time::now().toSec() - last_pwm_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
     //ROS_INFO_STREAM("leftPWM:"<<pwm1);
 
-    //ROS_INFO_STREAM("right Int Error:"<<int_error2);
-    //if (pwm2 > 30.0)   {pwm2 =  30.0; ROS_INFO_STREAM("PWM LIMITATION");}
-    //if (pwm2 < -30.0)  {pwm2 =  -30.0; ROS_INFO_STREAM("PWM LIMITATION");}
+    ROS_INFO_STREAM( "Right Error"<<error2<<"Right Int Error:"<<(int)int_error2<<"pwm2:"<<(int)pwm2 );
+    if (pwm2 > 50.0)   {pwm2 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+    if (pwm2 < -50.0)  {pwm2 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+    //if ((pwm2 > -8.5)&&(pwm2 < 8.5))   {last_slow_time2 =ros::Time::now();}  //To protect the motor
+    //if (ros::Time::now().toSec() - last_pwm_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
     //ROS_INFO_STREAM("RightPWM:"<<pwm2);
-    pwm2 =0;
+
 }
 
 
@@ -92,7 +97,7 @@ void motorMessageReceiverLeft( const phidgets::motor_encoder & msgRecEncoderLeft
   
   last_encoder_time_left =ros::Time::now();
   last_count_left = msgRecEncoderLeft.count;
-	ROS_INFO_STREAM("leftReal:"<<motor.angular_velocity_left);
+  ROS_INFO_STREAM("leftReal:"<<motor.angular_velocity_left<<"leftRef:"<<reference.angular_velocity_left);
 
 }
 
@@ -104,7 +109,7 @@ void motorMessageReceiverRight( const phidgets::motor_encoder & msgRecEncoderRig
   
     last_encoder_time_right =ros::Time::now();
     last_count_right = msgRecEncoderRight.count;
-    //ROS_INFO_STREAM("rightReal:"<<motor.angular_velocity_right);
+    ROS_INFO_STREAM("rightReal:"<<motor.angular_velocity_right<<"rightRef:"<<reference.angular_velocity_right);
 
 }
 
