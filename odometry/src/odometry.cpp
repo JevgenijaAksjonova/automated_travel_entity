@@ -50,7 +50,7 @@ void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr& msg){
 
 }
 
-void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr& msg){
+void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
     encoding_abs_new[1] = msg->count;
 
 }
