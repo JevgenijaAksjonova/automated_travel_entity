@@ -77,6 +77,8 @@ void calculateNewPosition(){
     encoding_delta[0] = encoding_abs_new[0] - encoding_abs_prev[0];
     encoding_delta[1] = encoding_abs_new[1] - encoding_abs_prev[1];
 
+    encoding_abs_prev[0] = encoding_abs_new[0];
+    encoding_abs_prev[1] = encoding_abs_new[1];
 
 
 
