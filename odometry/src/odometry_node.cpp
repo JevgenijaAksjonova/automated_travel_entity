@@ -101,19 +101,10 @@ void calculateNewPosition(){
     tf::TransformBroadcaster odom_broadcaster;
 
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
-    //first, we'll publish the transform over tf
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = current_time;
-    odom_trans.header.frame_id = "odom";
-    odom_trans.child_frame_id = "base_link";
-
-    odom_trans.transform.translation.x = xpos;
-    odom_trans.transform.translation.y = ypos;
-    odom_trans.transform.translation.z = 0.0;
-    odom_trans.transform.rotation = odom_quat;
-
-    //send the transform
-    odom_broadcaster.sendTransform(odom_trans);
+    tf::Transform transform;
+    transform.setOrigin( tf::Vector3(xpos, ypos, 0.0) );
+    transform.setRotation(odom_quat);
+    odom_broadcaster.sendTransform(tf::StampedTransform(transform, current_time, "odom", "base_link"));
 
     // Publish odometry message
     nav_msgs::Odometry odom_msg;
