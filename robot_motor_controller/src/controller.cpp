@@ -77,7 +77,7 @@ void pwmCalc(){
     if ((pwm1 > -8.5)&&(pwm1 < 8.5))   {last_slow_time1 =ros::Time::now(); slow_flag1=1;}  //To protect the motor
     if (slow_flag1 ==1 ){
 	if ((pwm1 < -8.5)||(pwm1 > 8.5)) slow_flag1 = 0;
-	    else if (ros::Time::now().toSec() - last_pwm_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+	    else if (ros::Time::now().toSec() - last_slow_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
     }
 	    //ROS_INFO_STREAM("leftPWM:"<<pwm1);
 
@@ -87,7 +87,7 @@ void pwmCalc(){
     if ((pwm2 > -8.5)&&(pwm2 < 8.5))   {last_slow_time2 =ros::Time::now();slow_flag2=1;}  //To protect the motor
     if (slow_flag2 ==1 ){
 	if ((pwm2 < -8.5)||(pwm2 > 8.5)) slow_flag2 = 0;
-	    else if (ros::Time::now().toSec() - last_pwm_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+	    else if (ros::Time::now().toSec() - last_slow_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
     }
 	
 	
