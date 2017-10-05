@@ -147,8 +147,8 @@ int main (int argc, char **argv){
 
 	ros::Subscriber sub_encoder_left = nh.subscribe("/motorcontrol/encoder/left",1, &motorMessageReceiverLeft);
 	ros::Subscriber sub_encoder_right = nh.subscribe("/motorcontrol/encoder/right",1, &motorMessageReceiverRight);
-    	//ros::Subscriber sub_reference = nh.subscribe("/cmd_vel",1, &refMessageReceiver); // Rickard Teleop
-	ros::Subscriber sub_reference = nh.subscribe("/motor_controller/twist",1, &refMessageReceiver); //Enyu Teleop
+    	ros::Subscriber sub_reference = nh.subscribe("/cmd_vel",1, &refMessageReceiver); //
+	ros::Subscriber sub_reference = nh.subscribe("/motor_controller/twist",1, &refMessageReceiver);
 	//ros::Subscriber sub_reference = nh.subscribe("/mobile_base/commands/velocity",10, &refMessageReceiver); //Testing
 
 	ros::Rate loop_rate(freq); //f=10Hz, T=100ms
