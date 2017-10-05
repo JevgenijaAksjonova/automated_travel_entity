@@ -1,8 +1,9 @@
 <launch>
-	<rosparam  file="$(find robot_motor_controller)/param.yaml" command="load"/>
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find ras_rplidar)/launch/rplidar.launch"/>
+	<include file="$(find odometry)/launch/odometry_node.launch"/>
 	
+	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="1 1 1 0 0 0 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
 </launch>
