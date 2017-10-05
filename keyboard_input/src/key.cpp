@@ -23,9 +23,10 @@
 #define KEYCODE_L 0x44  //Left
 #define KEYCODE_U 0x41  //Up
 #define KEYCODE_D 0x42  //Down
+#define KEYCODE_Reset 0x72  //Reset :stop
 #define KEYCODE_Q 0x71  //Character Q for quit
 
-double linear, angular, l_scale=2.0, a_scale=2.0;
+double linear, angular, l_scale=0.05, a_scale=0.2;
 // linear_velocity m/s  // angular_velocity rad/s
 int kfd = 0;
 struct termios cooked, raw;
@@ -103,6 +104,13 @@ int main(int argc, char** argv)
             ROS_DEBUG("DOWN");
             puts("Down");
             linear = linear-l_scale;
+            dirty = true;
+            break;
+        case KEYCODE_Reset:
+            ROS_DEBUG("Stop");
+            puts("Stop");
+            linear = 0;
+            angular= 0;
             dirty = true;
             break;
         case KEYCODE_Q:
