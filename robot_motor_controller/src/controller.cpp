@@ -42,10 +42,10 @@ float error1 = 0;
 float error2 = 0;
 float int_error1 = 0;
 float int_error2 = 0;
-float kp1 = 0.0;     // Need tuning
-float ki1 = 0.0;      // Need tuning
-float kp2 = 0.0;     // Need tuning
-float ki2 = 0.0;      // Need tuning
+float kp1 = 0.0;     // Need tuning //Read from YAML file
+float ki1 = 0.0;     // Need tuning //Read from YAML file
+float kp2 = 0.0;     // Need tuning //Read from YAML file
+float ki2 = 0.0;     // Need tuning //Read from YAML file
 float pwm1 = 0;   //Output is Float32 (float 32, double 64 bits)
 float pwm2 = 0;
 
@@ -63,7 +63,7 @@ void pwmCalc(){
 	pwm1 = (kp1*error1+ki1*int_error1);
 	
 	if (pwm1 > 30.0)  pwm1 =  30.0;  //To protect the motor
-	if (pwm1 < -30.0) pwm1 = -30.0; 
+    if (pwm1 < -30.0) pwm1 = -30.0;  //To protect the motor
 	
 	ROS_INFO_STREAM("leftPWM:"<<pwm1);
   //Right
@@ -145,7 +145,7 @@ int main (int argc, char **argv){
 
 	ros::Subscriber sub_encoder_left = nh.subscribe("/motorcontrol/encoder/left",1, &motorMessageReceiverLeft);
 	ros::Subscriber sub_encoder_right = nh.subscribe("/motorcontrol/encoder/right",1, &motorMessageReceiverRight);
-	ros::Subscriber sub_reference = nh.subscribe("/motor_controller/twist",1, &refMessageReceiver);
+    ros::Subscriber sub_reference = nh.subscribe("/cmd_vel",1, &refMessageReceiver);
 	//ros::Subscriber sub_reference = nh.subscribe("/mobile_base/commands/velocity",10, &refMessageReceiver); //Testing
 
 	ros::Rate loop_rate(freq); //f=10Hz, T=100ms

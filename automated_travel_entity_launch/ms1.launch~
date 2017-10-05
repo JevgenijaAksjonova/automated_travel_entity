@@ -1,4 +1,5 @@
 <launch>
+	<rosparam  file="$(find robot_motor_controller)/param.yaml" command="load"/>
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find ras_rplidar)/launch/rplidar.launch"/>
 	

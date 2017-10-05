@@ -1,5 +1,4 @@
 <launch>
-	<rosparam  file="$(find robot_motor_controller)/param.yaml" command="load"/>
    <node name="left_motor" pkg="phidgets" type="motor">
         <param name="serial" type="int" value="469404" />
         <param name="invert_motor" type="bool" value="true" />
