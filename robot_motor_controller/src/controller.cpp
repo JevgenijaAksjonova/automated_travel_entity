@@ -54,7 +54,7 @@ int32_t   last_count_left;
 ros::Time last_encoder_time_right;
 int32_t   last_count_right;
 ros::Time last_pwm_time;
-
+int32_t   slow_flag1 = 0,slow_flag2 = 0;
 ros::Time last_slow_time1,last_slow_time2;
 // Control function
 void pwmCalc(){
@@ -70,20 +70,28 @@ void pwmCalc(){
 	pwm2 = (kp2*error2+ki2*int_error2);
     last_pwm_time = ros::Time::now();
 
-  //Debug
-    ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
-    if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
-    if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
-    //if ((pwm1 > -8.5)&&(pwm1 < 8.5))   {last_slow_time1 =ros::Time::now(); }  //To protect the motor
-    //if (ros::Time::now().toSec() - last_pwm_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
-    //ROS_INFO_STREAM("leftPWM:"<<pwm1);
 
-    ROS_INFO_STREAM( "Right Error"<<error2<<"Right Int Error:"<<(int)int_error2<<"pwm2:"<<(int)pwm2 );
-    if (pwm2 > 50.0)   {pwm2 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}
-    if (pwm2 < -50.0)  {pwm2 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}
-    //if ((pwm2 > -8.5)&&(pwm2 < 8.5))   {last_slow_time2 =ros::Time::now();}  //To protect the motor
-    //if (ros::Time::now().toSec() - last_pwm_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
-    //ROS_INFO_STREAM("RightPWM:"<<pwm2);
+    //Debug
+      ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
+      if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
+      if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
+      if ((pwm1 > -8.5)&&(pwm1 < 8.5))   {last_slow_time1 =ros::Time::now(); slow_flag1=1;}  //To protect the motor
+      if (slow_flag1 ==1 ){
+      if ((pwm1 < -8.5)||(pwm1 > 8.5)) slow_flag1 = 0;
+          else if (ros::Time::now().toSec() - last_slow_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+      }
+          //ROS_INFO_STREAM("leftPWM:"<<pwm1);
+
+      ROS_INFO_STREAM( "Right Error"<<error2<<"Right Int Error:"<<(int)int_error2<<"pwm2:"<<(int)pwm2 );
+      if (pwm2 > 50.0)   {pwm2 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+      if (pwm2 < -50.0)  {pwm2 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+      if ((pwm2 > -8.5)&&(pwm2 < 8.5))   {last_slow_time2 =ros::Time::now();slow_flag2=1;}  //To protect the motor
+      if (slow_flag2 ==1 ){
+      if ((pwm2 < -8.5)||(pwm2 > 8.5)) slow_flag2 = 0;
+          else if (ros::Time::now().toSec() - last_slow_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+      }
+
+
 
 }
 
@@ -176,6 +184,8 @@ int main (int argc, char **argv){
   last_encoder_time_right=ros::Time::now();
   last_count_right = 0;
   last_pwm_time = ros::Time::now();
+
+
 //loop
 	while (ros::ok() ){
 

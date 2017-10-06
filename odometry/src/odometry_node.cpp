@@ -18,17 +18,19 @@ public:
     double xpos;
     double ypos;
     double theta;
-
-
+    double pi;
+    tf::TransformBroadcaster odom_broadcaster;
 
 
 
 OdometryPublisher(int frequency){
     control_frequency = frequency;
     n = ros::NodeHandle("~");
+    pi = 3.1416;
     xpos = 0;
     ypos = 0;
     theta = 0;
+
 
     encoding_abs_prev = std::vector<int>(2,0);
     encoding_abs_new = std::vector<int>(2,0);
@@ -51,15 +53,14 @@ void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr& msg){
 }
 
 void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
-    encoding_abs_new[1] = msg->count;
+    encoding_abs_new[1] = -(msg->count);
 
 }
 
 
 void calculateNewPosition(){
     double wheel_r = 0.04;
-    double base_d = 0.21;
-    double pi = 3.1416;
+    double base_d = 0.25;
     double tick_per_rotation = 900;
     double control_frequenzy = 10; //10 hz
     double dt = 1/control_frequenzy;
@@ -85,8 +86,8 @@ void calculateNewPosition(){
     dphi_dt[0] = ((encoding_delta[0])/(tick_per_rotation)*2*pi)/dt;
     dphi_dt[1] = ((encoding_delta[1])/(tick_per_rotation)*2*pi)/dt;
 
-    double linear_v = (wheel_r/2)*(dphi_dt[0] + dphi_dt[1]);
-    double angular_w = (wheel_r/base_d)*(dphi_dt[0] - dphi_dt[1]);
+    double linear_v = (wheel_r/2)*(dphi_dt[1] + dphi_dt[0]);
+    double angular_w = (wheel_r/base_d)*(dphi_dt[1] - dphi_dt[0]);
 
     double vx = linear_v*cos(theta);
     double vy = linear_v*sin(theta);
@@ -103,15 +104,19 @@ void calculateNewPosition(){
     }
 
 
-    tf::TransformBroadcaster odom_broadcaster;
 
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
-    tf::Transform transform;
-    transform.setOrigin( tf::Vector3(xpos, ypos, 0.0) );
-    tf::Quaternion q;
-    q.setRPY(0, 0, theta);
-    transform.setRotation(q);
-    odom_broadcaster.sendTransform(tf::StampedTransform(transform, current_time, "odom", "base_link"));
+    geometry_msgs::TransformStamped odom_trans;
+    odom_trans.header.stamp = current_time;
+    odom_trans.header.frame_id = "odom";
+    odom_trans.child_frame_id = "base_link";
+
+    odom_trans.transform.translation.x = xpos;
+    odom_trans.transform.translation.y = ypos;
+    odom_trans.transform.translation.z = 0.0;
+    odom_trans.transform.rotation = odom_quat;
+
+    odom_broadcaster.sendTransform(odom_trans);
 
     // Publish odometry message
     nav_msgs::Odometry odom_msg;
