@@ -53,7 +53,7 @@ private:
     vector<vector<unsigned char> > map;
     pair<double,double> mapOffset;
     pair<double,double> mapScale;
-    pair<szie_t,size_t> gridSize;
+    pair<size_t,size_t> gridSize;
 
     pair<int, int> getCell(double x, double y);
     void addRobotRadiusToObstacles(double r);
@@ -76,25 +76,28 @@ pair<int, int> GlobalPathPlanner::getCell(double x, double y){
 }
 
 void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
-    int w = 2*ceil(r/cellSize);
-    vector<vector<unsigned char>> f(w, vector<int>(w,0));
-    for (size_t i = 0; i < w; i++){
-        for (size_t j = 0; j < w; j++) {
-            double x = abs(i+0.5-w/2)*cellSize;
-            double y = abs(j+0.5-w/2)*cellSize;
-            if (pow(x,2)+pow(y,2) < r) {
+
+    int w = ceil(r/cellSize);
+    vector<vector<int>> f(2*w+1, vector<int>(2*w+1,0));
+    for (int i = 0; i < 2*w+1; i++){
+        for (int j = 0; j < 2*w+1; j++) {
+            double x = (w-i)*cellSize;
+            double y = (w-j)*cellSize;
+            if (pow(x,2)+pow(y,2) <= pow(r,2)) {
                 f[i][j] = 1;
             }
+            cout << f[i][j] << " ";
         }
+        cout << endl;
     }
     vector<vector<int>> sumMap(gridSize.first, vector<int>(gridSize.second, 0));
     for (size_t i = 0; i < gridSize.first; i++){
         for (size_t j = 0; j < gridSize.second; j++) {
-            if (i == 0 && j = 0) {
+            if (i == 0 && j == 0) {
                sumMap[i][j] = map[i][j];
-            } else if (i > 0 && j = 0) {
+            } else if (i > 0 && j == 0) {
                sumMap[i][j] = map[i][j] + sumMap[i-1][j];
-            } else if (i = 0 && j > 0) {
+            } else if (i == 0 && j > 0) {
                sumMap[i][j] = map[i][j] + sumMap[i][j-1];
             } else {
                sumMap[i][j] = map[i][j] + sumMap[i-1][j] + sumMap[i][j-1] - sumMap[i-1][j-1];
@@ -103,20 +106,44 @@ void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
     }
     for (size_t i = 0; i < gridSize.first; i++){
         for (size_t j = 0; j < gridSize.second; j++) {
-
+            int sumWindow = 0;
+            if (i < w+1 && j < w+1) {
+               sumWindow = sumMap[i+w][j+w];
+            } else if (i >= w+1 && j < w+1) {
+               sumWindow = sumMap[min(i+w,gridSize.first-1)][j+w]
+                         - sumMap[i-w-1][j+w];
+            } else if (i < w+1 && j >= w+1) {
+               sumWindow = sumMap[i+w][min(j+w,gridSize.second-1)]
+                         - sumMap[i+w][j-w-1];
+            } else {
+               sumWindow = sumMap[min(i+w,gridSize.first-1)][min(j+w,gridSize.second-1)]
+                         - sumMap[i-w-1][min(j+w,gridSize.second-1)]
+                         - sumMap[min(i+w,gridSize.first-1)][j-w-1]
+                         + sumMap[i-w-1][j-w-1];
+            }
+            if (sumWindow > 0) {
+                map[i][j] = 1;
+            }
+            cout << (int)map[i][j] << " ";
         }
+        cout << endl;
     }
 }
 
 void GlobalPathPlanner::setMap(string mapFile){
 
+    ifstream mapFS; mapFS.open(mapFile.c_str());
+    if (!mapFS.is_open()){
+        return;
+    }
+
     double max_num = numeric_limits<double>::infinity();
     double min_num = - numeric_limits<double>::infinity();
     string line;
     vector<vector<double>> walls;
-    double x_min = min_num, y_min = min_num;
-    double x_max = max_num, y_max = max_num;
-    while (getline(mapFile, line)){
+    double x_min = max_num, y_min = max_num;
+    double x_max = min_num, y_max = min_num;
+    while (getline(mapFS, line)){
         if (line[0] == '#') {
             // comment -> skip
             continue;
@@ -144,6 +171,7 @@ void GlobalPathPlanner::setMap(string mapFile){
     mapOffset = pair<double,double>(x_min,y_min);
     mapScale = pair<double,double>(x_max-x_min,y_max-y_min);
     gridSize = pair<size_t,size_t>(ceil(mapScale.first/cellSize), ceil(mapScale.second/cellSize));
+    //cout << "Grid Size = " <<  gridSize.first << " " << gridSize.second << endl;
 
     // fill the map
     map = vector<vector<unsigned char>>(gridSize.first, vector<unsigned char>(gridSize.second,0));
@@ -156,7 +184,7 @@ void GlobalPathPlanner::setMap(string mapFile){
         double dx = x2 - x1;
         double dy = y2 - y1;
         size_t count = 0;
-        while (pow(dx,2) + pow(dy,2) > pow(radius*2,2) {
+        while (pow(dx,2) + pow(dy,2) > pow(radius*2,2)) {
             dx /= 2;
             dy /= 2;
             count++;
@@ -166,6 +194,7 @@ void GlobalPathPlanner::setMap(string mapFile){
             map[cell.first][cell.second] = 1;
         }
     }
+
     addRobotRadiusToObstacles(radius);
 }
 
@@ -234,11 +263,12 @@ vector<pair<int,int>> GlobalPathPlanner::getPath(pair<int,int> startCoord, pair<
 
 int main() {
     string filename = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-    GlobalPathPlanner gpp(filename, 0.1, 0.0);
-    vector<pair<int,int>> res = gpp.getPath(pair<int,int>(0,0), pair<int,int>(6,5));
-    for (size_t i = 0; i < res.size(); i++) {
-        cout << res[i].first << " " << res[i].second << endl;
-    }
+    GlobalPathPlanner gpp(filename, 0.04, 0.15);
+    //cout << "Initialization - done" << endl;
+    //vector<pair<int,int>> res = gpp.getPath(pair<int,int>(0,0), pair<int,int>(6,5));
+    //for (size_t i = 0; i < res.size(); i++) {
+    //    cout << res[i].first << " " << res[i].second << endl;
+    //}
 
     return 0;
 }
