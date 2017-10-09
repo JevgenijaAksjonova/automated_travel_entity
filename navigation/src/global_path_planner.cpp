@@ -17,16 +17,12 @@
 #include <limits>
 #include <math.h>
 
+#include <global_path_planner.h>
+
 using namespace std;
 
-struct Node{
-  int x;
-  int y;
-  double val;
-
-  Node(int p_x, int p_y, double p_val) : x(p_x), y(p_y), val(p_val) {};
-  Node() : x(-1), y(-1), val(-1) {};
-};
+Node::Node(int p_x, int p_y, double p_val) : x(p_x), y(p_y), val(p_val) {};
+Node::Node() : x(-1), y(-1), val(-1) {};
 
 bool operator<(const Node &a, const Node &b){
      return a.val > b.val;
@@ -36,32 +32,6 @@ bool operator==(const Node &a, const Node &b){
      return a.val == b.val;
 };
 
-
-class GlobalPathPlanner
-{
-public:
-    GlobalPathPlanner(const string& mapFile, float p_cellSize, float p_robotRad);
-    void updateMap();
-    vector<pair<int,int>> getPath(pair<int,int> startCoord, pair<int, int> goalCoord);
-
-private:
-    float robotRad;
-    float cellSize;
-    //smoothObstaclesRad;
-    //cellValueResolution = 1;
-
-    vector<vector<unsigned char> > map;
-    pair<double,double> mapOffset;
-    pair<double,double> mapScale;
-    pair<size_t,size_t> gridSize;
-
-    pair<int, int> getCell(double x, double y);
-    void addRobotRadiusToObstacles(double r);
-    void setMap(string mapFile);
-    //getLocation(i,j);
-    int distanceHeuristic(const Node &a, const Node &b);
-
-};
 
 GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, float p_robotRad){
     cellSize = p_cellSize;
@@ -78,7 +48,7 @@ pair<int, int> GlobalPathPlanner::getCell(double x, double y){
 void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
 
     int w = ceil(r/cellSize);
-    vector<vector<int>> f(2*w+1, vector<int>(2*w+1,0));
+    vector<vector<int> > f(2*w+1, vector<int>(2*w+1,0));
     for (int i = 0; i < 2*w+1; i++){
         for (int j = 0; j < 2*w+1; j++) {
             double x = (w-i)*cellSize;
@@ -86,11 +56,11 @@ void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
             if (pow(x,2)+pow(y,2) <= pow(r,2)) {
                 f[i][j] = 1;
             }
-            cout << f[i][j] << " ";
+           // cout << f[i][j] << " ";
         }
-        cout << endl;
+        //cout << endl;
     }
-    vector<vector<int>> sumMap(gridSize.first, vector<int>(gridSize.second, 0));
+    vector<vector<int> > sumMap(gridSize.first, vector<int>(gridSize.second, 0));
     for (size_t i = 0; i < gridSize.first; i++){
         for (size_t j = 0; j < gridSize.second; j++) {
             if (i == 0 && j == 0) {
@@ -124,9 +94,9 @@ void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
             if (sumWindow > 0) {
                 map[i][j] = 1;
             }
-            cout << (int)map[i][j] << " ";
+            //cout << (int)map[i][j] << " ";
         }
-        cout << endl;
+        //cout << endl;
     }
 }
 
@@ -140,7 +110,7 @@ void GlobalPathPlanner::setMap(string mapFile){
     double max_num = numeric_limits<double>::infinity();
     double min_num = - numeric_limits<double>::infinity();
     string line;
-    vector<vector<double>> walls;
+    vector<vector<double> > walls;
     double x_min = max_num, y_min = max_num;
     double x_max = min_num, y_max = min_num;
     while (getline(mapFS, line)){
@@ -174,7 +144,7 @@ void GlobalPathPlanner::setMap(string mapFile){
     //cout << "Grid Size = " <<  gridSize.first << " " << gridSize.second << endl;
 
     // fill the map
-    map = vector<vector<unsigned char>>(gridSize.first, vector<unsigned char>(gridSize.second,0));
+    map = vector<vector<unsigned char> >(gridSize.first, vector<unsigned char>(gridSize.second,0));
     double radius = max(robotRad, cellSize);
     for (size_t i = 0; i < walls.size(); i++) {
         double x1 = walls[i][0];
@@ -207,8 +177,21 @@ int GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
     return abs(b.x - a.x) + abs(b.y - a.y);
 }
 
+vector<pair<double,double> > GlobalPathPlanner::getPath(pair<double,double> startCoord, pair<double,double> goalCoord) {
+    pair<int, int> startGrid = getCell(startCoord.first, startCoord.second);
+    pair<int, int> goalGrid = getCell(goalCoord.first, goalCoord.second);
+    vector<pair<int,int> > pathGrid = getPathGrid(startGrid, goalGrid);
+    vector<pair<double, double> > path;
+    for (size_t i = 0; i < pathGrid.size(); i++) {
+        double x = mapOffset.first+(pathGrid[i].first+0.5)*cellSize;
+        double y = mapOffset.second+(pathGrid[i].second+0.5)*cellSize;
+        path.push_back(pair<double,double>(x,y));
+    }
+    return path;
+}
+
 /* A* algorithm */
-vector<pair<int,int>> GlobalPathPlanner::getPath(pair<int,int> startCoord, pair<int,int> goalCoord) {
+vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, pair<int,int> goalCoord) {
 
     size_t nx = gridSize.first;
     size_t ny = gridSize.second;
@@ -246,11 +229,11 @@ vector<pair<int,int>> GlobalPathPlanner::getPath(pair<int,int> startCoord, pair<
 
     // path not found
     if (prev_node[goal.x][goal.y].x == -1) {
-        return vector<pair<int,int>>();
+        return vector<pair<int,int> >();
     }
 
     // trace path
-    vector<pair<int,int>> path;
+    vector<pair<int,int> > path;
     Node node = goal;
     path.push_back(pair<int,int>(node.x,node.y));
     while (!(node.x == start.x && node.y == start.y)) {
@@ -261,14 +244,15 @@ vector<pair<int,int>> GlobalPathPlanner::getPath(pair<int,int> startCoord, pair<
     return path;
 }
 
+/*
 int main() {
     string filename = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     GlobalPathPlanner gpp(filename, 0.04, 0.15);
     //cout << "Initialization - done" << endl;
-    //vector<pair<int,int>> res = gpp.getPath(pair<int,int>(0,0), pair<int,int>(6,5));
-    //for (size_t i = 0; i < res.size(); i++) {
-    //    cout << res[i].first << " " << res[i].second << endl;
-    //}
-
+    vector<pair<int,int> > res = gpp.getPath(pair<int,int>(5,7), pair<int,int>(61-7,63-7));
+    for (size_t i = 0; i < res.size(); i++) {
+        cout << res[i].first << " " << res[i].second << endl;
+    }
     return 0;
 }
+*/
