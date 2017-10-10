@@ -197,6 +197,12 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     size_t ny = gridSize.second;
     Node start = Node(startCoord.first, startCoord.second, 0);
     Node goal = Node(goalCoord.first, goalCoord.second, 0);
+
+    if (map[goal.x][goal.y] > 0) {
+       // not empty
+       return vector<pair<int,int> >();
+    }
+
     start.val = distanceHeuristic(start, goal);
     priority_queue<Node> nodes;
     vector<vector<Node> > prev_node(nx, vector<Node>(ny,Node()));

@@ -170,6 +170,8 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
     bool stop = msg->stop;
     if (stop) {
         move = false;
+        string msg = "STOP!";
+        ROS_INFO("%s/n", msg.c_str());
     }
 }
 
@@ -200,9 +202,14 @@ int main(int argc, char **argv)
         pair<double, double> startCoord(loc.x,loc.y);
         pair<double, double> goalCoord(goal.x,goal.y);
         path.globalPath = gpp.getPath(startCoord, goalCoord);
-        path.setGoal(goal.x, goal.y, goal.theta);
-        goal.changedPosition = false;
-        path.move = true;
+        if (path.globalPath.size() == 0) {
+            string msg = "Cant find a global path!";
+            ROS_INFO("%s/n", msg.c_str());
+        } else {
+            path.setGoal(goal.x, goal.y, goal.theta);
+            goal.changedPosition = false;
+            path.move = true;
+        }
     }
 
     if (path.move) {
