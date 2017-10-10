@@ -11,6 +11,7 @@
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <sstream>
+#include <math.h>
 
 #include <global_path_planner.h>
 
@@ -42,7 +43,6 @@ class GoalPosition {
     double y;
     double theta;
     bool changedPosition;
-    bool changedAngle;
 
     GoalPosition(): x(0), y(0), theta(0), changedPosition(false), changedAngle(false) {};
     void callback(const geometry_msgs::Twist::ConstPtr& msg);
@@ -54,7 +54,7 @@ void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
   double y_new = msg->linear.y;
   double theta_new = msg->angular.x;
 
-  if (x_new != x || y_new != y ) {
+  if (x_new != x || y_new != y || theta_new != theta}) {
       x = x_new;
       y = y_new;
       theta = theta_new;
@@ -63,27 +63,34 @@ void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
       ROS_INFO("%s/n", s.str().c_str());
       changedPosition = true;
   }
-  if (theta_new != theta) {
-      theta = theta_new;
-      changedAngle = true;
-  }
 
 }
 
 class Path {
   public:
-    double xVel;
-    double yVel;
+    double linVel;
     double angVel;
+    bool move;
 
     vector<pair<double,double> > globalPath;
 
-    Path(): xVel(0), yVel(0), angVel(0), pathRad(0.05) {};
-    void followPath(double x, double y);
+    Path(): linVel(0), angVel(0), pathRad(0.05), distanceTol(0.01), move(false) {};
+    setGoal(double x, double y, double theta);
+    void followPath(double x, double y, double theta);
   private:
     double pathRad;
+    double distanceTol;
+    double goalX;
+    double goalY;
+    double goalAng;
     double distance(pair<double,double>& a, pair<double, double>& b);
 };
+
+void setGoal(double x, double y, double theta) {
+    goalX = x;
+    goalY = y;
+    goalAng = theta;
+}
 
 // squared Euclidean distane
 double Path::distance(pair<double, double> &a, pair<double, double> &b){
@@ -92,11 +99,29 @@ double Path::distance(pair<double, double> &a, pair<double, double> &b){
 
 void Path::followPath(double x, double y) {
     pair<double, double> loc(x,y);
-    while (globalPath.size() > 0 && distance(globalPath[0],loc) < pow(pathRad,2)) {
-        globalPath.erase(globalPath.begin());
+    if (globalPath.size() > 0 ) {
+        while (globalPath.size() > 0 && distance(globalPath[0],loc) < pow(pathRad,2)) {
+            globalPath.erase(globalPath.begin());
+        }
+        linVel = sqrt(globalPath[0], loc);
+        angVel = //globalPath[0].second - loc.second;
+    } else if (distance(pair<double,double>(goalX,goalY),loc) < pow(distanceTol,2)) {
+        linVel = sqrt(pair<double,double>(goalX,goalY), loc);
+        angVel = //globalPath[0].second - loc.second;
+    } else if ( ) {
+        linVel = 0;
+        angVel = ;
+    } else {
+        string msg = "Goal is reached!";
+        ROS_INFO("%s/n", msg.c_str());
+        move = false;
+        linVel = 0;
+        angVel = 0;
     }
-    xVel = globalPath[0].first - loc.first;
-    yVel = globalPath[0].second - loc.second;
+}
+
+void Path::obstaclesCallback() {
+
 }
 
 int main(int argc, char **argv)
@@ -110,12 +135,12 @@ int main(int argc, char **argv)
   ros::Subscriber locationSub = n.subscribe("odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
-  //ros::Subscriber subVision = n.subscribe("location", 1000, &Location::callback, &loc);
+  Path path;
+  ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("navigation/velocity", 1000);
   ros::Rate loop_rate(10);
 
   int count = 0;
-  Path path;
   while (ros::ok())
   {
     if (goal.changedPosition) {
@@ -124,14 +149,21 @@ int main(int argc, char **argv)
         pair<double, double> startCoord(loc.x,loc.y);
         pair<double, double> goalCoord(goal.x,goal.y);
         path.globalPath = gpp.getPath(startCoord, goalCoord);
+        path.setGoal(goal.x, goal.y, goal.theta);
         goal.changedPosition = false;
+        path.move = true;
     }
 
-    path.followPath(loc.x,loc.y);
+    if (path.move) {
+        path.followPath(loc.x,loc.y,loc.theta);
+    } else {
+      path.linVel = 0;
+      path.angVel = 0;
+    }
 
     geometry_msgs::Twist msg;
     msg.linear.x = path.xVel;
-    msg.linear.y = path.yVel;
+    msg.linear.y = 0.0;
     msg.linear.z = 0.0;
     msg.angular.x = path.angVel;
     msg.angular.y = 0.0;
