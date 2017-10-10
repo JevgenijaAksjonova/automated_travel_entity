@@ -32,6 +32,7 @@ bool operator==(const Node &a, const Node &b);
 class GlobalPathPlanner
 {
 public:
+    GlobalPathPlanner() {};
     GlobalPathPlanner(const string& mapFile, float p_cellSize, float p_robotRad);
     void updateMap();
     vector<pair<double,double> > getPath(pair<double,double> startCoord, pair<double,double> goalCoord);

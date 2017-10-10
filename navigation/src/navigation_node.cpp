@@ -18,6 +18,7 @@
 #include <math.h>
 
 #include <global_path_planner.h>
+#include <map_visualization.h>
 
 using namespace std;
 
@@ -178,7 +179,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   string mapFile = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-  GlobalPathPlanner gpp(mapFile, 0.01, 0.15);
+  GlobalPathPlanner gpp(mapFile, 0.04, 0.15);
   Location loc(0.0,0.0);
   ros::Subscriber locationSub = n.subscribe("odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
@@ -187,6 +188,8 @@ int main(int argc, char **argv)
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("navigation/velocity", 1000);
   ros::Rate loop_rate(10);
+
+  MapVisualization mapViz(gpp);
 
   int count = 0;
   while (ros::ok())
@@ -220,6 +223,8 @@ int main(int argc, char **argv)
     //ROS_INFO("%s", msg.data.c_str());
 
     pub.publish(msg);
+
+    mapViz.publish();
 
     ros::spinOnce();
     loop_rate.sleep();

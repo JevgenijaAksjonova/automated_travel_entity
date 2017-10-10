@@ -16,7 +16,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(navigation_node src/navigation_node.cpp include/global_path_planner.h src/global_path_planner.cpp)
+add_executable(navigation_node src/navigation_node.cpp include/global_path_planner.h include/map_visualization.h src/global_path_planner.cpp src/map_visualization.cpp)
 target_link_libraries(navigation_node ${catkin_LIBRARIES})
 add_dependencies(navigation_node geometry_msgs)
 

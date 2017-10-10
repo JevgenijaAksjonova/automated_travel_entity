@@ -11,30 +11,17 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include <global_path_planner.h>
+#include <map_visualization.h>
 
 using namespace std;
-
-class MapVisualization {
-  private:
-    ros::NodeHandle n;
-    ros::Publisher map_pub;
-    GlobalPathPlanner gpp;
-    visualization_msgs::MarkerArray global_walls;
-    visualization_msgs::Marker wall;
-    visualization_msgs::Marker path;
-
-    MapVisualization(GlobalPathPlanner& _gpp);
-    void loadMap();
-
-};
 
 MapVisualization::MapVisualization(GlobalPathPlanner& _gpp){
 
     gpp = _gpp;
     n = ros::NodeHandle("~");
-    map_pub = n.advertise<visualization_msgs::MarkerArray>("navigation/visualize", 1);
+    map_pub = n.advertise<visualization_msgs::MarkerArray>("visualize", 1);
 
-    wall.header.frame_id = "/gpp_map";
+    wall.header.frame_id = "/world_map";
     wall.header.stamp = ros::Time::now();
 
     wall.ns = "gpp_wall";
@@ -54,7 +41,7 @@ MapVisualization::MapVisualization(GlobalPathPlanner& _gpp){
     wall.color.b = 0.0f;
     wall.color.a = 0.1;
 
-    path.header.frame_id = "/gpp_map";
+    path.header.frame_id = "/world_map";
     path.header.stamp = ros::Time::now();
 
     path.ns = "gpp_wall";
@@ -91,7 +78,7 @@ void MapVisualization::loadMap() {
             }
 
             wall.pose.position.x = gpp.mapOffset.first + (i+0.5)*gpp.cellSize;
-            wall.pose.position.y = gpp.mapOffset.secodn + (j+0.5)*gpp.cellSize;
+            wall.pose.position.y = gpp.mapOffset.second + (j+0.5)*gpp.cellSize;
             wall.id = id;
             id++;
 
@@ -99,7 +86,7 @@ void MapVisualization::loadMap() {
         }
     }
     //visualize path
-    for (size_t k = 0; k < gpp.globalPath.size(); k++) {
+/*    for (size_t k = 0; k < gpp.globalPath.size(); k++) {
         pair<int,int> point = gpp.globalPath[k];
         path.pose.position.x = gpp.mapOffset.first + (point.first+0.5)*gpp.cellSize;
         path.pose.position.y = gpp.mapOffset.secodn + (point.second+0.5)*gpp.cellSize;
@@ -107,8 +94,12 @@ void MapVisualization::loadMap() {
         id++;
 
         global_walls.markers.push_back(path);
-    }
+    }*/
 
+}
+
+void MapVisualization::publish() {
+    map_pub.publish(global_walls);
 }
 
 
