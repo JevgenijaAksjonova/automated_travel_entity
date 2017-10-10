@@ -9,25 +9,32 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <nav_msgs/Odometry.h>
 #include <sstream>
 
 #include <global_path_planner.h>
 
 using namespace std;
-/*
+
 class Location {
   public:
-    int d1 = 0;
-    int d2 = 0;
-    void callback(const ras_lab1_msgs::ADConverter::ConstPtr& msg);
+    double x;
+    double y;
+    double theta;
+
+    Location(double _xStart, double _yStart): xStart(_xStart), yStart(_yStart) {};
+    void callback(const nav_msgs::Odometry::ConstPtr& msg);
+  private:
+    double xStart;
+    double yStart;
 };
 
-void Location::callback(const ras_lab1_msgs::ADConverter::ConstPtr& msg)
+void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-  d1 = msg->ch1;
-  d2 = msg->ch2;
+  x = xStart + msg->pose.pose.position.x;
+  y = yStart + msg->pose.pose.position.y;
 }
-*/
+
 
 class GoalPosition {
   public:
@@ -63,13 +70,44 @@ void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
 
 }
 
+class Path {
+  public:
+    double xVel;
+    double yVel;
+    double angVel;
+
+    vector<pair<double,double> > globalPath;
+
+    Path(): xVel(0), yVel(0), angVel(0), pathRad(0.05) {};
+    void followPath(double x, double y);
+  private:
+    double pathRad;
+    double distance(pair<double,double>& a, pair<double, double>& b);
+};
+
+// squared Euclidean distane
+double Path::distance(pair<double, double> &a, pair<double, double> &b){
+    return pow(a.first-b.first, 2) + pow(a.second-b.second, 2);
+}
+
+void Path::followPath(double x, double y) {
+    pair<double, double> loc(x,y);
+    while (globalPath.size() > 0 && distance(globalPath[0],loc) < pow(pathRad,2)) {
+        globalPath.erase(globalPath.begin());
+    }
+    xVel = globalPath[0].first - loc.first;
+    yVel = globalPath[0].second - loc.second;
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "navigation_node");
   ros::NodeHandle n;
 
-  //Location loc;
-  //ros::Subscriber locationSub = n.subscribe("location", 1000, &Location::callback, &loc);
+  string mapFile = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+  GlobalPathPlanner gpp(mapFile, 0.01, 0.15);
+  Location loc(0.0,0.0);
+  ros::Subscriber locationSub = n.subscribe("odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   //ros::Subscriber subVision = n.subscribe("location", 1000, &Location::callback, &loc);
@@ -77,18 +115,25 @@ int main(int argc, char **argv)
   ros::Rate loop_rate(10);
 
   int count = 0;
+  Path path;
   while (ros::ok())
   {
     if (goal.changedPosition) {
         string msg = "Recalculate path";
         ROS_INFO("%s/n", msg.c_str());
+        pair<double, double> startCoord(loc.x,loc.y);
+        pair<double, double> goalCoord(goal.x,goal.y);
+        path.globalPath = gpp.getPath(startCoord, goalCoord);
+        goal.changedPosition = false;
     }
 
+    path.followPath(loc.x,loc.y);
+
     geometry_msgs::Twist msg;
-    msg.linear.x = goal.x;
-    msg.linear.y = goal.y;
+    msg.linear.x = path.xVel;
+    msg.linear.y = path.yVel;
     msg.linear.z = 0.0;
-    msg.angular.x = goal.theta;
+    msg.angular.x = path.angVel;
     msg.angular.y = 0.0;
     msg.angular.z = 0.0;
 
