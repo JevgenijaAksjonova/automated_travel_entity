@@ -36,16 +36,16 @@ public:
     void updateMap();
     vector<pair<double,double> > getPath(pair<double,double> startCoord, pair<double,double> goalCoord);
 
-private:
-    float robotRad;
-    float cellSize;
-    //smoothObstaclesRad;
-    //cellValueResolution = 1;
-
     vector<vector<unsigned char> > map;
     pair<double,double> mapOffset;
     pair<double,double> mapScale;
     pair<size_t,size_t> gridSize;
+    float cellSize;
+
+private:
+    float robotRad;
+    //smoothObstaclesRad;
+    //cellValueResolution = 1;
 
     pair<int, int> getCell(double x, double y);
     void addRobotRadiusToObstacles(double r);

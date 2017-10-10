@@ -128,6 +128,7 @@ double Path::getAngle(pair<double,double> &g, pair<double, double> &p) {
             return angle - M_PI;
         }
     }
+    // return atan2(y,x);
 }
 
 double Path::diffAngles(double a, double b) {
@@ -227,3 +228,5 @@ int main(int argc, char **argv)
 
   return 0;
 }
+
+

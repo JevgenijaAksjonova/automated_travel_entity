@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="filename" default="test.txt" />
+  <arg name="filename" default="lab_maze_2017.txt" />
 
   <node name="world_map_node" pkg="world_map" type="world_map_node" >
 	 <param name="filename_map" value="/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/$(arg filename)" type="str"/>
