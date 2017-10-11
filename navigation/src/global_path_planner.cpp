@@ -57,11 +57,11 @@ void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
             if (pow(x,2)+pow(y,2) <= pow(r,2)) {
                 f[i][j] = 1;
             }
-           // cout << f[i][j] << " ";
+            //cout << f[i][j] << " ";
         }
         //cout << endl;
     }
-    vector<vector<int> > sumMap(gridSize.first, vector<int>(gridSize.second, 0));
+    /*vector<vector<int> > sumMap(gridSize.first, vector<int>(gridSize.second, 0));
     for (size_t i = 0; i < gridSize.first; i++){
         for (size_t j = 0; j < gridSize.second; j++) {
             if (i == 0 && j == 0) {
@@ -93,6 +93,29 @@ void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
                          + sumMap[i-w-1][j-w-1];
             }
             if (sumWindow > 0) {
+                map[i][j] = 1;
+            }
+            //cout << (int)map[i][j] << " ";
+        }
+        //cout << endl;
+    }*/
+    vector<vector<int> > sumWindow(gridSize.first, vector<int>(gridSize.second, 0));
+    for (int i = 0; i < gridSize.first; i++){
+        for (int j = 0; j < gridSize.second; j++) {
+            for (int di = -w; di < w+1; di++) {
+                for (int dj = -w; dj < w+1; dj++){
+                    if (i+di >= 0 && i+di < gridSize.first && j+dj >= 0 && j+dj < gridSize.second) {
+                        sumWindow[i][j] += f[w+di][w+dj]*(int)map[i+di][j+dj];
+                    }
+                }
+            }
+            //cout << sumWindow[i][j] << " ";
+        }
+        //cout << endl;
+    }
+    for (int i = 0; i < gridSize.first; i++){
+        for (int j = 0; j < gridSize.second; j++) {
+            if (sumWindow[i][j] > 0) {
                 map[i][j] = 1;
             }
             //cout << (int)map[i][j] << " ";
@@ -155,7 +178,7 @@ void GlobalPathPlanner::setMap(string mapFile){
         double dx = x2 - x1;
         double dy = y2 - y1;
         size_t count = 0;
-        while (pow(dx,2) + pow(dy,2) > pow(radius*2,2)) {
+        while (pow(dx,2) + pow(dy,2) > pow(radius*2,2)/4.0) {
             dx /= 2;
             dy /= 2;
             count++;
@@ -256,10 +279,10 @@ int main() {
     string filename = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     GlobalPathPlanner gpp(filename, 0.04, 0.15);
     //cout << "Initialization - done" << endl;
-    vector<pair<int,int> > res = gpp.getPath(pair<int,int>(5,7), pair<int,int>(61-7,63-7));
-    for (size_t i = 0; i < res.size(); i++) {
-        cout << res[i].first << " " << res[i].second << endl;
-    }
+    //vector<pair<int,int> > res = gpp.getPath(pair<int,int>(5,7), pair<int,int>(61-7,63-7));
+    //for (size_t i = 0; i < res.size(); i++) {
+    //    cout << res[i].first << " " << res[i].second << endl;
+    //}
     return 0;
-}
-*/
+}*/
+

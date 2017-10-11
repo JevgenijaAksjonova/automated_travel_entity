@@ -17,6 +17,7 @@
 #include <sstream>
 #include <math.h>
 #include <iostream>
+#include <pwd.h>
 
 #include <global_path_planner.h>
 #include <map_visualization.h>
@@ -205,12 +206,18 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
     }
 }
 
+string getHomeDir() {
+    passwd* pw = getpwuid(getuid());
+    string path(pw->pw_dir);
+    return path;
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "navigation_node");
   ros::NodeHandle n;
 
-  string mapFile = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+  string mapFile = getHomeDir()+"/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
   GlobalPathPlanner gpp(mapFile, 0.01, 0.13);
   Location loc(0.215,0.224, M_PI/2.0);
   ros::Subscriber locationSub = n.subscribe("/odom", 1000, &Location::callback, &loc);
