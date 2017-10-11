@@ -198,7 +198,9 @@ void GlobalPathPlanner::updateMap(){
 
 int GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
     // Manhattan distance
-    return abs(b.x - a.x) + abs(b.y - a.y);
+    //return abs(b.x - a.x) + abs(b.y - a.y);
+    // Euclidean distance
+    return pow(pow(b.x - a.x,2) + pow(b.y - a.y,2),0.5);
 }
 
 vector<pair<double,double> > GlobalPathPlanner::getPath(pair<double,double> startCoord, pair<double,double> goalCoord) {
