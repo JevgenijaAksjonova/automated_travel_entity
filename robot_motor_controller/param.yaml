@@ -1,10 +1,10 @@
 motor:
     pid:
         left:
-            kp : 8.0
-            ki : 0.1
+            kp : 2.5
+            ki : 0.0
             kd : 0.0
         right:
-            kp : 8.0
-            ki : 0.1
+            kp : 2.5
+            ki : 0.0
             kd : 0.0
