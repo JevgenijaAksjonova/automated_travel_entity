@@ -1,0 +1,16 @@
+camera:
+    debugging: True
+    hsv_thresholds:
+        #HSV values must be given in the range (0-360,0-255,0-255)
+        blue: { 
+            lower: [0,0,0],
+            upper: [0, 0,0]}
+        red : { 
+            lower: [0, 0, 0],
+            upper: [0, 0, 0]}
+        green: {
+            lower: [60, 0, 0],
+            upper: [160,100,100]}
+        yellow: {
+            lower: [0,0,0],
+            upper: [0, 0,0]}
