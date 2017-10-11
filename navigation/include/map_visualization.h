@@ -10,8 +10,8 @@
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
+#include <nav_msgs/Path.h>
+#include <nav_msgs/OccupancyGrid.h>
 
 #include <global_path_planner.h>
 
@@ -20,15 +20,15 @@ using namespace std;
 class MapVisualization {
   private:
     ros::NodeHandle n;
-    ros::Publisher map_pub;
+    ros::Publisher grid_pub;
+    ros::Publisher path_pub;
     GlobalPathPlanner gpp;
-    visualization_msgs::MarkerArray global_walls;
-    visualization_msgs::Marker wall;
-    visualization_msgs::Marker path;
+    nav_msgs::OccupancyGrid grid;
   public:
     MapVisualization(GlobalPathPlanner& _gpp);
     void loadMap();
-    void publish();
+    void publishMap();
+    void publishPath(vector<pair<double, double> >& globalPath);
 
 };
 

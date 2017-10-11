@@ -42,13 +42,13 @@ public:
     pair<double,double> mapScale;
     pair<size_t,size_t> gridSize;
     float cellSize;
+    pair<int, int> getCell(double x, double y);
 
 private:
     float robotRad;
     //smoothObstaclesRad;
     //cellValueResolution = 1;
 
-    pair<int, int> getCell(double x, double y);
     void addRobotRadiusToObstacles(double r);
     void setMap(string mapFile);
     //getLocation(i,j);

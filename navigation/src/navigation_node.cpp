@@ -153,10 +153,11 @@ double Path::getAngle(pair<double,double> &g, pair<double, double> &p) {
 
 double Path::diffAngles(double a, double b) {
     double diff = a-b;
-    if (diff > M_PI) {
-        return diff - 2*M_PI ;
-    } else if (diff <= - M_PI) {
-        return diff + 2*M_PI;
+    while (diff > M_PI) {
+        diff -= 2*M_PI ;
+    }
+    while (diff <= - M_PI) {
+        diff += 2*M_PI;
     }
     return diff;
 }
@@ -220,7 +221,12 @@ int main(int argc, char **argv)
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
 
+
   MapVisualization mapViz(gpp);
+  stringstream s;
+  s << "Grid Size " << gpp.gridSize.first <<" "<< gpp.gridSize.second << " Scale "<< gpp.mapScale.first << " cell "<< gpp.cellSize;
+  ROS_INFO("%s/n", s.str().c_str());
+
 
   int count = 0;
   while (ros::ok())
@@ -265,10 +271,10 @@ int main(int argc, char **argv)
     msg.angular.z = path.angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
-
     pub.publish(msg);
 
-    if (count % 100 ==0) mapViz.publish();
+    mapViz.publishMap();
+    mapViz.publishPath(path.globalPath);
     ros::spinOnce();
     loop_rate.sleep();
     ++count;
