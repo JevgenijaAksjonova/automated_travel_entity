@@ -5,6 +5,6 @@ motor:
             ki : 0.1
             kd : 0.0
         right:
-            kp : 10.0
-            ki : 0.5
+            kp : 8.0
+            ki : 0.1
             kd : 0.0
