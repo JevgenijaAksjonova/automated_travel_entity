@@ -16,6 +16,7 @@
 #include <tf/transform_broadcaster.h>
 #include <sstream>
 #include <math.h>
+#include <iostream>
 
 #include <global_path_planner.h>
 #include <map_visualization.h>
@@ -28,7 +29,7 @@ class Location {
     double y;
     double theta;
 
-    Location(double _xStart, double _yStart): xStart(_xStart), yStart(_yStart) {};
+    Location(double _xStart, double _yStart): xStart(_xStart), yStart(_yStart) {x=xStart; y=yStart;};
     void callback(const nav_msgs::Odometry::ConstPtr& msg);
   private:
     double xStart;
@@ -37,8 +38,14 @@ class Location {
 
 void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
+
   x = xStart + msg->pose.pose.position.x;
   y = yStart + msg->pose.pose.position.y;
+
+  stringstream s;
+  s << "Received position: " << x << " " << y;
+  ROS_INFO("%s/n", s.str().c_str());
+
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
   theta = tf::getYaw(odom_quat);
 }
@@ -61,6 +68,10 @@ void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
   double y_new = msg->linear.y;
   double theta_new = msg->angular.x;
 
+  stringstream s;
+  s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
+  ROS_INFO("%s/n", s.str().c_str());
+
   if ((x_new != x)||(y_new != y)||(theta_new != theta)) {
       x = x_new;
       y = y_new;
@@ -81,7 +92,7 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
-    Path(): linVel(0), angVel(0), pathRad(0.05), distanceTol(0.01), angleTol(2*M_PI/360.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.15), distanceTol(0.04), angleTol(2*M_PI/360.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
@@ -181,9 +192,9 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   string mapFile = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-  GlobalPathPlanner gpp(mapFile, 0.01, 0.15);
+  GlobalPathPlanner gpp(mapFile, 0.02, 0.15);
   Location loc(0.215,0.224);
-  ros::Subscriber locationSub = n.subscribe("odom", 1000, &Location::callback, &loc);
+  ros::Subscriber locationSub = n.subscribe("/odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
@@ -191,11 +202,12 @@ int main(int argc, char **argv)
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
 
-  MapVisualization mapViz(gpp);
+  //MapVisualization mapViz(gpp);
 
   int count = 0;
   while (ros::ok())
   {
+
     if (goal.changedPosition) {
         string msg = "Recalculate path";
         ROS_INFO("%s/n", msg.c_str());
@@ -203,9 +215,13 @@ int main(int argc, char **argv)
         pair<double, double> goalCoord(goal.x,goal.y);
         path.globalPath = gpp.getPath(startCoord, goalCoord);
         if (path.globalPath.size() == 0) {
-            string msg = "Cant find a global path!";
-            ROS_INFO("%s/n", msg.c_str());
+            stringstream s;
+            s << "Cant find a global path! Location " << loc.x <<" "<< loc.y;
+            ROS_INFO("%s/n", s.str().c_str());
         } else {
+            stringstream s;
+            s << "Path is found, size" << path.globalPath.size();
+            ROS_INFO("%s/n", s.str().c_str());
             path.setGoal(goal.x, goal.y, goal.theta);
             goal.changedPosition = false;
             path.move = true;
@@ -214,6 +230,9 @@ int main(int argc, char **argv)
 
     if (path.move) {
         path.followPath(loc.x,loc.y,loc.theta);
+        stringstream s;
+        s << "Follow path " << path.linVel << " " << path.angVel;
+        ROS_INFO("%s/n", s.str().c_str());
     } else {
       path.linVel = 0;
       path.angVel = 0;
@@ -231,8 +250,7 @@ int main(int argc, char **argv)
 
     pub.publish(msg);
 
-    mapViz.publish();
-
+    //mapViz.publish();
     ros::spinOnce();
     loop_rate.sleep();
     ++count;

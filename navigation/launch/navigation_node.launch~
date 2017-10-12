@@ -1,0 +1,3 @@
+<launch>
+	<node name="navigaton_node" pkg="navigation" type="navigation_node" />
+</launch>
