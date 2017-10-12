@@ -2,6 +2,7 @@
 //#include <project_msgs/stop.h>
 #include "std_msgs/Bool.h"
 #include "sensor_msgs/LaserScan.h"
+#include "math.h"
 
 class LidarListener
 {
@@ -25,27 +26,50 @@ void LidarListener::callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 }
 
 
-bool inside_restriction(float range) {
-    return true;
+bool violation(float range, float angle) {
+
+    float x = range * cos(angle);
+    float y = range * sin(angle);
+
+    float radius_x = 0.2;
+    float radius_y = 0.3;
+
+    float offset_x = 0.1;
+    float offset_y = 0;
+
+
+    float location = pow((x - offset_x), 2)/pow(radius_x, 2) +
+                    pow((y - offset_y), 2)/pow(radius_y, 2);
+
+    if(location <= 1) {
+        return true;
+    }
+
+    return false;
 }
 
 
-int number_violations(std::vector<float> ranges) {
+int number_violations(std::vector<float> ranges, float angle_increment) {
     int nr_violations = 0;
+    int current_angle = 0;
 
     for(int i = 0; i < ranges.size(); i++) {
-
-        if(inside_restriction(ranges[i])) {
-            nr_violations++;
+        if(!isinf(ranges[i])) {
+            if(violation(ranges[i], current_angle)) {
+                nr_violations++;
+            }
         }
+        current_angle += angle_increment;
     }
+
+    ROS_INFO("Number of violations: %d", nr_violations);
 
     return nr_violations;
 }
 
-bool danger(int threshold, std::vector<float> ranges) {
+bool danger(int threshold, std::vector<float> ranges, float angle_increment) {
 
-    int violations = number_violations(ranges);
+    int violations = number_violations(ranges, angle_increment);
 
     if(violations > threshold) {
         return true;
@@ -76,12 +100,9 @@ int main(int argc, char **argv) {
         bool stop = false;
 
 
-        if (danger(violation_limit, lidar_listen.ranges)) {
+        if (danger(violation_limit, lidar_listen.ranges, lidar_listen.angle_increment)) {
             stop = true;
         }
-
-        ROS_INFO("Hello %s", "World");
-
 
         std_msgs::Bool msg;
 
