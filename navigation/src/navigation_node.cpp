@@ -29,25 +29,33 @@ class Location {
     double y;
     double theta;
 
-    Location(double _xStart, double _yStart): xStart(_xStart), yStart(_yStart) {x=xStart; y=yStart;};
+    Location(double _xStart, double _yStart, double _thetaStart):
+        xStart(_xStart),
+        yStart(_yStart),
+        thetaStart(_thetaStart) {
+        x=xStart;
+        y=yStart;
+        theta = thetaStart;
+    };
     void callback(const nav_msgs::Odometry::ConstPtr& msg);
   private:
     double xStart;
     double yStart;
+    double thetaStart;
 };
 
 void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
 
-  x = xStart + msg->pose.pose.position.x;
-  y = yStart + msg->pose.pose.position.y;
+  x = xStart - msg->pose.pose.position.y;
+  y = yStart + msg->pose.pose.position.x;
 
   stringstream s;
   s << "Received position: " << x << " " << y;
   ROS_INFO("%s/n", s.str().c_str());
 
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
-  theta = tf::getYaw(odom_quat);
+  theta = thetaStart + tf::getYaw(odom_quat);
 }
 
 
@@ -92,7 +100,7 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
-    Path(): linVel(0), angVel(0), pathRad(0.05), distanceTol(0.1), angleTol(2*M_PI/45.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.10), distanceTol(0.05), angleTol(2*M_PI/20.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
@@ -156,13 +164,23 @@ double Path::diffAngles(double a, double b) {
 void Path::followPath(double x, double y, double theta) {
     pair<double, double> loc(x,y);
     pair<double,double> goal(goalX,goalY);
+    double dist = distance(goal,loc);
     if (globalPath.size() > 0 ) {
-        while (globalPath.size() > 0 && distance(globalPath[0],loc) < pathRad) {
+        while (globalPath.size() > 1 && distance(globalPath[0],loc) < pathRad) {
             globalPath.erase(globalPath.begin());
         }
         linVel = distance(globalPath[0], loc);
-        angVel = diffAngles(getAngle(globalPath[0],loc), theta);
-    } else if (distance(goal,loc) < distanceTol) {
+        double targetAng = getAngle(globalPath[0],loc);
+        angVel = diffAngles(targetAng, theta);
+        if (linVel < distanceTol) {
+            globalPath.erase(globalPath.begin());
+            linVel = 0;
+            angVel = 0;
+        }
+        stringstream s;
+        s << "Angles " << targetAng <<" "<< theta << " " << angVel;
+        ROS_INFO("%s/n", s.str().c_str());
+    } else if (dist > distanceTol) {
         linVel = distance(goal, loc);
         angVel = getAngle(goal, loc);
     } else if ( fabs(diffAngles(goalAng, theta)) < angleTol) {
@@ -193,13 +211,13 @@ int main(int argc, char **argv)
 
   string mapFile = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
   GlobalPathPlanner gpp(mapFile, 0.02, 0.15);
-  Location loc(0.215,0.224);
+  Location loc(0.215,0.224, M_PI/2.0);
   ros::Subscriber locationSub = n.subscribe("/odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
-  ros::Publisher pub = n.advertise<geometry_msgs::Twist>("motor_controller/twist", 1000);
+  ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
 
   //MapVisualization mapViz(gpp);
