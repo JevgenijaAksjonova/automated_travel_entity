@@ -37,7 +37,6 @@ def hsv_2_opencv(hsv):
 #    s = max(s,0); s = min(s,100)
 #    v = max(v,0); v = min(v,100)
     return np.array([int(h//2),int(s*2.55),int(v*2.55)],dtype=np.uint8)
-
 color_space = np.zeros((255,180,3),dtype=np.uint8)
 for x in range(255):
     for y in range(180):
@@ -45,6 +44,8 @@ for x in range(255):
         color_space[x,y,0] = y
         color_space[x,y,2] = 255
 cv_color_space =  cv2.cvtColor(color_space, cv2.COLOR_HSV2BGR)
+cv2.imwrite('~/Desktop/very_secret_open_cv_hsv_space.png',cv_color_space)
+
 
 #Detects objects from the camera
 class ObjectDetector:
@@ -53,12 +54,12 @@ class ObjectDetector:
         
         #These values are set when we get new data and unset when we have used the data
         self._have_received_image = False
-        self._have_recieved_depth = False
+        self._have_received_depth = False
  
         self.obj_cand_pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
         
         self.image_sub = rospy.Subscriber("/camera/rgb/image_color",Image,self.image_callback)
-        self.depth_sub = rospy.Subscriber("/camera/depth/image_rect_raw",Image,self.depth_callback)
+        self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info",CameraInfo,self.info_callback)
         self.load_hsv_thresholds()
                 
@@ -67,21 +68,24 @@ class ObjectDetector:
             self.dbg_img_pub = rospy.Publisher("/camera/debug/img",Image,queue_size=1)
             self.h_img_pub = rospy.Publisher("/camera/debug/hsv/h",Image,queue_size=1)
             self.h_mask_pub = rospy.Publisher("/camera/debug/h/mask",Image,queue_size=1)
-   
+            self.hsv_scale_pub = rospy.Publisher("/camera/debug/hsv/scale/",Image,queue_size=1)
+
     def load_hsv_thresholds(self):
-        thresholds = rospy.get_param("/camera/hsv_thresholds")
-        self.hsv_thresholds = dict()
-        for color,thresh in thresholds.iteritems():
-            assert(color in colors)
-            print("color = " + color)
-            print("\tlower = " + str(thresholds[color]["lower"]))
-            print("\tupper = " + str(thresholds[color]["upper"]))
-            print()
-            lower = hsv_2_opencv(thresholds[color]["lower"])
-            upper = hsv_2_opencv(thresholds[color]["upper"])
-            self.hsv_thresholds[color] = (lower,upper)
-        pp.pprint(self.hsv_thresholds) 
-    
+        self.set_hsv_thresholds()
+        #thresholds = rospy.get_param("/camera/hsv_thresholds")
+        #self.hsv_thresholds = dict()
+        #for color,thresh in thresholds.iteritems():
+        #    assert(color in colors)
+        #    lower = hsv_2_opencv(thresholds[color]["lower"])
+        #    upper = hsv_2_opencv(thresholds[color]["upper"])
+        #    self.hsv_thresholds[color] = (lower,upper)
+   
+    def set_hsv_thresholds(self):
+        self.hsv_thresholds = {
+            "blue":(np.array([0,50,50]),np.array([35,255,255])),
+            "red":(np.array([100,50,50]),np.array([160,255,255])),
+            "green":(np.array([50,50,50]),np.array([90,255,255])),
+            "yellow":(np.array([0,180,100]),np.array([0,255,255]))}
     def image_callback(self,ros_image):
         try:
             self.rgb_image_msg = ros_image
@@ -103,26 +107,26 @@ class ObjectDetector:
     
     #Process image :D
     def image_processing(self):
-        
-        if self._have_received_image and self._have_received_depth:
+        if DEBUGGING: 
+            self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
+        if self._have_received_image and self._have_received_depth: 
             if DEBUGGING:
                 self.load_hsv_thresholds()
             self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
             self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg)
             if DEBUGGING:
                 rgb_dbg = self.rgb_image.copy()
-            print "rgb:", self.rgb_image.shape
-            print "depth", self.depth_image.shape
-            for color in ["green"]: 
+            for color in colors: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
+                hsv_image = cv2.medianBlur(hsv_image,3) 
                 h_image = hsv_image[:,:,0]
                 
                 if DEBUGGING:
                     self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image.copy(),"mono8"))
-#                (lower,upper) = self.hsv_thresholds[color]
+                (lower,upper) = self.hsv_thresholds[color]
                 #red 110 - 130
   
-                (lower,upper) = (np.array([15,120,120],dtype=np.uint8),np.array([35,255,200],dtype=np.uint8))
+                #(lower,upper) = (np.array([0,0,0],dtype=np.uint8),np.array([35,255,255],dtype=np.uint8))
                 mask = cv2.inRange(hsv_image,lower,upper)
                 #mask = cv2.bitwise_not(mask)
                 if DEBUGGING:
@@ -133,24 +137,27 @@ class ObjectDetector:
                 #Plot different hue values, see what rgb they correspond ti
                 #OR do it manually.
                 for contour in contours:
-    
+                    print(cv2.contourArea(contour,False))
+                    if cv2.contourArea(contour,False) < 1000:
+                        break
                     bot_right = (int(contour[:,0,0].max()),int(contour[:,0,1].max()))
                     top_left = (int(contour[:,0,0].min()),int(contour[:,0,1].min()))
                     middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
     
                     #Mocking transform for now. OSKAR, yuor code goes here!
                     #Allso, we need to transform between depth frame and rgb frame here
-                    #depth = self.depth_image[middle[0], middle[1]]
-                    #print "Depth =", str(depth)
-#                   print "middle =", middle
+                    depth = self.depth_image[middle[0], middle[1]]
+                    print "Depth =", str(depth)
+                    print "middle =", middle
+ 
 #                   print ""
                      
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
-                    obj_cand_msg.header.frame_id = "/camera" #We might need to change this to it's propper value
+                    obj_cand_msg.header.frame_id = "/camera_frame" #We might need to change this to it's propper value
                     obj_cand_msg.point.x = middle[0]
                     obj_cand_msg.point.y = middle[1]
-                    obj_cand_msg.point.z = .1
+                    obj_cand_msg.point.z = depth 
                     #TODO: Check that the object candidate is reasonable before publising, i.e not to small, which depends on distance
                     #Otherwise, we risk sending noice down the pipeline
                     self.obj_cand_pub.publish(obj_cand_msg)
@@ -162,7 +169,7 @@ class ObjectDetector:
                          
                 if DEBUGGING:
                     
-                    ros_out_image = bridge.cv2_to_imgmsg(cv_color_space,"rgb8")
+                    ros_out_image = bridge.cv2_to_imgmsg(rgb_dbg,"rgb8")
                     self.dbg_img_pub.publish(ros_out_image)
 
         self._have_received_image = False

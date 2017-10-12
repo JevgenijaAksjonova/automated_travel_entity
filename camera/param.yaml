@@ -4,13 +4,13 @@ camera:
         #HSV values must be given in the range (0-360,0-255,0-255)
         blue: { 
             lower: [0,0,0],
-            upper: [0, 0,0]}
+            upper: [40,255,255]}
         red : { 
             lower: [0, 0, 0],
             upper: [0, 0, 0]}
         green: {
             lower: [0, 0, 0],
-            upper: [360,100,100]}
+            upper: [0,0,100]}
         yellow: {
             lower: [0,0,0],
             upper: [0, 0,0]}
