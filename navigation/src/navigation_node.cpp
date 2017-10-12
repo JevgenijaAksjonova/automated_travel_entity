@@ -50,12 +50,12 @@ void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
   x = xStart - msg->pose.pose.position.y;
   y = yStart + msg->pose.pose.position.x;
 
-  stringstream s;
-  s << "Received position: " << x << " " << y;
-  ROS_INFO("%s/n", s.str().c_str());
-
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
   theta = thetaStart + tf::getYaw(odom_quat);
+
+  stringstream s;
+  s << "Received position: " << x << " " << y << " "<< theta;
+  ROS_INFO("%s/n", s.str().c_str());
 }
 
 
@@ -100,7 +100,7 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
-    Path(): linVel(0), angVel(0), pathRad(0.10), distanceTol(0.05), angleTol(2*M_PI/20.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.10), distanceTol(0.05), angleTol(2*M_PI/45.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
@@ -175,7 +175,7 @@ void Path::followPath(double x, double y, double theta) {
         if (linVel < distanceTol) {
             globalPath.erase(globalPath.begin());
             linVel = 0;
-            angVel = 0;
+            angVel = diffAngles(goalAng,theta);
         }
         stringstream s;
         s << "Angles " << targetAng <<" "<< theta << " " << angVel;
@@ -183,7 +183,7 @@ void Path::followPath(double x, double y, double theta) {
     } else if (dist > distanceTol) {
         linVel = distance(goal, loc);
         angVel = getAngle(goal, loc);
-    } else if ( fabs(diffAngles(goalAng, theta)) < angleTol) {
+    } else if ( fabs(diffAngles(goalAng, theta)) > angleTol) {
         linVel = 0;
         angVel = diffAngles(goalAng, theta);
     } else {
@@ -260,9 +260,9 @@ int main(int argc, char **argv)
     msg.linear.x = path.linVel;
     msg.linear.y = 0.0;
     msg.linear.z = 0.0;
-    msg.angular.x = path.angVel;
+    msg.angular.x = 0.0;
     msg.angular.y = 0.0;
-    msg.angular.z = 0.0;
+    msg.angular.z = path.angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
 
