@@ -84,9 +84,9 @@ class ObjectDetector:
         #YCrCb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2YCrCb)
     
     # Get the depth image
-    def depth_callback(self,ros_depth):
+    def depth_callback(self,depth_msg):
         #Only transforming the images we use might save computations depending on implementation of the bridge
-        self.depth_image = ros_depth 
+        self.depth_msg = depth_msg 
         #bridge.imgmsg_to_cv2(ros_depth)
         self._have_received_depth = True 
     # Get the projection matrix
@@ -96,10 +96,12 @@ class ObjectDetector:
     #Process image :D
     def image_processing(self):
         
-        if self._have_received_image:
+        if self._have_received_image and self._have_received_image:
             if DEBUGGING:
                 self.load_hsv_thresholds()
             self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg)
+            self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg)
+
             for color in ["green"]: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
                 h_image = hsv_image[:,:,0]
@@ -124,6 +126,9 @@ class ObjectDetector:
     
                     #Mocking transform for now. OSKAR, yuor code goes here!
                     #Allso, we need to transform between depth frame and rgb frame here
+                    depth = depth_image[middle[0], middle[1]]
+                    print "Depth =", str(depth)
+
     
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
@@ -144,7 +149,9 @@ class ObjectDetector:
                     ros_out_image = bridge.cv2_to_imgmsg(self.rgb_image,"rgb8")
                     self.dbg_img_pub.publish(ros_out_image)
 
-        self.have_received_image = False
+        self._have_received_image = False
+        self._have_received_depth = False
+
 
     #Detects objects untill shutdown. Permanently blocking.
     def detect_forever(self,rate=10):
