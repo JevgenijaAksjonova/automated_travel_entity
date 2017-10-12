@@ -180,15 +180,15 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "navigation_node");
   ros::NodeHandle n;
 
-  string mapFile = "/home/ras/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-  GlobalPathPlanner gpp(mapFile, 0.04, 0.15);
-  Location loc(0.0,0.0);
+  string mapFile = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+  GlobalPathPlanner gpp(mapFile, 0.01, 0.15);
+  Location loc(0.215,0.224);
   ros::Subscriber locationSub = n.subscribe("odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
-  ros::Publisher pub = n.advertise<geometry_msgs::Twist>("navigation/velocity", 1000);
+  ros::Publisher pub = n.advertise<geometry_msgs::Twist>("motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
 
   MapVisualization mapViz(gpp);
