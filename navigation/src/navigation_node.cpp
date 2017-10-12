@@ -100,7 +100,7 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
-    Path(): linVel(0), angVel(0), pathRad(0.10), distanceTol(0.05), angleTol(2*M_PI/45.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI/45.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   string mapFile = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-  GlobalPathPlanner gpp(mapFile, 0.02, 0.15);
+  GlobalPathPlanner gpp(mapFile, 0.01, 0.13);
   Location loc(0.215,0.224, M_PI/2.0);
   ros::Subscriber locationSub = n.subscribe("/odom", 1000, &Location::callback, &loc);
   GoalPosition goal = GoalPosition();
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
 
-  //MapVisualization mapViz(gpp);
+  MapVisualization mapViz(gpp);
 
   int count = 0;
   while (ros::ok())
@@ -268,7 +268,7 @@ int main(int argc, char **argv)
 
     pub.publish(msg);
 
-    //mapViz.publish();
+    if (count % 100 ==0) mapViz.publish();
     ros::spinOnce();
     loop_rate.sleep();
     ++count;
