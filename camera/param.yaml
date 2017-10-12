@@ -9,8 +9,8 @@ camera:
             lower: [0, 0, 0],
             upper: [0, 0, 0]}
         green: {
-            lower: [60, 0, 0],
-            upper: [160,100,100]}
+            lower: [0, 0, 0],
+            upper: [360,100,100]}
         yellow: {
             lower: [0,0,0],
             upper: [0, 0,0]}

@@ -33,10 +33,18 @@ color_2_rgb = {
 # Takes a standard hsv point and transforms it into the form used by opencv.
 def hsv_2_opencv(hsv):
     h = hsv[0]; s=hsv[1]; v=hsv[2]
-    h = max(h,0); h = min(h,360)
-    s = max(s,0); s = min(s,100)
-    v = max(v,0); v = min(v,100)
-    return np.array([h//2,int(s*2.55),v*2.55],dtype=np.uint8)
+#    h = max(h,0); h = min(h,360) #in range [0,360]
+#    s = max(s,0); s = min(s,100)
+#    v = max(v,0); v = min(v,100)
+    return np.array([int(h//2),int(s*2.55),int(v*2.55)],dtype=np.uint8)
+
+color_space = np.zeros((255,180,3),dtype=np.uint8)
+for x in range(255):
+    for y in range(180):
+        color_space[x,y,1] = x
+        color_space[x,y,0] = y
+        color_space[x,y,2] = 255
+cv_color_space =  cv2.cvtColor(color_space, cv2.COLOR_HSV2BGR)
 
 #Detects objects from the camera
 class ObjectDetector:
@@ -96,24 +104,30 @@ class ObjectDetector:
     #Process image :D
     def image_processing(self):
         
-        if self._have_received_image and self._have_received_image:
+        if self._have_received_image and self._have_received_depth:
             if DEBUGGING:
                 self.load_hsv_thresholds()
-            self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg)
+            self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
             self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg)
-
+            if DEBUGGING:
+                rgb_dbg = self.rgb_image.copy()
+            print "rgb:", self.rgb_image.shape
+            print "depth", self.depth_image.shape
             for color in ["green"]: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
                 h_image = hsv_image[:,:,0]
                 
                 if DEBUGGING:
-                    self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image,"mono8"))
-                (lower,upper) = self.hsv_thresholds[color]
+                    self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image.copy(),"mono8"))
+#                (lower,upper) = self.hsv_thresholds[color]
+                #red 110 - 130
+  
+                (lower,upper) = (np.array([15,120,120],dtype=np.uint8),np.array([35,255,200],dtype=np.uint8))
                 mask = cv2.inRange(hsv_image,lower,upper)
                 #mask = cv2.bitwise_not(mask)
                 if DEBUGGING:
                     self.h_mask_pub.publish(
-                        bridge.cv2_to_imgmsg(mask,"mono8"))
+                        bridge.cv2_to_imgmsg(mask.copy(),"mono8"))
                 #ret, thresh = cv2.threshold(h_image,hue_thresholds[color][1],hue_thresholds[color][0],cv2.THRESH_BINARY_INV)
                 contours,_ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
                 #Plot different hue values, see what rgb they correspond ti
@@ -126,10 +140,11 @@ class ObjectDetector:
     
                     #Mocking transform for now. OSKAR, yuor code goes here!
                     #Allso, we need to transform between depth frame and rgb frame here
-                    depth = depth_image[middle[0], middle[1]]
-                    print "Depth =", str(depth)
-
-    
+                    #depth = self.depth_image[middle[0], middle[1]]
+                    #print "Depth =", str(depth)
+#                   print "middle =", middle
+#                   print ""
+                     
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
                     obj_cand_msg.header.frame_id = "/camera" #We might need to change this to it's propper value
@@ -141,17 +156,18 @@ class ObjectDetector:
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:    
-                        cv2.drawContours(self.rgb_image,[contour],-1,color=color_2_rgb[color],thickness=-1)
-                        cv2.circle(self.rgb_image,middle,radius=5,color=(0,0,0),thickness=2)
-                        cv2.rectangle(self.rgb_image,top_left,bot_right,color=(0,0,0),thickness=2)
-                    
+                        cv2.drawContours(rgb_dbg,[contour],-1,color=color_2_rgb[color],thickness=-1)
+                        cv2.circle(rgb_dbg,middle,radius=5,color=(0,0,0),thickness=2)
+                        cv2.rectangle(rgb_dbg,top_left,bot_right,color=(0,0,0),thickness=2)
+                         
                 if DEBUGGING:
-                    ros_out_image = bridge.cv2_to_imgmsg(self.rgb_image,"rgb8")
+                    
+                    ros_out_image = bridge.cv2_to_imgmsg(cv_color_space,"rgb8")
                     self.dbg_img_pub.publish(ros_out_image)
 
         self._have_received_image = False
         self._have_received_depth = False
-
+        
 
     #Detects objects untill shutdown. Permanently blocking.
     def detect_forever(self,rate=10):
