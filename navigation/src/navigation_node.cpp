@@ -92,7 +92,7 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
-    Path(): linVel(0), angVel(0), pathRad(0.15), distanceTol(0.04), angleTol(2*M_PI/360.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.05), distanceTol(0.1), angleTol(2*M_PI/45.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
