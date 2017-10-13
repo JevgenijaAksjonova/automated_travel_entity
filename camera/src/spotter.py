@@ -11,7 +11,8 @@ import numpy as np
 import pprint
 from image_geometry import PinholeCameraModel
 pp = pprint.PrettyPrinter(indent = 4)
-
+from sensor_msgs.msg import PointCloud2
+import sensor_msgs.point_cloud2 as pc2
 bridge = CvBridge()
 
 #Set to true to get debug info
@@ -62,8 +63,8 @@ class ObjectDetector:
  
         self.obj_cand_pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
         
-        self.image_sub = rospy.Subscriber("/camera/rgb/image_color",Image,self.image_callback)
-        self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
+        self.image_sub = rospy.Subscriber("/camera/rgb/image_rect_color",Image,self.image_callback)
+        self.depth_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.depth_callback)
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info",CameraInfo,self.info_callback)
         self.load_hsv_thresholds()
         self.camera_model = PinholeCameraModel()          
@@ -123,12 +124,11 @@ class ObjectDetector:
             if DEBUGGING:
                 self.load_hsv_thresholds()
             self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
-            self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             if DEBUGGING:
                 rgb_dbg = self.rgb_image.copy()
             for color in ["blue"]: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
-                hsv_image = cv2.medianBlur(hsv_image,25) 
+                hsv_image = cv2.blur(hsv_image,(25,25)) 
                 h_image = hsv_image[:,:,0]
                 
                 if DEBUGGING:
@@ -156,27 +156,29 @@ class ObjectDetector:
                     if area < 50:
                         break
                     #Assuming that depth is given in mm, it seems to make sense
-                      
-                    depth_area = self.depth_image[top_left[0]:bot_right[0],top_left[1]:bot_right[1]]
-                    if depth_area.size > 0:
-                        depth = float(depth_area.max()) / 100
-                    else:
-                        break
+                   #depth_area = self.depth_image[top_left[0]:bot_right[0],top_left[1]:bot_right[1]]
+                    pc = pc2.read_points(self.depth_msg,skip_nans=False,field_names=None,uvs=[middle])
+                    point = pc.next()
+                    print point
+                    #if depth_area.size > 0:
+                    #    depth = float(depth_area.max()) / 100
+                    #else:
+                    #    break
                     #depth = float(self.depth_image[middle[1], middle[0]])/100
-                    ray = np.array(self.camera_model.projectPixelTo3dRay(middle)) * depth 
-                    print "ray =", ray
-                    if depth < 0:
-                        print "depth bellow thresh"
-                        break 
-                    print "Depth =", str(depth)
+                    #ray = np.array(self.camera_model.projectPixelTo3dRay(middle)) * depth 
+                    #print "ray =", ray
+                    #if depth < 0:
+                    #    print "depth bellow thresh"
+                    #    break 
+                    #print "Depth =", str(depth)
  
                      
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
                     obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
-                    obj_cand_msg.point.x = ray[0]
-                    obj_cand_msg.point.y = ray[1]
-                    obj_cand_msg.point.z = ray[2]
+                    obj_cand_msg.point.x = point[0]
+                    obj_cand_msg.point.y = point[1]
+                    obj_cand_msg.point.z = point[2]
                     #TODO: Check that the object candidate is reasonable before publising, i.e not to small, which depends on distance
                     #Otherwise, we risk sending noice down the pipeline
                     self.obj_cand_pub.publish(obj_cand_msg)
