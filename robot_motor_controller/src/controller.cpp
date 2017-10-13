@@ -61,16 +61,16 @@ void pwmCalc(){
   pwm_delta_t = ros::Time::now().toSec() - last_pwm_time .toSec();
   //Left
 	error1 = reference.angular_velocity_left - motor.angular_velocity_left;
-    int_error1 = int_error1 + error1*pwm_delta_t ;	//
+    int_error1 = (int)int_error1 + error1*pwm_delta_t ;	//
 	pwm1 = (kp1*error1+ki1*int_error1);
 
   //Right
 	error2 = reference.angular_velocity_right - motor.angular_velocity_right;
-    int_error2 = int_error2 + error2*pwm_delta_t;	//
+    int_error2 = (int)int_error2 + error2*pwm_delta_t;	//
 	pwm2 = (kp2*error2+ki2*int_error2);
     last_pwm_time = ros::Time::now();
 
-
+/*
     //Debug
       ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
       if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
@@ -92,7 +92,7 @@ void pwmCalc(){
       }
 
 
-
+*/
 }
 
 
