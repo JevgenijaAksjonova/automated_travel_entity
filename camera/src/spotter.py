@@ -173,7 +173,7 @@ class ObjectDetector:
                      
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
-                    obj_cand_msg.header.frame_id = "/camera_frame" #We might need to change this to it's propper value
+                    obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
                     obj_cand_msg.point.x = ray[0]
                     obj_cand_msg.point.y = ray[1]
                     obj_cand_msg.point.z = ray[2]
