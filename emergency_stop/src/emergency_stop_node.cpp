@@ -31,10 +31,10 @@ bool violation(float range, float angle) {
     float x = range * cos(angle);
     float y = range * sin(angle);
 
-    float radius_x = 0.1;
-    float radius_y = 0.2;
+    float radius_x = 0.27;
+    float radius_y = 0.17;
 
-    float offset_x = 0;
+    float offset_x = 0.1;
     float offset_y = 0;
 
     float location = pow((x - offset_x), 2)/pow(radius_x, 2) +
@@ -86,15 +86,15 @@ void showRestrictedArea(ros::Publisher vis_pub) {
     marker.id = 0;
     marker.type = visualization_msgs::Marker::CYLINDER;
     marker.action = visualization_msgs::Marker::ADD;
-    marker.pose.position.x = 0;
+    marker.pose.position.x = 0.1;
     marker.pose.position.y = 0;
     marker.pose.position.z = 0;
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
     marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.2;
-    marker.scale.y = 0.4;
+    marker.scale.x = 0.27*2;
+    marker.scale.y = 0.17*2;
     marker.scale.z = 0.1;
     marker.color.a = 0.5; // Don't forget to set the alpha!
     marker.color.r = 0.0;
