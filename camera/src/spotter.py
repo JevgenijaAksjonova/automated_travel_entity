@@ -49,6 +49,7 @@ cv_color_space =  cv2.cvtColor(color_space, cv2.COLOR_HSV2BGR)
 cv2.imwrite('~/Desktop/very_secret_open_cv_hsv_space.png',cv_color_space)
 
 
+
 #Detects objects from the camera
 class ObjectDetector:
 
@@ -72,7 +73,10 @@ class ObjectDetector:
             self.h_img_pub = rospy.Publisher("/camera/debug/hsv/h",Image,queue_size=1)
             self.h_mask_pub = rospy.Publisher("/camera/debug/h/mask",Image,queue_size=1)
             self.hsv_scale_pub = rospy.Publisher("/camera/debug/hsv/scale/",Image,queue_size=1)
-            self.deb_depth_pub =  rospy.Publisher("/camera/debug/depth/obj/",Image,queue_size=1)
+            self.dbg_depth_pub =  rospy.Publisher("/camera/debug/depth/obj/",Image,queue_size=1)
+
+
+
     def load_hsv_thresholds(self):
         self.set_hsv_thresholds()
         #thresholds = rospy.get_param("/camera/hsv_thresholds")
@@ -85,8 +89,8 @@ class ObjectDetector:
    
     def set_hsv_thresholds(self):
         self.hsv_thresholds = {
-            "red":(np.array([100,50,50]),np.array([160,255,255])),
-            "green":(np.array([50,50,50]),np.array([90,255,255])),
+            "red":(np.array([120,50,50]),np.array([160,255,255])),
+            "green":(np.array([70,100,100]),np.array([80,255,255])),
             "yellow":(np.array([0,180,100]),np.array([0,255,255])),
             "blue":(np.array([0,100,100]),np.array([35,255,255])),
             "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
@@ -124,7 +128,7 @@ class ObjectDetector:
                 rgb_dbg = self.rgb_image.copy()
             for color in ["blue"]: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
-                hsv_image = cv2.blur(hsv_image,(50,50)) 
+                hsv_image = cv2.medianBlur(hsv_image,25) 
                 h_image = hsv_image[:,:,0]
                 
                 if DEBUGGING:
@@ -148,12 +152,17 @@ class ObjectDetector:
                     middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
                     print "middle =", middle
                     area = (bot_right[0]-top_left[0]) * (bot_right[1]-top_left[1])
-                    print "area =",area
+                    #print "area =",area
                     if area < 50:
                         break
-                    #Assuming that depth is given in mm, it seems to make sense 
-                    depth_img = self.depth_image[top_left[0]:bot_right[0],top_left[1]:bot_right[1]]
-                    depth = float(self.depth_image[middle[1], middle[0]])/100
+                    #Assuming that depth is given in mm, it seems to make sense
+                      
+                    depth_area = self.depth_image[top_left[0]:bot_right[0],top_left[1]:bot_right[1]]
+                    if depth_area.size > 0:
+                        depth = float(depth_area.max()) / 100
+                    else:
+                        break
+                    #depth = float(self.depth_image[middle[1], middle[0]])/100
                     ray = np.array(self.camera_model.projectPixelTo3dRay(middle)) * depth 
                     print "ray =", ray
                     if depth < 0:
@@ -173,7 +182,7 @@ class ObjectDetector:
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:
-                        self.dbg_depth_pub(birdge.cv2_to_imgmsg(depth_img,"mono8"))
+                        #self.dbg_depth_pub(birdge.cv2_to_imgmsg(depth_img,"mono8"))
                         cv2.drawContours(rgb_dbg,[contour],-1,color=color_2_rgb[color],thickness=-1)
                         cv2.circle(rgb_dbg,middle,radius=5,color=(0,0,0),thickness=2)
                         cv2.rectangle(rgb_dbg,top_left,bot_right,color=(0,0,0),thickness=2)
