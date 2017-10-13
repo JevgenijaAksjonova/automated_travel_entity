@@ -9,6 +9,7 @@ from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
 import numpy as np
 import pprint
+from image_geometry import PinholeCameraModel
 pp = pprint.PrettyPrinter(indent = 4)
 
 bridge = CvBridge()
@@ -18,7 +19,7 @@ bridge = CvBridge()
 hue_threshold = 80
 
 #Thresholds in hue for all collors
-colors = ["green","red","blue","yellow"]
+colors = ["green","red","blue_low","blue_high","yellow"]
 
 
 #map of (lower,upper) thresholds in hsv for the respective colors
@@ -26,7 +27,8 @@ colors = ["green","red","blue","yellow"]
 color_2_rgb = {
     "green" : (0,255,0),
     "red" : (255,0,0),
-    "blue" : (0,0,255),
+    "blue_low" : (0,0,255),
+    "blue_high" : (0,0,255),
     "yellow" : (0,255,255),
 }
 
@@ -55,6 +57,7 @@ class ObjectDetector:
         #These values are set when we get new data and unset when we have used the data
         self._have_received_image = False
         self._have_received_depth = False
+        self._has_received_cam_info = False
  
         self.obj_cand_pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
         
@@ -62,7 +65,7 @@ class ObjectDetector:
         self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info",CameraInfo,self.info_callback)
         self.load_hsv_thresholds()
-                
+        self.camera_model = PinholeCameraModel()          
 
         if DEBUGGING: 
             self.dbg_img_pub = rospy.Publisher("/camera/debug/img",Image,queue_size=1)
@@ -82,10 +85,12 @@ class ObjectDetector:
    
     def set_hsv_thresholds(self):
         self.hsv_thresholds = {
-            "blue":(np.array([0,50,50]),np.array([35,255,255])),
+            "blue_low":(np.array([0,0,0]),np.array([40,255,255])),
             "red":(np.array([100,50,50]),np.array([160,255,255])),
             "green":(np.array([50,50,50]),np.array([90,255,255])),
-            "yellow":(np.array([0,180,100]),np.array([0,255,255]))}
+            "yellow":(np.array([0,180,100]),np.array([0,255,255])),
+            "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
+
     def image_callback(self,ros_image):
         try:
             self.rgb_image_msg = ros_image
@@ -103,20 +108,21 @@ class ObjectDetector:
         self._have_received_depth = True 
     # Get the projection matrix
     def info_callback(self,info_message):
-        self.P = info_message.P
-    
+        self.camera_model.fromCameraInfo(info_message)
+        self._has_received_cam_info = True
+         
     #Process image :D
     def image_processing(self):
         if DEBUGGING: 
             self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
-        if self._have_received_image and self._have_received_depth: 
+        if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
             if DEBUGGING:
                 self.load_hsv_thresholds()
             self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
-            self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg)
+            self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             if DEBUGGING:
                 rgb_dbg = self.rgb_image.copy()
-            for color in colors: 
+            for color in ["blue_low"]: 
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
                 hsv_image = cv2.medianBlur(hsv_image,3) 
                 h_image = hsv_image[:,:,0]
@@ -138,31 +144,34 @@ class ObjectDetector:
                 #OR do it manually.
                 for contour in contours:
                     print(cv2.contourArea(contour,False))
-                    if cv2.contourArea(contour,False) < 1000:
+                    if cv2.contourArea(contour,False) < 100:
                         break
                     bot_right = (int(contour[:,0,0].max()),int(contour[:,0,1].max()))
                     top_left = (int(contour[:,0,0].min()),int(contour[:,0,1].min()))
                     middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
-    
-                    #Mocking transform for now. OSKAR, yuor code goes here!
-                    #Allso, we need to transform between depth frame and rgb frame here
-                    depth = self.depth_image[middle[0], middle[1]]
-                    print "Depth =", str(depth)
                     print "middle =", middle
+                    #Assuming that depth is given in mm, it seems to make sense
+                    depth = float(self.depth_image[middle[1], middle[0]])/100
+                    ray = np.array(self.camera_model.projectPixelTo3dRay(middle)) * depth 
+                    print "ray =", ray
+                    if depth < 1:
+                        print "depth bellow thresh"
+                        break 
+                    print "Depth =", str(depth)
  
-#                   print ""
+                    print "depth type =", self.depth_image.dtype
                      
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
                     obj_cand_msg.header.frame_id = "/camera_frame" #We might need to change this to it's propper value
-                    obj_cand_msg.point.x = middle[0]
-                    obj_cand_msg.point.y = middle[1]
-                    obj_cand_msg.point.z = depth 
+                    obj_cand_msg.point.x = ray[0]
+                    obj_cand_msg.point.y = ray[1]
+                    obj_cand_msg.point.z = ray[2]
                     #TODO: Check that the object candidate is reasonable before publising, i.e not to small, which depends on distance
                     #Otherwise, we risk sending noice down the pipeline
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
-                    if DEBUGGING:    
+                    if DEBUGGING:
                         cv2.drawContours(rgb_dbg,[contour],-1,color=color_2_rgb[color],thickness=-1)
                         cv2.circle(rgb_dbg,middle,radius=5,color=(0,0,0),thickness=2)
                         cv2.rectangle(rgb_dbg,top_left,bot_right,color=(0,0,0),thickness=2)
