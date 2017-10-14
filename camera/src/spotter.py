@@ -114,46 +114,57 @@ class ObjectDetector:
     def info_callback(self,info_message):
         self.camera_model.fromCameraInfo(info_message)
         self._has_received_cam_info = True
-         
+    
+    _mask_kernel = np.ones((3,3),np.uint8)
+    def compute_mask(self,image,(lower,upper)):
+
+        mask = cv2.inRange(image,lower,upper)
+
+        cv2.morphologyEx(mask,cv2.MORPH_OPEN,
+            kernel = self._mask_kernel,
+            dst=mask,
+            iterations = 3)
+
+        return mask
+
     #Process image :D
     def image_processing(self):
+
         if DEBUGGING: 
             self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
+
         if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
-            if DEBUGGING:
-                self.load_hsv_thresholds()
-            self.rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
-            self.depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
+           
+            rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
+            depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
+
             if DEBUGGING:
                 rgb_dbg = self.rgb_image.copy()
+                self.load_hsv_thresholds()
+            
             for color in ["blue"]: 
+                
                 hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
-                hsv_image = cv2.medianBlur(hsv_image,25) 
-                h_image = hsv_image[:,:,0]
+                mask = self.compute_mask(hsv_image,self.hsv_thresholds[color]) 
+                contours,_ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
                 
                 if DEBUGGING:
-                    self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image.copy(),"mono8"))
-                (lower,upper) = self.hsv_thresholds[color]
-                #red 110 - 130
-  
-                #(lower,upper) = (np.array([0,0,0],dtype=np.uint8),np.array([35,255,255],dtype=np.uint8))
-                mask = cv2.inRange(hsv_image,lower,upper)
-                #mask = cv2.bitwise_not(mask)
-                if DEBUGGING:
+                    h_image = hsv_image[:,:,0].copy()
+                    self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image,"mono8"))
                     self.h_mask_pub.publish(
                         bridge.cv2_to_imgmsg(mask.copy(),"mono8"))
-                #ret, thresh = cv2.threshold(h_image,hue_thresholds[color][1],hue_thresholds[color][0],cv2.THRESH_BINARY_INV)
-                contours,_ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-                #Plot different hue values, see what rgb they correspond ti
-                #OR do it manually.
+                
+                
                 for contour in contours:
+                    
+                    #We might be able to use a open cv function to get this bounding box
                     bot_right = (int(contour[:,0,0].max()),int(contour[:,0,1].max()))
                     top_left = (int(contour[:,0,0].min()),int(contour[:,0,1].min()))
                     middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
                     print "middle =", middle
                     area = (bot_right[0]-top_left[0]) * (bot_right[1]-top_left[1])
                     #print "area =",area
-                    if area < 50:
+                    if area < 0:
                         break
                     #Assuming that depth is given in mm, it seems to make sense
                       
