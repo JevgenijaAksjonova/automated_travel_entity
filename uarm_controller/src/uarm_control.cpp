@@ -28,7 +28,7 @@ bool pump_state = 0; // Suck the object, and never loosen it.
 //To be deisgn : find a place and put it there.
 
 //Period
-float freq = 0.25;  // 1Hz
+float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 
 //Control Var
@@ -100,6 +100,10 @@ int main (int argc, char **argv){
     uarm::MoveToJoints move_srv;//create the message to pub
     uarm::Pump  pump_srv;
 
+    //Debug
+       //pump_state
+
+
     // Initial
     move_srv.request.j0 = 45.0 -10.0; //Correction for bad  45
     move_srv.request.j1 = 30.0;       // 30
@@ -135,21 +139,20 @@ int main (int argc, char **argv){
         if (arm_state  != 0) {
             switch (arm_state ){
             case 1:           //go to target    //
-                move_srv.request.j0 = joint0 -10.0; //Correction for bad calibration
+                move_srv.request.j0 = joint0 -10.0; //Correction for calibration
                 move_srv.request.j1 = joint1;
-                move_srv.request.j2 = joint2 -30.0; //Correction for bad
+                move_srv.request.j2 = joint2 -30.0; //Correction for calibration
                 move_srv.request.j3 = joint3;
                 move_srv.request.move_mode = 0; //  absolute in the robot frame
-                move_srv.request.movement_duration = ros::Duration(0);
+                move_srv.request.movement_duration = ros::Duration(2.0);
                 move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
-                move_srv.request.check_limits      =true;
+                move_srv.request.check_limits      =false;
         ROS_INFO_STREAM("joint0:"<<joint0 <<" joint1:"<<joint1<<" joint2:"<<joint2);
                 if (moveClient.call(move_srv) ) // Response: pump_status true
                     ROS_INFO("Move to target");
                 else                            // Response: pump_status false
                     ROS_ERROR("Fail to move to target ");
                 break;
-
             case 2:
                 pump_srv.request.pump_status = true;
                 if (pumpClient.call(pump_srv) ) // Response: pump_status true
@@ -158,12 +161,12 @@ int main (int argc, char **argv){
                     ROS_ERROR("Fail to call Pump on");
                 break;
             case 3:
-                move_srv.request.j0 = 45.0 -10.0; //Correction for bad
+                move_srv.request.j0 = 45.0 -10.0; //Correction for calibration
                 move_srv.request.j1 = 30.0;
-                move_srv.request.j2 = 60 -30.0; //Correction for bad
+                move_srv.request.j2 = 60 -30.0; //Correction for calibration
                 move_srv.request.j3 = 0;
                 move_srv.request.move_mode = 0; //  absolute in the robot frame
-                move_srv.request.movement_duration = ros::Duration(0.5);
+                move_srv.request.movement_duration = ros::Duration(2.0);
                 move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
                 move_srv.request.check_limits      =true;
 
@@ -171,6 +174,12 @@ int main (int argc, char **argv){
                     ROS_INFO("Back to inital position");
                 else                            // Response: pump_status false
                     ROS_ERROR("Fail to back to inital position");
+// This process is just for functionality testing
+                pump_srv.request.pump_status = false;
+                if (pumpClient.call(pump_srv) ) // Response: pump_status true
+                    ROS_INFO("Pump off");
+                else                            // Response: pump_status false
+                    ROS_ERROR("Fail to set Pump off");
                 break;
             default:
                 ROS_INFO_STREAM("Wrong stage "<<arm_state);
