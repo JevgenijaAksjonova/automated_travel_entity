@@ -1,0 +1,3 @@
+<launch>
+	<node name="filter_node" pkg="filter" type="filter_node" />
+</launch>
