@@ -1,8 +1,10 @@
 #include "ros/ros.h"
 #include <phidgets/motor_encoder.h>
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/LaserScan.h>
 #include <tf/transform_broadcaster.h>
 #include <math.h>
+#include <random>
 
 
 /**
@@ -21,6 +23,14 @@ public:
     double pi;
     std::vector<double> dphi_dt;
     tf::TransformBroadcaster odom_broadcaster;
+
+    ros::Subscriber lidar_subscriber;
+    std::vector<float> ranges;
+    float angle_increment;
+    float range_min;
+    float range_max;
+
+    void callback(const sensor_msgs::LaserScan::ConstPtr& msg);
 
     struct Particle{
         double xPos;
@@ -56,6 +66,8 @@ public:
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
+        lidar_subscriber = nh.subscribe("/scan", 1, &lidarCallback, this);
+
 
         wheel_r = 0.04;
         base_d = 0.25;
@@ -80,6 +92,15 @@ public:
     void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
         encoding_abs_new[1] = -(msg->count);
 
+    }
+
+    void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
+    {
+        ranges = msg->ranges;
+        angle_increment = msg->angle_increment;
+
+        range_min = msg->range_min;
+        range_max = msg->range_max;
     }
 
 
