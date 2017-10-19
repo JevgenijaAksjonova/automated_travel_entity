@@ -11,7 +11,8 @@ import numpy as np
 import pprint
 from image_geometry import PinholeCameraModel
 pp = pprint.PrettyPrinter(indent = 4)
-
+from sensor_msgs.msg import PointCloud2
+import sensor_msgs.point_cloud2 as pc2
 bridge = CvBridge()
 
 #Set to true to get debug info
@@ -62,8 +63,9 @@ class ObjectDetector:
  
         self.obj_cand_pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
         
+        #self.image_sub = rospy.Subscriber("/camera/rgb/image_rect_color",Image,self.image_callback)
         self.image_sub = rospy.Subscriber("/camera/rgb/image_color",Image,self.image_callback)
-        self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
+        self.depth_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.depth_callback)
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info",CameraInfo,self.info_callback)
         self.load_hsv_thresholds()
         self.camera_model = PinholeCameraModel()          
@@ -73,7 +75,6 @@ class ObjectDetector:
             self.h_img_pub = rospy.Publisher("/camera/debug/hsv/h",Image,queue_size=1)
             self.h_mask_pub = rospy.Publisher("/camera/debug/h/mask",Image,queue_size=1)
             self.hsv_scale_pub = rospy.Publisher("/camera/debug/hsv/scale/",Image,queue_size=1)
-            self.dbg_depth_pub =  rospy.Publisher("/camera/debug/depth/obj/",Image,queue_size=1)
 
 
 
@@ -89,10 +90,10 @@ class ObjectDetector:
    
     def set_hsv_thresholds(self):
         self.hsv_thresholds = {
-            "red":(np.array([120,50,50]),np.array([160,255,255])),
-            "green":(np.array([70,100,100]),np.array([80,255,255])),
+            "red":(np.array([110,240,10]),np.array([120,255,255])),
+            "green":(np.array([45,50,10]),np.array([85,255,255])),
             "yellow":(np.array([0,180,100]),np.array([0,255,255])),
-            "blue":(np.array([0,100,100]),np.array([35,255,255])),
+            "blue":(np.array([0,100,10]),np.array([40,255,255])),
             "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
 
     def image_callback(self,ros_image):
@@ -123,85 +124,70 @@ class ObjectDetector:
         cv2.morphologyEx(mask,cv2.MORPH_OPEN,
             kernel = self._mask_kernel,
             dst=mask,
-            iterations = 3)
+            iterations = 10)
 
         return mask
 
     #Process image :D
     def image_processing(self):
-
+        print "gello"
         if DEBUGGING: 
             self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
-
-        if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
-           
+        #if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
+        if self._have_received_image and  self._has_received_cam_info:
             rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
-            depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
-
+            hsv_image =  cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
+            cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
             if DEBUGGING:
-                rgb_dbg = self.rgb_image.copy()
+                mask_union = None
+                rgb_dbg = rgb_image.copy()
                 self.load_hsv_thresholds()
             
-            for color in ["blue"]: 
+            for color in ["blue","red","green"]: 
                 
-                hsv_image =  cv2.cvtColor(self.rgb_image, cv2.COLOR_BGR2HSV)
                 mask = self.compute_mask(hsv_image,self.hsv_thresholds[color]) 
-                contours,_ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+                
+                if DEBUGGING:
+                    if mask_union is None:
+                        mask_union = np.zeros_like(mask)
+                    cv2.bitwise_or(mask_union,mask,mask_union)
+
+                contours,_ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 
                 if DEBUGGING:
                     h_image = hsv_image[:,:,0].copy()
                     self.h_img_pub.publish(bridge.cv2_to_imgmsg(h_image,"mono8"))
-                    self.h_mask_pub.publish(
-                        bridge.cv2_to_imgmsg(mask.copy(),"mono8"))
                 
                 
                 for contour in contours:
                     
-                    #We might be able to use a open cv function to get this bounding box
                     bot_right = (int(contour[:,0,0].max()),int(contour[:,0,1].max()))
                     top_left = (int(contour[:,0,0].min()),int(contour[:,0,1].min()))
                     middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
-                    print "middle =", middle
-                    area = (bot_right[0]-top_left[0]) * (bot_right[1]-top_left[1])
-                    #print "area =",area
-                    if area < 0:
-                        break
-                    #Assuming that depth is given in mm, it seems to make sense
-                      
-                    depth_area = self.depth_image[top_left[0]:bot_right[0],top_left[1]:bot_right[1]]
-                    if depth_area.size > 0:
-                        depth = float(depth_area.max()) / 100
-                    else:
-                        break
-                    #depth = float(self.depth_image[middle[1], middle[0]])/100
-                    ray = np.array(self.camera_model.projectPixelTo3dRay(middle)) * depth 
-                    print "ray =", ray
-                    if depth < 0:
-                        print "depth bellow thresh"
-                        break 
-                    print "Depth =", str(depth)
- 
+                    #pc = pc2.read_points(self.depth_msg,skip_nans=False,field_names=None,uvs=[middle])
+                    #point = pc.next()
+                    #print point
                      
-                    obj_cand_msg = PointStamped()
-                    obj_cand_msg.header.stamp = rospy.Time.now()
-                    obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
-                    obj_cand_msg.point.x = ray[0]
-                    obj_cand_msg.point.y = ray[1]
-                    obj_cand_msg.point.z = ray[2]
-                    #TODO: Check that the object candidate is reasonable before publising, i.e not to small, which depends on distance
-                    #Otherwise, we risk sending noice down the pipeline
+                    #obj_cand_msg = PointStamped()
+                    #obj_cand_msg.header.stamp = rospy.Time.now()
+                    #obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
+                    #obj_cand_msg.point.x = point[0]
+                    #obj_cand_msg.point.y = point[1]
+                    #obj_cand_msg.point.z = point[2]
+                    
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:
-                        #self.dbg_depth_pub(birdge.cv2_to_imgmsg(depth_img,"mono8"))
                         cv2.drawContours(rgb_dbg,[contour],-1,color=color_2_rgb[color],thickness=-1)
                         cv2.circle(rgb_dbg,middle,radius=5,color=(0,0,0),thickness=2)
                         cv2.rectangle(rgb_dbg,top_left,bot_right,color=(0,0,0),thickness=2)
                          
-                if DEBUGGING:
+            if DEBUGGING:
                     
-                    ros_out_image = bridge.cv2_to_imgmsg(rgb_dbg,"rgb8")
-                    self.dbg_img_pub.publish(ros_out_image)
+                ros_out_image = bridge.cv2_to_imgmsg(rgb_dbg,"rgb8")
+                self.dbg_img_pub.publish(ros_out_image)
+                self.h_mask_pub.publish(
+                    bridge.cv2_to_imgmsg(mask_union,"mono8"))
 
         self._have_received_image = False
         self._have_received_depth = False
