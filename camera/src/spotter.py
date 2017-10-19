@@ -64,7 +64,15 @@ class ObjectDetector:
         self.obj_cand_pub = rospy.Publisher("/camera/object_candidates",PointStamped,queue_size=10)
         
         self.image_sub = rospy.Subscriber("/camera/rgb/image_rect_color",Image,self.image_callback)
+        
         self.depth_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.depth_callback)
+        # This should probably be sub depth_registered/points. If we don't have it published,
+        # check http://wiki.ros.org/rgbd_launch
+        # and http://wiki.ros.org/realsense_camera#ROS_API
+        # Registration => Matching two point sets
+        # Rectification => Projecting two images onto a common plane, in our case to ease Registration
+        # It is probably correct to use image_rect_color aswell.
+        
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info",CameraInfo,self.info_callback)
         self.load_hsv_thresholds()
         self.camera_model = PinholeCameraModel()          
