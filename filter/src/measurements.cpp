@@ -1,6 +1,8 @@
 #include "ros/ros.h"
 #include <tf/transform_listener.h>
 #include <math.h>
+#include <vector>
+
 
 
 std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float angle_increment, float x_particle, float y_particle, float theta_particle, std::vector<std::vector<int>> local_map)
@@ -12,24 +14,22 @@ std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float an
 
     int x_max;
     int y_max;
+    int x_min;
+    int y_min;
 
-
-
-
-
-// std::vector<std::vector<int>> global_map;
-// Should be in calling function
-// memset(local_map, 0, sizeof(global_map));
+    // std::vector<std::vector<int>> global_map;
+    // Should be in calling function
+    // memset(local_map, 0, sizeof(global_map));
 
 
     for(int i = 0; i < ranges.size(); i++) {
         if(!isinf(ranges[i])) {
             float x_world = x_particle +
-                            cos(theta_particle) * x_offset - sin(theta_particle) * y_offset +
-                            ranges[i] * cos(theta_particle + (current_angle + theta_offset));
+                    cos(theta_particle) * x_offset - sin(theta_particle) * y_offset +
+                    ranges[i] * cos(theta_particle + (current_angle + theta_offset));
             float y_world = y_particle +
-                            sin(theta_particle) * x_offset + cos(theta_particle) * y_offset +
-                            ranges[i] * sin(theta_particle + (current_angle + theta_offset));
+                    sin(theta_particle) * x_offset + cos(theta_particle) * y_offset +
+                    ranges[i] * sin(theta_particle + (current_angle + theta_offset));
 
             int x_world_coordinate = int(x_world * 100);
             int y_world_coordinate = int(y_world * 100);
