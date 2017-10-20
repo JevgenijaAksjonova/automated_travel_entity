@@ -7,6 +7,7 @@
 #include <random>
 
 #include <localization_global_map.h>
+#include <measurements.h>
 
 
 int main(int argc, char **argv)
@@ -27,6 +28,13 @@ int main(int argc, char **argv)
 
     localization_grid_pub = n.advertise<nav_msgs::OccupancyGrid>("/localization_grid", 1);
 
+    pair<int, int> coord = getClosestWallCoordinates(map.global_map, map.cellSize, (M_PI/2), 20, 40);
+
+    ROS_INFO("Closest wall [x, y]: [%d, %d]", coord.first, coord.second);
+
+    pair<float, float> real_coord = map.getDistance(coord.first, coord.second);
+
+    ROS_INFO("Distances [x, y]: [%f, %f]", real_coord.first, real_coord.second);
 
     while(ros::ok()) {
         localization_grid_pub.publish(map.visualGrid);

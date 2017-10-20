@@ -13,6 +13,8 @@ public:
 
     vector<vector<unsigned char> > global_map;
     pair<int, int> getCell(double x, double y);
+    pair<float, float> getDistance(int x, int y);
+
     pair<double,double> mapOffset;
     pair<double,double> mapScale;
     pair<size_t, size_t> gridSize;

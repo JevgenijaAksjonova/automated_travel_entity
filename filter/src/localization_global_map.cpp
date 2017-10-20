@@ -21,10 +21,17 @@ LocalizationGlobalMap::LocalizationGlobalMap(string _filename_map, float _cellSi
 }
 
 
-pair<int, int> LocalizationGlobalMap::getCell(double x, double y){
+pair<int, int> LocalizationGlobalMap::getCell(double x, double y) {
     int i = trunc((x - mapOffset.first)/cellSize);
     int j = trunc((y - mapOffset.second)/cellSize);
     return pair<int,int>(i,j);
+}
+
+
+pair<float, float> LocalizationGlobalMap::getDistance(int x, int y) {
+    float i = float(x) * cellSize + mapOffset.first;
+    float j = float(y) * cellSize + mapOffset.second;
+    return pair<float, float>(i,j);
 }
 
 

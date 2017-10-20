@@ -3,8 +3,56 @@
 #include <math.h>
 #include <vector>
 
+using namespace std;
+
+pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser) {
+
+    float x_world = x_particle +
+            cos(theta_particle) * lidar_x - sin(theta_particle) * lidar_y +
+            range_laser * cos(theta_particle + (angle_laser + lidar_orientation));
+    float y_world = y_particle +
+            sin(theta_particle) * lidar_x + cos(theta_particle) * lidar_y +
+            range_laser * sin(theta_particle + (angle_laser + lidar_orientation));
+
+    return pair<float, float>(x_world, y_world);
+}
+
+float distancesToRange(pair<float, float> wall_distances, pair<float, float> base_distances) {
+
+    float x1 = wall_distances.first;
+    float y1 = wall_distances.second;
+
+    float x0 = base_distances.first;
+    float y0 = base_distances.second;
+
+    float distance = sqrt(pow(x1 - x0, 2) + pow(y0 - y1, 2));
+
+    return distance;
+}
+
+pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char> > global_map, float cellSize, float angle, int x_base, int y_base) {
+    int x = x_base;
+    int y = y_base;
+    bool wallFound = false;
+
+    float maxDistance = 2.0/cellSize;
+
+    int count = 0;
+    while(!wallFound && count < maxDistance) {
+        if(global_map[x][y] == 1) {
+            wallFound = true;
+        } else {
+            x = round(x + cos(angle));
+            y = round(y + sin(angle));
+            count++;
+        }
+    }
+
+    return pair<int, int>(x, y);
+}
 
 
+/*
 std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float angle_increment, float x_particle, float y_particle, float theta_particle, std::vector<std::vector<int>> local_map)
 {
     float current_angle = M_PI;
@@ -24,15 +72,7 @@ std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float an
 
     for(int i = 0; i < ranges.size(); i++) {
         if(!isinf(ranges[i])) {
-            float x_world = x_particle +
-                    cos(theta_particle) * x_offset - sin(theta_particle) * y_offset +
-                    ranges[i] * cos(theta_particle + (current_angle + theta_offset));
-            float y_world = y_particle +
-                    sin(theta_particle) * x_offset + cos(theta_particle) * y_offset +
-                    ranges[i] * sin(theta_particle + (current_angle + theta_offset));
-
-            int x_world_coordinate = int(x_world * 100);
-            int y_world_coordinate = int(y_world * 100);
+            pair<float, float> world_coordinates = localToWorldCoordinates(x_particle, y_particle, theta_particle, x_offset, y_offset, theta_offset, ranges[i], current_angle);
 
             local_map[x_world_coordinate][y_world_coordinate] = 1;
         }
@@ -43,6 +83,9 @@ std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float an
     return local_map;
 }
 
+*/
+
+/*
 float particleWeight(std::vector<std::vector<int>> local_map, std::vector<std::vector<int>> global_map) {
 
     int average_map = 0;
@@ -64,6 +107,7 @@ float particleWeight(std::vector<std::vector<int>> local_map, std::vector<std::v
 
 
 }
+*/
 
 /*
 std::vector<float> calculate_weights(std::vector<float> ranges, std::vector<Particle>, float angle_increment) {
