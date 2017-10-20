@@ -47,7 +47,7 @@ for x in range(255):
         color_space[x,y,0] = y
         color_space[x,y,2] = 255
 cv_color_space =  cv2.cvtColor(color_space, cv2.COLOR_HSV2BGR)
-cv2.imwrite('~/Desktop/very_secret_open_cv_hsv_space.png',cv_color_space)
+cv2.imwrite('very_secret_open_cv_hsv_space.png',cv_color_space)
 
 
 
