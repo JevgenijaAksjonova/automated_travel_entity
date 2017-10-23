@@ -51,6 +51,76 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char> > global_m
     return pair<int, int>(x, y);
 }
 
+float calculateWeight(Particle particle, vector<float> laser_ranges, double max_distance) {
+    double weight = 0;
+
+
+
+    double z_hit;
+    double z_short;
+    double z_max;
+    double z_random;
+
+    double sigma_hit;
+    double lambda_short;
+
+    vector<pair<double, double>> rangeWithTrueRange = calculateTrueRange(particle, laser_ranges);
+
+    double realRange = rangeWithTrueRange.first;
+    double measuredRange = rangeWithTrueRange.second;
+
+    double q = 1;
+
+    for(int r = 0; r < rangeWithTrueRange.length; r++) {
+        double prob_hit = 0;
+        double prob_short = 0;
+        double prob_max = 0;
+        double prob_random = 0;
+
+        double p = 0;
+
+        // Calculate the hit probability
+        if(0 <= measuredRange && measuredRange <= max_distance) {
+            normal_distribution<double> distribution(realRange, sigma_hit);
+            float prob = distribution(measuredRange);
+
+            // CALCULATE ETA, FIND SOLUTION LATER
+            float eta = 0;
+
+            prob_hit = prob * eta;
+        }
+
+        // Calculate the short (unexpected objects) probability
+
+
+
+
+        // Calculate the max probability
+
+
+        // Calculate the random readings probability
+
+
+
+
+        q *= p;
+    }
+
+}
+
+
+vector<Particle> particlesWeight(vector<Particle> particles, vector<float> laser_ranges, float max_distance) {
+    float weight = 0;
+
+    for(int p = 0; p < particles.length; p++) {
+        weight = calculateWeight(particles[i], laser_ranges, max_distance);
+        particles[p].weight = weight;
+    }
+
+
+    return particles;
+}
+
 
 /*
 std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float angle_increment, float x_particle, float y_particle, float theta_particle, std::vector<std::vector<int>> local_map)
@@ -83,48 +153,4 @@ std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float an
     return local_map;
 }
 
-*/
-
-/*
-float particleWeight(std::vector<std::vector<int>> local_map, std::vector<std::vector<int>> global_map) {
-
-    int average_map = 0;
-    int map_sum = 0;
-    int N = 0;
-
-    for(int row = 0; row < local_map[0].length; row++) {
-        for(int col = 0; col < local_map.length; col++) {
-            map_sum += local_map[row][col] + global_map[row][col];
-
-            if(local_map[row][col] == global_map[row][col]) {
-                N++;
-            }
-        }
-    }
-    if(N != 0) {
-        average_map = (1 / (2*N)) * map_sum;
-    }
-
-
-}
-*/
-
-/*
-std::vector<float> calculate_weights(std::vector<float> ranges, std::vector<Particle>, float angle_increment) {
-    tf::TransformListener listener;
-
-    tf::StampedTransform transform;
-
-    try{
-        listener.lookupTransform("/laser", "/odom",
-                                 ros::Time(0), transform);
-    }
-    catch (tf::TransformException ex){
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-    }
-
-    float weight = calculate_weight(ranges, angle_increment, x_particle, y_particle, theta_particle);
-
-}
 */

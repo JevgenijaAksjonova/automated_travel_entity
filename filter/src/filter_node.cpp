@@ -36,6 +36,7 @@ public:
         double xPos;
         double yPos;
         double thetaPos;
+        double weight;
     };
 
     Particle::Particle(double x, double y, double theta): xPos(x), yPos(y), thetaPos(theta) {}
