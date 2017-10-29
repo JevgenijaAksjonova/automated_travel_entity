@@ -65,7 +65,8 @@ class ObjectDetector:
         
         self.image_sub = rospy.Subscriber("/camera/rgb/image_rect_color",Image,self.image_callback)
         
-        self.depth_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.depth_callback)
+        #self.depth_sub = rospy.Subscriber("/camera/depth_registered/points",PointCloud2,self.depth_callback)
+        self.depth_sub = rospy.Subscriber("/camera/depth_registered/sw_registered/image_rect",Image,self.depth_callback)
         # This should probably be sub depth_registered/points. If we don't have it published,
         # check http://wiki.ros.org/rgbd_launch
         # and http://wiki.ros.org/realsense_camera#ROS_API
@@ -84,7 +85,6 @@ class ObjectDetector:
             self.hsv_scale_pub = rospy.Publisher("/camera/debug/hsv/scale/",Image,queue_size=1)
 
 
-
     def load_hsv_thresholds(self):
         self.set_hsv_thresholds()
         #thresholds = rospy.get_param("/camera/hsv_thresholds")
@@ -100,7 +100,7 @@ class ObjectDetector:
             "red":(np.array([110,240,10]),np.array([120,255,255])),
             "green":(np.array([45,50,10]),np.array([85,255,255])),
             "yellow":(np.array([0,180,100]),np.array([0,255,255])),
-            "blue":(np.array([0,100,10]),np.array([40,255,255])),
+            "blue":(np.array([18,100,15]),np.array([35,256,200])),
             "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
 
     def image_callback(self,ros_image):
@@ -137,21 +137,21 @@ class ObjectDetector:
 
     #Process image :D
     def image_processing(self):
-        print "gello"
+        
         if DEBUGGING: 
             self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
         #if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
-        if self._have_received_image and  self._has_received_cam_info:
+        if self._have_received_image and  self._has_received_cam_info and self._have_received_depth:
             rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
+            depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             hsv_image =  cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
-            cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
+            #cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
             if DEBUGGING:
                 mask_union = None
                 rgb_dbg = rgb_image.copy()
                 self.load_hsv_thresholds()
             
-            for color in ["blue","red","green"]: 
-                
+            for color in ["blue"]: 
                 mask = self.compute_mask(hsv_image,self.hsv_thresholds[color]) 
                 
                 if DEBUGGING:
@@ -174,13 +174,16 @@ class ObjectDetector:
                     #pc = pc2.read_points(self.depth_msg,skip_nans=False,field_names=None,uvs=[middle])
                     #point = pc.next()
                     #print point
-                     
-                    #obj_cand_msg = PointStamped()
-                    #obj_cand_msg.header.stamp = rospy.Time.now()
-                    #obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
-                    #obj_cand_msg.point.x = point[0]
-                    #obj_cand_msg.point.y = point[1]
-                    #obj_cand_msg.point.z = point[2]
+                    z = np.nanmean(depth_image[middle[1]-10:middle[1]+10,middle[0]-10:middle[0]+10])
+                    point = np.array(self.camera_model.projectPixelTo3dRay(middle))
+                    print "distance from camera =", z
+                    point = point * z
+                    obj_cand_msg = PointStamped()
+                    obj_cand_msg.header.stamp = rospy.Time.now()
+                    obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
+                    obj_cand_msg.point.x = point[0]
+                    obj_cand_msg.point.y = point[1]
+                    obj_cand_msg.point.z = point[2]
                     
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
