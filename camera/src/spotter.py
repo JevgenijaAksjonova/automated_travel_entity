@@ -175,8 +175,8 @@ class ObjectDetector:
             rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
             depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             hsv_image =  cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
-            res = rec.predict(rgb_image)
-            print("guessed = ", np.round(res,2))
+            #res = rec.predict(rgb_image)
+            #print("guessed = ", np.round(res,2))
             #cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
             if DEBUGGING:
                 mask_union = None
@@ -200,20 +200,19 @@ class ObjectDetector:
                 
                 for contour in contours:
                     x_min = int(contour[:,0,0].min()); x_max = int(contour[:,0,0].max()); x_mid = (x_max + x_min) // 2
-                    y_min = int(contour[:,0,1].min()); y_max = int(contour[:,0,1].max()); y_mid = (x_max + x_min) // 2
+                    y_min = int(contour[:,0,1].min()); y_max = int(contour[:,0,1].max()); y_mid = (y_max + y_min) // 2
                     
                     
                     bot_right = (x_max,y_max)
                     top_left = (x_min,y_min)
                     #middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
-                    middle = (x_mid,y_mid)
                     #pc = pc2.read_points(self.depth_msg,skip_nans=False,field_names=None,uvs=[middle])
                     #point = pc.next()
                     #print point
-                    center_point_x = (2*x_max + x_min) // 3
-                    center_point_y = y_mid
+                    center_point_x = x_mid
+                    center_point_y = (y_max + 2*y_min) // 3
                     center_point = (center_point_x,center_point_y)
-                    z = np.nanmean(depth_image[center_point_x-5:center_point_x+5,center_point_y-5:center_point_y+5])
+                    z = np.nanmean(depth_image[center_point_y-10:center_point_y+10,center_point_x-10:center_point_x+10])
                     point = np.array(self.camera_model.projectPixelTo3dRay(center_point))
                     #print "distance from camera =", z
                     point = point * z
@@ -224,15 +223,15 @@ class ObjectDetector:
                     obj_cand_msg.point.y = - point[0]
                     obj_cand_msg.point.z = - point[1]
                     
-                    print "x from camera coord=", point[2]
-                    print "y from camera coord=", - point[0]
-                    print "z from camera coord=", - point[1]
+                    print("x from camera coord=", point[2])
+                    print("y from camera coord=", - point[0])
+                    print("z from camera coord=", - point[1])
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:
                         cv2.drawContours(rgb_dbg,[contour],-1,color=color_2_rgb[color],thickness=-1)
-                        cv2.circle(rgb_dbg,middle,radius=5,color=(0,0,0),thickness=2)
                         cv2.rectangle(rgb_dbg,top_left,bot_right,color=(0,0,0),thickness=2)
+                        cv2.circle(rgb_dbg,center_point,radius=5,color=(0,0,0),thickness=2)
                          
             if DEBUGGING:
                     
