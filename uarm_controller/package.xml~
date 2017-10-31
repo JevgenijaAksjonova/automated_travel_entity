@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>uarm_controller</name>
+  <name>uarm_controll</name>
   <version>0.0.0</version>
   <description>The uarm_controll package</description>
 
