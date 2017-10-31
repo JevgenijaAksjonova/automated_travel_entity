@@ -1,7 +1,9 @@
 #! /usr/bin/env python
+from __future__ import print_function
 
 import rospy
 import roslib
+import numpy as np
 from geometry_msgs.msg import PointStamped
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -14,6 +16,35 @@ pp = pprint.PrettyPrinter(indent = 4)
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 bridge = CvBridge()
+
+from keras.preprocessing import image as keras_image
+from keras.models import load_model
+from keras.utils.generic_utils import CustomObjectScope
+from keras.applications.mobilenet import relu6, DepthwiseConv2D, preprocess_input
+
+class Recognizer:
+    def __init__(self,
+        model_path="/home/ras13/catkin_ws/src/automated_travel_entity/camera/data/models/classifier_model.spec",
+        model_input_shape=(224,224)):
+        self.model_path = model_path
+        self.model_input_shape=model_input_shape
+                
+        with CustomObjectScope({'relu6':relu6,'DepthwiseConv2D':DepthwiseConv2D}):
+            self.model = load_model(self.model_path)
+
+    def preprocess(self,image):
+        image = keras_image.array_to_img(image).resize(self.model_input_shape)
+        image = keras_image.img_to_array(image)
+        image = np.expand_dims(image,0)
+        return image
+    def predict(self,image):
+        image = self.preprocess(image)        
+        res = self.model.predict(image,steps=1)
+        return res
+
+rec = Recognizer()
+
+
 
 #Set to true to get debug info
 
@@ -140,11 +171,12 @@ class ObjectDetector:
         
         if DEBUGGING: 
             self.hsv_scale_pub.publish(bridge.cv2_to_imgmsg(cv_color_space,"rgb8"))
-        #if self._have_received_image and self._have_received_depth and self._has_received_cam_info: 
         if self._have_received_image and  self._has_received_cam_info and self._have_received_depth:
             rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
             depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             hsv_image =  cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
+            res = rec.predict(rgb_image)
+            print("guessed = ", np.round(res,2))
             #cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
             if DEBUGGING:
                 mask_union = None
@@ -167,16 +199,23 @@ class ObjectDetector:
                 
                 
                 for contour in contours:
+                    x_min = int(contour[:,0,0].min()); x_max = int(contour[:,0,0].max()); x_mid = (x_max + x_min) // 2
+                    y_min = int(contour[:,0,1].min()); y_max = int(contour[:,0,1].max()); y_mid = (x_max + x_min) // 2
                     
-                    bot_right = (int(contour[:,0,0].max()),int(contour[:,0,1].max()))
-                    top_left = (int(contour[:,0,0].min()),int(contour[:,0,1].min()))
-                    middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
+                    
+                    bot_right = (x_max,y_max)
+                    top_left = (x_min,y_min)
+                    #middle = (int(contour[:,0,0].mean()),int(contour[:,0,1].mean()))
+                    middle = (x_mid,y_mid)
                     #pc = pc2.read_points(self.depth_msg,skip_nans=False,field_names=None,uvs=[middle])
                     #point = pc.next()
                     #print point
-                    z = np.nanmean(depth_image[middle[1]-10:middle[1]+10,middle[0]-10:middle[0]+10])
-                    point = np.array(self.camera_model.projectPixelTo3dRay(middle))
-                    print "distance from camera =", z
+                    center_point_x = (2*x_max + x_min) // 3
+                    center_point_y = y_mid
+                    center_point = (center_point_x,center_point_y)
+                    z = np.nanmean(depth_image[center_point_x-5:center_point_x+5,center_point_y-5:center_point_y+5])
+                    point = np.array(self.camera_model.projectPixelTo3dRay(center_point))
+                    #print "distance from camera =", z
                     point = point * z
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
@@ -184,7 +223,11 @@ class ObjectDetector:
                     obj_cand_msg.point.x = point[0]
                     obj_cand_msg.point.y = point[1]
                     obj_cand_msg.point.z = point[2]
-                    
+                    extra_px_factor = 2
+                    #window_width = max(x_max-x_min,y_max-y_min)//2
+
+                    #if window_width > 0:
+
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:

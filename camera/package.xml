@@ -21,7 +21,8 @@
   <run_depend>sensor_msgs</run_depend>
   <run_depend>opencv2</run_depend>
   <run_depend>cv_bridge</run_depend>
-  
+  <run_depend>python-tensorflow-pip</run_depend>
+
   <export>
 
   </export>
