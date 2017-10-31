@@ -220,14 +220,13 @@ class ObjectDetector:
                     obj_cand_msg = PointStamped()
                     obj_cand_msg.header.stamp = rospy.Time.now()
                     obj_cand_msg.header.frame_id = "/camera_link" #We might need to change this to it's propper value
-                    obj_cand_msg.point.x = point[0]
-                    obj_cand_msg.point.y = point[1]
-                    obj_cand_msg.point.z = point[2]
-                    extra_px_factor = 2
-                    #window_width = max(x_max-x_min,y_max-y_min)//2
-
-                    #if window_width > 0:
-
+                    obj_cand_msg.point.x = point[2]
+                    obj_cand_msg.point.y = - point[0]
+                    obj_cand_msg.point.z = - point[1]
+                    
+                    print "x from camera coord=", point[2]
+                    print "y from camera coord=", - point[0]
+                    print "z from camera coord=", - point[1]
                     self.obj_cand_pub.publish(obj_cand_msg)
                      
                     if DEBUGGING:
