@@ -23,6 +23,8 @@ from keras.utils.generic_utils import CustomObjectScope
 from keras.applications.mobilenet import relu6, DepthwiseConv2D, preprocess_input
 
 class Recognizer:
+    class_indices = {'Orange Star': 6, 'Red Hollow Cube': 9, 'Purple Hollow Cross': 7, 'Green Hollow Cube': 3, 'Blue Cube': 0, 'Red Sphere': 11, 'Red Hollow Cylinder': 10, 'Purple Star': 8, 'Yellow Sphere': 13, 'Blue Hollow Triangle': 1, 'Orange Hollow Cross': 5, 'Green Cube': 2, 'Yellow Cube': 12, 'Green Hollow Cylinder': 4}
+    
     def __init__(self,
         model_path="/home/ras13/catkin_ws/src/automated_travel_entity/camera/data/models/classifier_model.spec",
         model_input_shape=(224,224)):
@@ -31,15 +33,19 @@ class Recognizer:
                 
         with CustomObjectScope({'relu6':relu6,'DepthwiseConv2D':DepthwiseConv2D}):
             self.model = load_model(self.model_path)
+        self.index_classes = {v: k for k, v in self.class_indices.items()}
 
     def preprocess(self,image):
         image = keras_image.array_to_img(image).resize(self.model_input_shape)
         image = keras_image.img_to_array(image)
+        image = preprocess_input(image)
         image = np.expand_dims(image,0)
         return image
     def predict(self,image):
         image = self.preprocess(image)        
-        res = self.model.predict(image,steps=1)
+        res = self.model.predict(image,steps=1)[0]
+        probabble_class = np.argmax(res)
+        print("Gussed ",self.index_classes[probabble_class]," with probabillity ",res[probabble_class])
         return res
 
 rec = Recognizer()
@@ -175,8 +181,7 @@ class ObjectDetector:
             rgb_image = bridge.imgmsg_to_cv2(self.rgb_image_msg,"rgb8")
             depth_image = bridge.imgmsg_to_cv2(self.depth_msg,"passthrough")
             hsv_image =  cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
-            #res = rec.predict(rgb_image)
-            #print("guessed = ", np.round(res,2))
+            res = rec.predict(rgb_image)
             #cv2.GaussianBlur(hsv_image,(11,11),3,hsv_image)
             if DEBUGGING:
                 mask_union = None
