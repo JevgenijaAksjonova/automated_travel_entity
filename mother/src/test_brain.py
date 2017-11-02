@@ -45,7 +45,7 @@ class Mother:
     # before classification, "type" is "an_object"
 
     object_classification_queue = []
-    
+
     def __init__(self):
         # Add your subscribers and publishers, services handels
         # and any other initialisation bellow
@@ -101,11 +101,10 @@ class Mother:
         #TODO: Find resonable way of getting into position
         
         pose = Pose2D()
-        pose.x = object_pos[0] + 1
-        pose.y = object_pos[1] + 1
-        pose.z = 0
+        pose.x = object_pos[0]
+        pose.y = object_pos[1]
         pose.theta = 0
-        
+
         return pose
 
     def go_to_pose(self,pose):
@@ -118,7 +117,7 @@ class Mother:
 
     def try_classify(self,pos):
         #We are assuming that we now are in a position to see only one object
-        #Which is ofcourse unresonable, but we will deal with determening which of the
+        #Which is of course unresonable, but we will deal with determening which of the
         #objects we are seeing that is at classification_object_pos later.
 
     # Main mother loop
