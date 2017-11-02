@@ -139,7 +139,7 @@ class ObjectDetector:
             "red":(np.array([110,240,10]),np.array([120,255,255])),
             "green":(np.array([45,50,10]),np.array([85,255,255])),
             "yellow":(np.array([0,180,100]),np.array([0,255,255])),
-            "blue":(np.array([18,100,15]),np.array([35,256,200])),
+            "blue":(np.array([18,100,15]),np.array([35,255,200])),
             "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
 
     def image_callback(self,ros_image):
