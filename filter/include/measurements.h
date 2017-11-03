@@ -8,3 +8,13 @@
 using namespace std;
 
 void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance);
+
+struct Particle{
+    float xPos;
+    float yPos;
+    float thetaPos;
+    float weight;
+    Particle (): xPos(0), yPos(0), thetaPos(0), weight(1) {}
+
+};
+

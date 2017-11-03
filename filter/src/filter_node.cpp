@@ -3,8 +3,16 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
 #include <tf/transform_broadcaster.h>
+#include <sensor_msgs/LaserScan.h>
 #include <math.h>
+#include <functional>
 #include <random>
+#include <chrono>
+#include <ctime>
+#include <cstdlib>
+
+#include "localization_global_map.h"
+#include "measurements.h"
 
 
 /**
@@ -17,11 +25,11 @@ public:
     ros::Publisher filter_publisher;
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
-    double xpos;
-    double ypos;
-    double theta;
-    double pi;
-    std::vector<double> dphi_dt;
+    float xpos;
+    float ypos;
+    float theta;
+    float pi;
+    std::vector<float> dphi_dt;
     tf::TransformBroadcaster odom_broadcaster;
 
     ros::Subscriber lidar_subscriber;
@@ -31,16 +39,6 @@ public:
     float range_max;
 
     void callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-
-    struct Particle{
-        double xPos;
-        double yPos;
-        double thetaPos;
-        double weight;
-    };
-
-    Particle::Particle(double x, double y, double theta): xPos(x), yPos(y), thetaPos(theta) {}
-
 
 
 
@@ -55,8 +53,8 @@ public:
 
         encoding_abs_prev = std::vector<int>(2,0);
         encoding_abs_new = std::vector<int>(2,0);
-        encoding_delta = std::vector<double>(2,0);
-        dphi_dt = std::vector<double>(2, 0.0);
+        encoding_delta = std::vector<float>(2,0);
+        dphi_dt = std::vector<float>(2, 0.0);
 
         //set up random
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -65,10 +63,9 @@ public:
         first_loop = true;
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
-        encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
-        encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
-        lidar_subscriber = nh.subscribe("/scan", 1, &lidarCallback, this);
-
+        encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
+        encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
+        lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
 
         wheel_r = 0.04;
         base_d = 0.25;
@@ -79,6 +76,14 @@ public:
         k_D=1;
         k_V=1;
         k_W=1;
+
+        float start_xy = 5.0;
+        float spread_xy = 2.0;
+        float start_theta = 0.0;
+        float spread_theta = pi/8;
+        int nr_particles = 200;
+
+        initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
 
 
     }
@@ -105,11 +110,77 @@ public:
     }
 
 
+    void initializeParticles(float start_xy, float spread_xy, float start_theta, float spread_theta, int nr_particles){
+
+        std::normal_distribution<float> dist_start_xy = std::normal_distribution<float>(start_xy, spread_xy);
+        std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(start_theta, spread_theta);
+
+
+
+        particles.resize(nr_particles);
+        for (int i = 0; i<nr_particles; i++){
+            
+            particles[i].xPos = dist_start_xy(generator);
+            particles[i].yPos = dist_start_xy(generator);
+            particles[i].thetaPos = dist_start_theta(generator);
+            particles[i].weight = (float) 1.0/nr_particles;
+        }
+
+        for (int i = 0; i<nr_particles; i++){
+            ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
+        }
+
+
+    }
+
+    void localize(){
+
+        //Reset weights
+        for (int m = 0; m < particles.size(); m++){
+            particles[m].weight = (float) 1.0/particles.size();
+        }
+        
+        calculateVelocityAndNoise();
+
+        //update according to odom
+        for (int m = 0; m < particles.size(); m++){
+            sample_motion_model(particles[m]);
+        }
+        //update weights according to measurements
+        measurement_model();
+
+        //sample particles with replacement
+        float weight_sum = 0.0;
+        srand (static_cast <unsigned> (time(0)));
+        for (int m = 0; m < particles.size(); m++){
+            weight_sum += particles[m].weight;
+        }
+
+        float rand_num;
+        float cumulativeProb = 0.0;
+        int j;
+        std::vector<Particle> temp_vec;
+        
+        for (int i = 0; i < particles.size(); i++){
+            j = 0;
+            rand_num= static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/weight_sum));
+
+            while (cumulativeProb<rand_num){
+                cumulativeProb += particles[j].weight;
+                j++;
+            }
+
+            temp_vec.push_back(particles[j]);
+    }
+    particles.swap(temp_vec);
+    
+
+
+
+    }
+
+
     void calculateVelocityAndNoise(){
-
-
-        ros::Time current_time = ros::Time::now();
-
 
         if(first_loop){
             encoding_abs_prev[0] = encoding_abs_new[0];
@@ -131,17 +202,17 @@ public:
         linear_v = (wheel_r/2)*(dphi_dt[1] + dphi_dt[0]);
         angular_w = (wheel_r/base_d)*(dphi_dt[1] - dphi_dt[0]);
 
-        dist_D = std::normal_distribution<double>(0.0 (linear_v*dt*k_D)**2);
-        dist_V = std::normal_distribution<double>(0.0 (linear_v*dt*k_V)**2);
-        dist_W = std::normal_distribution<double>(0.0 (angular_w*dt*k_W)**2);
+        dist_D = std::normal_distribution<float>(0.0, pow((linear_v*dt*k_D), 2));
+        dist_V = std::normal_distribution<float>(0.0, pow((linear_v*dt*k_V), 2));
+        dist_W = std::normal_distribution<float>(0.0, pow((angular_w*dt*k_W), 2));
 
 
     }
-    void updateParticlePosition(Particle p){
+    void sample_motion_model(Particle &p){
 
-        double noise_D = dist_D(generator);
-        double noise_V = dist_V(generator);
-        double noise_W = dist_W(generator);
+        float noise_D = dist_D(generator);
+        float noise_V = dist_V(generator);
+        float noise_W = dist_W(generator);
 
         p.xPos += (linear_v*dt + noise_D)*cos(theta);
         p.yPos += (linear_v*dt + noise_D)*sin(theta);
@@ -155,28 +226,49 @@ public:
         }
     }
 
+    void measurement_model(){
+        //Sample the measurements
+        int nr_measurements_used = 4;
+        int step_size = ranges.size()/nr_measurements_used;
+        std::vector<pair<float, float>> sampled_measurements;
+        float angle = 0.0;
+
+        for(int i = 0; i = i + step_size; i<ranges.size()){
+            angle = i*angle_increment;
+            std::pair <float,float> angle_measurement (angle, ranges[i]);
+            sampled_measurements.push_back(angle_measurement);
+        }
+
+        //update particle weights
+        particlesWeight(particles, sampled_measurements);
+
+
+        return (float) 1.0/particles.size();
+    }
+
 private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
-    std::vector<double> encoding_delta;
+    std::vector<float> encoding_delta;
     std::default_random_engine generator;
-    std::normal_distribution dist_D;
-    std::normal_distribution dist_V;
-    std::normal_distribution dist_W;
+    std::normal_distribution<float> dist_D;
+    std::normal_distribution<float> dist_V;
+    std::normal_distribution<float> dist_W;
+    std::vector<Particle> particles;
 
-    double wheel_r = 0.04;
-    double base_d = 0.25;
+    float wheel_r = 0.04;
+    float base_d = 0.25;
     int tick_per_rotation = 900;
-    double control_frequenzy = 10; //10 hz
-    double dt = 1/control_frequenzy;
+    float control_frequenzy = 10; //10 hz
+    float dt = 1/control_frequenzy;
     int control_frequency;
     bool first_loop;
-    double linear_v;
-    double angular_w;
+    float linear_v;
+    float angular_w;
 
-    double k_D;
-    double k_V;
-    double k_W;
+    float k_D;
+    float k_V;
+    float k_W;
 
 
 };
@@ -184,20 +276,21 @@ private:
 
 int main(int argc, char **argv)
 {
+    ROS_INFO("Spin!");
 
-    double frequency = 10;
+
+    float frequency = 10;
     ros::init(argc, argv, "filter_publisher");
 
     FilterPublisher filter(frequency);
 
-    ROS_INFO("Spin!");
 
     ros::Rate loop_rate(frequency);
 
     int count = 0;
-    while (odom.n.ok()){
+    while (filter.n.ok()){
 
-        filter.calculateNewPosition();
+        filter.localize();
         ros::spinOnce();
 
         loop_rate.sleep();
