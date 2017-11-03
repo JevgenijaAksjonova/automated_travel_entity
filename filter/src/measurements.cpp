@@ -6,7 +6,6 @@
 
 #include <measurements.h>
 
-
 pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser)
 {
 
