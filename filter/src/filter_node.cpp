@@ -3,6 +3,9 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <math.h>
+#include <functional>
+#include <random>
+#include <chrono>
 
 
 /**
@@ -26,9 +29,12 @@ public:
         double xPos;
         double yPos;
         double thetaPos;
+        double weight;
+        Particle (): xPos(0), yPos(0), thetaPos(0), weight(1) {}
+
     };
 
-    Particle::Particle(double x, double y, double theta): xPos(x), yPos(y), thetaPos(theta) {}
+    //Particle::Particle(double x, double y, double theta, double weight): xPos(x), yPos(y), thetaPos(theta), weight(weight) {}
 
 
 
@@ -54,8 +60,8 @@ public:
         first_loop = true;
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
-        encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
-        encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
+        encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
+        encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
 
         wheel_r = 0.04;
         base_d = 0.25;
@@ -66,6 +72,12 @@ public:
         k_D=1;
         k_V=1;
         k_W=1;
+
+        int x_spread = 10;
+        int y_spread = 10;
+        int nr_particles = 100;
+
+        initializeParticles(x_spread, y_spread, nr_particles);
 
 
     }
@@ -79,6 +91,28 @@ public:
 
     void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
         encoding_abs_new[1] = -(msg->count);
+
+    }
+
+    void initializeParticles(int x_spead, int y_spread, int nr_particles){
+
+        particles.resize(nr_particles);
+        for (int i = 0; i<nr_particles; i++){
+            particles[i].xPos = (double) i;
+            particles[i].yPos = (double) i;
+            particles[i].thetaPos = (double) i;
+        }
+
+        for (int i = 0; i<nr_particles; i++){
+            ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
+        }
+
+
+    }
+
+    void localize(){
+
+
 
     }
 
@@ -109,13 +143,13 @@ public:
         linear_v = (wheel_r/2)*(dphi_dt[1] + dphi_dt[0]);
         angular_w = (wheel_r/base_d)*(dphi_dt[1] - dphi_dt[0]);
 
-        dist_D = std::normal_distribution<double>(0.0 (linear_v*dt*k_D)**2);
-        dist_V = std::normal_distribution<double>(0.0 (linear_v*dt*k_V)**2);
-        dist_W = std::normal_distribution<double>(0.0 (angular_w*dt*k_W)**2);
+        dist_D = std::normal_distribution<double>(0.0, pow((linear_v*dt*k_D), 2));
+        dist_V = std::normal_distribution<double>(0.0, pow((linear_v*dt*k_V), 2));
+        dist_W = std::normal_distribution<double>(0.0, pow((angular_w*dt*k_W), 2));
 
 
     }
-    void updateParticlePosition(Particle p){
+    void sample_motion_model(Particle p){
 
         double noise_D = dist_D(generator);
         double noise_V = dist_V(generator);
@@ -133,14 +167,19 @@ public:
         }
     }
 
+    void measurement_model(Particle p){
+        //Sample the measurements
+    }
+
 private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
     std::vector<double> encoding_delta;
     std::default_random_engine generator;
-    std::normal_distribution dist_D;
-    std::normal_distribution dist_V;
-    std::normal_distribution dist_W;
+    std::normal_distribution<double> dist_D;
+    std::normal_distribution<double> dist_V;
+    std::normal_distribution<double> dist_W;
+    std::vector<Particle> particles;
 
     double wheel_r = 0.04;
     double base_d = 0.25;
@@ -162,20 +201,21 @@ private:
 
 int main(int argc, char **argv)
 {
+    ROS_INFO("Spin!");
+
 
     double frequency = 10;
     ros::init(argc, argv, "filter_publisher");
 
     FilterPublisher filter(frequency);
 
-    ROS_INFO("Spin!");
 
     ros::Rate loop_rate(frequency);
 
     int count = 0;
-    while (odom.n.ok()){
+    while (filter.n.ok()){
 
-        filter.calculateNewPosition();
+        filter.localize();
         ros::spinOnce();
 
         loop_rate.sleep();

@@ -22,3 +22,4 @@ include_directories(
 )
 add_executable(filter_node src/filter_node.cpp)
 target_link_libraries(filter_node ${catkin_LIBRARIES})
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
