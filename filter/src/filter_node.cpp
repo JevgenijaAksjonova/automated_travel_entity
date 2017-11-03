@@ -11,9 +11,9 @@
 #include <ctime>
 #include <cstdlib>
 
-#include "localization_global_map.h"
 #include "measurements.h"
 
+class LocalizationGlobalMap;
 
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
@@ -37,6 +37,8 @@ public:
     float angle_increment;
     float range_min;
     float range_max;
+
+    LocalizationGlobalMap map;
 
     void callback(const sensor_msgs::LaserScan::ConstPtr& msg);
 
@@ -107,6 +109,10 @@ public:
 
         range_min = msg->range_min;
         range_max = msg->range_max;
+    }
+
+    void createMapRepresentation(std::string map_filename, float cellSize) {
+        map = LocalizationGlobalMap(map_filename, cellSize);
     }
 
 
@@ -232,6 +238,7 @@ public:
         int step_size = ranges.size()/nr_measurements_used;
         std::vector<pair<float, float>> sampled_measurements;
         float angle = 0.0;
+        float max_distance = 3.0;
 
         for(int i = 0; i = i + step_size; i<ranges.size()){
             angle = i*angle_increment;
@@ -240,7 +247,7 @@ public:
         }
 
         //update particle weights
-        particlesWeight(particles, sampled_measurements);
+        getParticlesWeight(particles, map, sampled_measurements, max_distance);
 
 
         return (float) 1.0/particles.size();
@@ -280,10 +287,16 @@ int main(int argc, char **argv)
 
 
     float frequency = 10;
+
+
+    std::string _filename_map = "/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/test.txt";
+    float cellSize = 0.01;
+
     ros::init(argc, argv, "filter_publisher");
 
     FilterPublisher filter(frequency);
 
+    filter.createMapRepresentation(_filename_map, cellSize);
 
     ros::Rate loop_rate(frequency);
 
