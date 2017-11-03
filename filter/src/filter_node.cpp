@@ -2,6 +2,7 @@
 #include <phidgets/motor_encoder.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
+#include <sensor_msgs/LaserScan.h>
 #include <math.h>
 #include <functional>
 #include <random>
@@ -34,6 +35,14 @@ public:
 
     };
 
+    ros::Subscriber lidar_subscriber;
+    std::vector<float> ranges;
+    float angle_increment;
+    float range_min;
+    float range_max;
+
+void callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+
     //Particle::Particle(double x, double y, double theta, double weight): xPos(x), yPos(y), thetaPos(theta), weight(weight) {}
 
 
@@ -62,6 +71,7 @@ public:
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
+        lidar_subscriber = nh.subscribe("/scan", 1, &lidarCallback, this);
 
         wheel_r = 0.04;
         base_d = 0.25;
@@ -73,11 +83,13 @@ public:
         k_V=1;
         k_W=1;
 
-        int x_spread = 10;
-        int y_spread = 10;
-        int nr_particles = 100;
+        double start_xy = 5.0;
+        double spread_xy = 2.0;
+        double start_theta = 0.0;
+        double spread_theta = pi/8;
+        int nr_particles = 200;
 
-        initializeParticles(x_spread, y_spread, nr_particles);
+        initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
 
 
     }
@@ -94,13 +106,30 @@ public:
 
     }
 
-    void initializeParticles(int x_spead, int y_spread, int nr_particles){
+
+    void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
+    {
+        ranges = msg->ranges;
+        angle_increment = msg->angle_increment;
+
+        range_min = msg->range_min;
+        range_max = msg->range_max;
+    }
+
+    void initializeParticles(double start_xy, double spread_xy, double start_theta, double spread_theta, int nr_particles){
+
+        std::normal_distribution<double> dist_start_xy = std::normal_distribution<double>(start_xy, spread_xy);
+        std::normal_distribution<double> dist_start_theta = std::normal_distribution<double>(start_theta, spread_theta);
+
+
 
         particles.resize(nr_particles);
         for (int i = 0; i<nr_particles; i++){
-            particles[i].xPos = (double) i;
-            particles[i].yPos = (double) i;
-            particles[i].thetaPos = (double) i;
+            
+            particles[i].xPos = dist_start_xy(generator);
+            particles[i].yPos = dist_start_xy(generator);
+            particles[i].thetaPos = dist_start_theta(generator);
+            particles[i].weight = (double) 1.0/nr_particles;
         }
 
         for (int i = 0; i<nr_particles; i++){
@@ -111,6 +140,12 @@ public:
     }
 
     void localize(){
+        calculateVelocityAndNoise();
+        double weight = 0;
+        for (int m = 0; m < particles.size(); m++){
+            sample_motion_model(particles[m]);
+            particles[m].weight = measurement_model(particles[m]);
+        }
 
 
 
@@ -118,10 +153,6 @@ public:
 
 
     void calculateVelocityAndNoise(){
-
-
-        ros::Time current_time = ros::Time::now();
-
 
         if(first_loop){
             encoding_abs_prev[0] = encoding_abs_new[0];
@@ -149,7 +180,7 @@ public:
 
 
     }
-    void sample_motion_model(Particle p){
+    void sample_motion_model(Particle &p){
 
         double noise_D = dist_D(generator);
         double noise_V = dist_V(generator);
@@ -167,8 +198,10 @@ public:
         }
     }
 
-    void measurement_model(Particle p){
+    double measurement_model(Particle &p){
         //Sample the measurements
+
+        return (double) 1.0/particles.size();
     }
 
 private:
