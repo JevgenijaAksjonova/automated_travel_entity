@@ -1,23 +1,27 @@
-#include "ros/ros.h"
+
+#include <ros/ros.h>
 #include <tf/transform_listener.h>
 #include <math.h>
 #include <vector>
 
-using namespace std;
+#include <measurements.h>
 
-pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser) {
+
+pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser)
+{
 
     float x_world = x_particle +
-            cos(theta_particle) * lidar_x - sin(theta_particle) * lidar_y +
-            range_laser * cos(theta_particle + (angle_laser + lidar_orientation));
+                    cos(theta_particle) * lidar_x - sin(theta_particle) * lidar_y +
+                    range_laser * cos(theta_particle + (angle_laser + lidar_orientation));
     float y_world = y_particle +
-            sin(theta_particle) * lidar_x + cos(theta_particle) * lidar_y +
-            range_laser * sin(theta_particle + (angle_laser + lidar_orientation));
+                    sin(theta_particle) * lidar_x + cos(theta_particle) * lidar_y +
+                    range_laser * sin(theta_particle + (angle_laser + lidar_orientation));
 
     return pair<float, float>(x_world, y_world);
 }
 
-float distancesToRange(pair<float, float> wall_distances, pair<float, float> base_distances) {
+float distancesToRange(pair<float, float> wall_distances, pair<float, float> base_distances)
+{
 
     float x1 = wall_distances.first;
     float y1 = wall_distances.second;
@@ -30,18 +34,23 @@ float distancesToRange(pair<float, float> wall_distances, pair<float, float> bas
     return distance;
 }
 
-pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char> > global_map, float cellSize, float angle, int x_base, int y_base) {
-    int x = x_base;
-    int y = y_base;
+pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_map, float cellSize, float angle, pair<int, int> base_coordinates)
+{
+    int x = base_coordinates.first;
+    int y = base_coordinates.second;
     bool wallFound = false;
 
-    float maxDistance = 2.0/cellSize;
+    float maxDistance = 2.0 / cellSize;
 
     int count = 0;
-    while(!wallFound && count < maxDistance) {
-        if(global_map[x][y] == 1) {
+    while (!wallFound && count < maxDistance)
+    {
+        if (global_map[x][y] == 1)
+        {
             wallFound = true;
-        } else {
+        }
+        else
+        {
             x = round(x + cos(angle));
             y = round(y + sin(angle));
             count++;
@@ -51,10 +60,55 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char> > global_m
     return pair<int, int>(x, y);
 }
 
-float calculateWeight(Particle particle, vector<float> laser_ranges, double max_distance) {
+//MIGHT HAVE TO LOOK FOR INFINITES HERE IN CLOSESTWALLCOORDINATES
+vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, Particle particle, vector<pair<float, float>> laser_data)
+{
+
+    float x = particle.xPos;
+    float y = particle.yPos;
+    float theta = particle.thetaPos;
+
+    float lidar_x = 0.1;
+    float lidar_y = 0;
+    float lidar_orientation = M_PI/2;
+
+    
+    pair<int, int> particle_coordinates = map.getCell(x, y);
+
+    pair<float, float> particle_real_coordinates = map.getDistance(particle_coordinates.first, particle_coordinates.second);    
+
+    float currentAngle = 0;
+
+    vector<pair<float, float>> ranges;
+
+    for(int i = 0; i < laser_data.size(); i++) {
+
+        float distance_real = 0;        
+
+        currentAngle = laser_data[i].first;
+        
+        pair<int, int> closestWall_coordinates = getClosestWallCoordinates(map.global_map, map.cellSize, currentAngle, particle_coordinates);
+        
+        pair<float, float> wall_real_coordinates = map.getDistance(closestWall_coordinates.first, closestWall_coordinates.second);
+
+        distance_real = distancesToRange(wall_real_coordinates, particle_real_coordinates);
+
+
+        //pair<float, float> measurement_coordinates = localToWorldCoordinates(x, y, theta, lidar_x, lidar_y, lidar_orientation, laser_data.first, laser_data.second);    
+                
+
+
+        pair<float, float> range = make_pair(distance_real, laser_data[i].second);
+
+        ranges.push_back(range);
+    }
+
+    return ranges;
+}
+
+float calculateWeight(LocalizationGlobalMap map, Particle particle, vector<pair<float, float>> laser_data, double max_distance)
+{
     double weight = 0;
-
-
 
     double z_hit;
     double z_short;
@@ -64,93 +118,73 @@ float calculateWeight(Particle particle, vector<float> laser_ranges, double max_
     double sigma_hit;
     double lambda_short;
 
-    vector<pair<double, double>> rangeWithTrueRange = calculateTrueRange(particle, laser_ranges);
-
-    double realRange = rangeWithTrueRange.first;
-    double measuredRange = rangeWithTrueRange.second;
+    vector<pair<double, double>> rangeWithTrueRange = calculateRealRange(map, particle, laser_data);
 
     double q = 1;
 
-    for(int r = 0; r < rangeWithTrueRange.length; r++) {
+    for (int r = 0; r < rangeWithTrueRange.size(); r++)
+    {
         double prob_hit = 0;
         double prob_short = 0;
         double prob_max = 0;
         double prob_random = 0;
 
+        double realRange = rangeWithTrueRange[r].first;
+        double measuredRange = rangeWithTrueRange[r].second;
+
         double p = 0;
 
         // Calculate the hit probability
-        if(0 <= measuredRange && measuredRange <= max_distance) {
+        if (0 <= measuredRange && measuredRange <= max_distance)
+        {
             normal_distribution<double> distribution(realRange, sigma_hit);
             float prob = distribution(measuredRange);
 
             // CALCULATE ETA, FIND SOLUTION LATER
-            float eta = 0;
+            float eta_hit = 0;
 
-            prob_hit = prob * eta;
+            prob_hit = prob * eta_hit;
         }
 
         // Calculate the short (unexpected objects) probability
+        if (0 <= measuredRange && measuredRange <= realRange)
+        {
+            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
 
-
-
+            prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
+        }
 
         // Calculate the max probability
-
+        if (measuredRange > max_distance)
+        {
+            prob_max = 1;
+        }
 
         // Calculate the random readings probability
+        if (0 <= measuredRange && measuredRange < max_distance)
+        {
+            prob_random = 1 / max_distance;
+        }
 
-
-
+        p = z_hit * prob_hit + z_short * prob_short + z_max * prob_max + z_random * prob_random;
 
         q *= p;
     }
 
+    weight = q;
+
+    return weight;
 }
 
 
-vector<Particle> particlesWeight(vector<Particle> particles, vector<float> laser_ranges, float max_distance) {
+void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance)
+{
     float weight = 0;
 
-    for(int p = 0; p < particles.length; p++) {
-        weight = calculateWeight(particles[i], laser_ranges, max_distance);
+    for (int p = 0; p < particles.size(); p++)
+    {
+        weight = calculateWeight(map, particles[p], laser_data, max_distance);
         particles[p].weight = weight;
     }
 
-
-    return particles;
 }
-
-
-/*
-std::vector<std::vector<int>> createLocalMap(std::vector<float> ranges, float angle_increment, float x_particle, float y_particle, float theta_particle, std::vector<std::vector<int>> local_map)
-{
-    float current_angle = M_PI;
-    float x_offset = 0.10;
-    float y_offset = 0;
-    float theta_offset = M_PI;
-
-    int x_max;
-    int y_max;
-    int x_min;
-    int y_min;
-
-    // std::vector<std::vector<int>> global_map;
-    // Should be in calling function
-    // memset(local_map, 0, sizeof(global_map));
-
-
-    for(int i = 0; i < ranges.size(); i++) {
-        if(!isinf(ranges[i])) {
-            pair<float, float> world_coordinates = localToWorldCoordinates(x_particle, y_particle, theta_particle, x_offset, y_offset, theta_offset, ranges[i], current_angle);
-
-            local_map[x_world_coordinate][y_world_coordinate] = 1;
-        }
-        current_angle -= angle_increment;
-    }
-
-
-    return local_map;
-}
-
-*/

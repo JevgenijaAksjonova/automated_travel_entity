@@ -1,3 +1,4 @@
+
 #include <sstream>
 #include <fstream>
 #include <vector>
@@ -114,12 +115,6 @@ void LocalizationGlobalMap::createMap(string filename) {
         if (y0 > y1) {
             sy = -1;
         }
-/*
-        ROS_INFO("dx: %f, dy: %f", dx, dy);
-        ROS_INFO("x0: %d, y0: %d", x0, y0);
-        ROS_INFO("x1: %d, y1: %d", x1, y1);
-        ROS_INFO("sx: %d, sy: %d", sx, sy);
-*/
 
         if(dx == 0) {
             while (y != y1) {
