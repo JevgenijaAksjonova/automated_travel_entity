@@ -11,7 +11,6 @@
 #include <ctime>
 #include <cstdlib>
 
-#include "localization_global_map.h"
 #include "measurements.h"
 
 
@@ -240,7 +239,7 @@ public:
         }
 
         //update particle weights
-        particlesWeight(particles, sampled_measurements);
+        getParticlesWeight(particles, sampled_measurements);
 
 
         return (float) 1.0/particles.size();
