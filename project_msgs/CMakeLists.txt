@@ -9,6 +9,12 @@ add_message_files(
     stop.msg
 )
 
+add_service_files(
+  DIRECTORY srv
+  FILES
+    direction.srv
+)
+
 generate_messages(
   DEPENDENCIES std_msgs
 )

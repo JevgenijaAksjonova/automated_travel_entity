@@ -12,7 +12,6 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
-#include <project_msgs/stop.h>
 #include <tf/transform_broadcaster.h>
 #include <sstream>
 #include <math.h>
@@ -21,6 +20,8 @@
 
 #include <global_path_planner.h>
 #include <map_visualization.h>
+#include <project_msgs/stop.h>
+#include "project_msgs/direction.h"
 
 using namespace std;
 
@@ -101,6 +102,8 @@ class Path {
 
     vector<pair<double,double> > globalPath;
 
+    ros::ServiceClient lppService;
+
     Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI/45.0), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
@@ -115,6 +118,7 @@ class Path {
     double distance(pair<double,double>& a, pair<double, double>& b);
     double getAngle(pair<double,double> &g, pair<double, double> &p);
     double diffAngles(double a, double b) ;
+    void amendDirection();
 };
 
 void Path::setGoal(double x, double y, double theta) {
@@ -168,7 +172,10 @@ void Path::followPath(double x, double y, double theta) {
     pair<double,double> goal(goalX,goalY);
     double dist = distance(goal,loc);
     if (globalPath.size() > 0 ) {
-        while (globalPath.size() > 1 && distance(globalPath[0],loc) < pathRad) {
+        while (globalPath.size() > 1 && 
+                   (distance(globalPath[0],loc) < pathRad ||
+                    distance(globalPath[1], loc) < distance(globalPath[0], loc))
+               ) {
             globalPath.erase(globalPath.begin());
         }
         linVel = distance(globalPath[0], loc);
@@ -195,6 +202,10 @@ void Path::followPath(double x, double y, double theta) {
         linVel = 0;
         angVel = 0;
     }
+    // avoid turns with big radius, turn first, then move
+    if (fabs(angVel) > M_PI/2.0 && linVel > 0) {
+        linVel = 0;
+    }
 }
 
 void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
@@ -203,6 +214,15 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
         move = false;
         string msg = "STOP!";
         ROS_INFO("%s/n", msg.c_str());
+    }
+}
+
+void Path::amendDirection() {
+    project_msgs::direction srv;
+    srv.request.linVel = linVel;
+    srv.request.angVel = angVel;
+    if (lppService.call(srv)) {
+        angVel = srv.response.angVel;
     }
 }
 
@@ -224,6 +244,7 @@ int main(int argc, char **argv)
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
+  path.lppService = n.serviceClient<project_msgs::direction>("/local_path");
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);

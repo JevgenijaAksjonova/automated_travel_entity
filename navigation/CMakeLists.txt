@@ -20,4 +20,8 @@ add_executable(navigation_node src/navigation_node.cpp include/global_path_plann
 target_link_libraries(navigation_node ${catkin_LIBRARIES})
 add_dependencies(navigation_node geometry_msgs)
 
+add_executable(local_map_node src/local_map_node.cpp)
+target_link_libraries(local_map_node ${catkin_LIBRARIES})
+add_dependencies(local_map_node geometry_msgs)
+
 #add_executable(global_path_planner src/global_path_planner.cpp)
