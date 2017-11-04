@@ -11,13 +11,16 @@
 #include "std_msgs/Bool.h"
 #include "sensor_msgs/LaserScan.h"
 #include "math.h"
-#include "visualization_msgs/Marker.h"
 #include "project_msgs/direction.h"
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 using namespace std;
 
 class LocalPathPlanner {
   public:
+    ros::Publisher lppViz;
+
     LocalPathPlanner(double p_robotRad, double p_mapRad):
                                     robotRad(p_robotRad),
                                     mapRad(p_mapRad),
@@ -26,6 +29,7 @@ class LocalPathPlanner {
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
+    void showLocalMap();
   private:
     double mapRad;
     double robotRad;
@@ -106,31 +110,35 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
 
 }
 
-void showRestrictedArea(ros::Publisher vis_pub) {
+void LocalPathPlanner::showLocalMap() {
 
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "laser";
-    marker.header.stamp = ros::Time();
-    marker.ns = "restricted_area";
-    marker.id = 0;
-    marker.type = visualization_msgs::Marker::CYLINDER;
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.pose.position.x = 0.1;
-    marker.pose.position.y = 0;
-    marker.pose.position.z = 0;
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.27*2;
-    marker.scale.y = 0.17*2;
-    marker.scale.z = 0.1;
-    marker.color.a = 0.5; // Don't forget to set the alpha!
-    marker.color.r = 0.0;
-    marker.color.g = 1.0;
-    marker.color.b = 0.0;
-
-    vis_pub.publish(marker);
+    visualization_msgs::MarkerArray markers;
+    for (int i = 0; i < localMap.size(); i++) {
+        if (localMap[i] > 0) {
+            visualization_msgs::Marker marker;
+            marker.header.frame_id = "/base_link";
+            marker.header.stamp = ros::Time::now();
+            marker.ns = "local_map";
+            marker.type = visualization_msgs::Marker::CUBE;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.pose.position.x = localMap[i]*cos(2.0*M_PI*i/360);
+            marker.pose.position.y = localMap[i]*sin(2.0*M_PI*i/360);
+            marker.pose.position.z = 0;
+            marker.pose.orientation.x = 0.0;
+            marker.pose.orientation.y = 0.0;
+            marker.pose.orientation.z = 0.0;
+            marker.pose.orientation.w = 1.0;
+            marker.scale.x = 0.1;
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+            marker.color.a = 0.5;
+            marker.color.r = 1.0;
+            marker.color.g = 0.0;
+            marker.color.b = 0.0;
+            markers.markers.push_back(marker);
+        }
+    }
+    lppViz.publish(markers);
 }
 
 
@@ -140,9 +148,10 @@ int main(int argc, char **argv) {
     ros::NodeHandle nh;
 
     LocalPathPlanner lpp(0.13, 0.20);
-    ros::ServiceServer service = nh.advertiseService("/local_path", &LocalPathPlanner::amendDirection, &lpp);
+    ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 
+    lpp.lppViz = nh.advertise<visualization_msgs::MarkerArray>("navigation/visualize_lpp", 1);
     ros::Rate loop_rate(10);
 
     while (ros::ok())

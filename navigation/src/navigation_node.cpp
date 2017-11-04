@@ -244,7 +244,7 @@ int main(int argc, char **argv)
   GoalPosition goal = GoalPosition();
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
-  path.lppService = n.serviceClient<project_msgs::direction>("/local_path");
+  path.lppService = n.serviceClient<project_msgs::direction>("local_path");
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
