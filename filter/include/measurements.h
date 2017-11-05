@@ -3,10 +3,10 @@
 #include <math.h>
 #include <vector>
 
-#ifndef LOCALIZATION_GLOBAL_MAP_H
-#define HEADER_H
-    #include "localization_global_map.h"
-#endif
+#ifndef _MEASUREMENTS_INCLUDED
+#define _MEASUREMENTS_INCLUDED
+#include "localization_global_map.h"
+
 
 using namespace std;
 
@@ -20,4 +20,4 @@ struct Particle{
 };
 
 void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance);
-
+#endif

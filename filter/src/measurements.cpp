@@ -133,7 +133,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         if (0 <= measuredRange && measuredRange <= max_distance)
         {
             normal_distribution<float> distribution(realRange, sigma_hit);
-            float prob = distribution(measuredRange);
+            float prob = 0.5;
 
             // CALCULATE ETA, FIND SOLUTION LATER
             float eta_hit = 0;

@@ -3,6 +3,8 @@
 #include <vector>
 #include <nav_msgs/OccupancyGrid.h>
 
+#ifndef _MAP_INCLUDED
+#define _MAP_INCLUDED
 
 using namespace std;
 
@@ -26,3 +28,4 @@ private:
     void createMap(string _filename_map);
     void createOccupancyGrid();
 };
+#endif

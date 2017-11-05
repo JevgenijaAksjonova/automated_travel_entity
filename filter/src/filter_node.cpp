@@ -11,10 +11,8 @@
 #include <ctime>
 #include <cstdlib>
 
-#include "measurements.h"
-
-class LocalizationGlobalMap;
-
+#include <localization_global_map.h>
+#include <measurements.h>
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
@@ -38,10 +36,7 @@ public:
     float range_min;
     float range_max;
 
-    LocalizationGlobalMap map;
-
-    void callback(const sensor_msgs::LaserScan::ConstPtr& msg);
-
+    //LocalizationGlobalMap map;
 
 
     FilterPublisher(int frequency){
@@ -111,9 +106,9 @@ public:
         range_max = msg->range_max;
     }
 
-    void createMapRepresentation(std::string map_filename, float cellSize) {
-        map = LocalizationGlobalMap(map_filename, cellSize);
-    }
+    // void createMapRepresentation(std::string map_filename, float cellSize) {
+    //     map = LocalizationGlobalMap(map_filename, cellSize);
+    // }
 
 
     void initializeParticles(float start_xy, float spread_xy, float start_theta, float spread_theta, int nr_particles){
@@ -139,7 +134,7 @@ public:
 
     }
 
-    void localize(){
+    void localize(LocalizationGlobalMap map){
 
         //Reset weights
         for (int m = 0; m < particles.size(); m++){
@@ -153,7 +148,7 @@ public:
             sample_motion_model(particles[m]);
         }
         //update weights according to measurements
-        measurement_model();
+        measurement_model(map);
 
         //sample particles with replacement
         float weight_sum = 0.0;
@@ -232,7 +227,7 @@ public:
         }
     }
 
-    void measurement_model(){
+    void measurement_model(LocalizationGlobalMap map){
         //Sample the measurements
         int nr_measurements_used = 4;
         int step_size = ranges.size()/nr_measurements_used;
@@ -248,9 +243,6 @@ public:
 
         //update particle weights
         getParticlesWeight(particles, map, sampled_measurements, max_distance);
-
-
-        return (float) 1.0/particles.size();
     }
 
 private:
@@ -296,14 +288,14 @@ int main(int argc, char **argv)
 
     FilterPublisher filter(frequency);
 
-    filter.createMapRepresentation(_filename_map, cellSize);
+    LocalizationGlobalMap map(_filename_map, cellSize);
 
     ros::Rate loop_rate(frequency);
 
     int count = 0;
     while (filter.n.ok()){
 
-        filter.localize();
+        //filter.localize(map);
         ros::spinOnce();
 
         loop_rate.sleep();
