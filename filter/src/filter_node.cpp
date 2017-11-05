@@ -134,7 +134,7 @@ public:
 
     }
 
-    void localize(LocalizationGlobalMap map){
+    Particle localize(LocalizationGlobalMap map){
 
         //Reset weights
         for (int m = 0; m < particles.size(); m++){
@@ -152,9 +152,13 @@ public:
 
         //sample particles with replacement
         float weight_sum = 0.0;
+        Particle most_likely_position(0.0, 0.0, 0.0, 0.0);
         srand (static_cast <unsigned> (time(0)));
         for (int m = 0; m < particles.size(); m++){
             weight_sum += particles[m].weight;
+            if(particles[m].weight > most_likely_position.weight){
+                most_likely_position = particle[m];
+            }
         }
 
         float rand_num;
@@ -174,6 +178,8 @@ public:
             temp_vec.push_back(particles[j]);
     }
     particles.swap(temp_vec);
+        
+    return most_likely_position;
     
 
 
@@ -226,7 +232,7 @@ public:
             p.thetaPos = p.thetaPos+2*pi;
         }
         
-        //Use TF Matrix to translate p to lidar_link
+        // One alternative would be to se TF Matrix to translate p to lidar_link
     }
 
     void measurement_model(LocalizationGlobalMap map){
@@ -245,6 +251,47 @@ public:
 
         //update particle weights
         getParticlesWeight(particles, map, sampled_measurements, max_distance);
+    }
+    
+    void publishPosition(Particle ml_pos){
+        
+        
+        geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(ml_pos.thetaPos);
+        geometry_msgs::TransformStamped odom_trans;
+        odom_trans.header.stamp = current_time;
+        odom_trans.header.frame_id = "filter";
+        odom_trans.child_frame_id = "base_link";
+
+        odom_trans.transform.translation.x = ml_pos.xPos;
+        odom_trans.transform.translation.y = ml_pos.yPos;
+        odom_trans.transform.translation.z = 0.0;
+        odom_trans.transform.rotation = odom_quat;
+
+        odom_broadcaster.sendTransform(filter_trans);
+
+        // Publish odometry message
+        nav_msgs::Odometry odom_msg;
+        odom_msg.header.stamp = current_time;
+        odom_msg.header.frame_id = "filter";
+
+        odom_msg.pose.pose.position.x = ml_pos.xPos;
+        odom_msg.pose.pose.position.y = ml_pos.yPos;
+        odom_msg.pose.pose.position.z = 0.0;
+        odom_msg.pose.pose.orientation = odom_quat;
+
+        //set the velocity
+        
+        float vx = linear_v*cos(ml_pos.theta);
+        float vy = linear_v*sin(ml_pos.theta);
+        odom_msg.child_frame_id = "base_link";
+        odom_msg.twist.twist.linear.x = vx;
+        odom_msg.twist.twist.linear.y = vy;
+        odom_msg.twist.twist.angular.z = angular_w;
+
+        odom_publisher.publish(odom_msg);
+
+        ROS_INFO("new Position [%f] [%f] [%f] ", xpos, ypos, theta);
+        
     }
 
 private:
@@ -293,11 +340,14 @@ int main(int argc, char **argv)
     LocalizationGlobalMap map(_filename_map, cellSize);
 
     ros::Rate loop_rate(frequency);
+    
+    Particle most_likely_position;
 
     int count = 0;
     while (filter.n.ok()){
 
-        //filter.localize(map);
+        most_likely_position = filter.localize(map);
+        filter.publishPosition(most_likely_position);
         ros::spinOnce();
 
         loop_rate.sleep();
