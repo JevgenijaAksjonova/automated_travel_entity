@@ -181,6 +181,7 @@ void Path::followPath(double x, double y, double theta) {
         linVel = distance(globalPath[0], loc);
         double targetAng = getAngle(globalPath[0],loc);
         angVel = diffAngles(targetAng, theta);
+        amendDirection();
         if (linVel < distanceTol) {
             globalPath.erase(globalPath.begin());
             linVel = 0;
@@ -222,7 +223,9 @@ void Path::amendDirection() {
     srv.request.linVel = linVel;
     srv.request.angVel = angVel;
     if (lppService.call(srv)) {
+        cout << "Direction changed from " << angVel;
         angVel = srv.response.angVel;
+        cout << "  to " << angVel << endl;
     }
 }
 

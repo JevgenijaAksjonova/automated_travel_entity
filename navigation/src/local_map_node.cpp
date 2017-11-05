@@ -17,6 +17,11 @@
 
 using namespace std;
 
+int mod(int a, int b) {
+    while (a < 0) a +=b;
+    return a % b;
+}
+
 class LocalPathPlanner {
   public:
     ros::Publisher lppViz;
@@ -42,38 +47,69 @@ class LocalPathPlanner {
 
     vector<double> localMap;
     void updateLocalMapLidar();
-    void addRobotRadius();
+    void addRobotRadius(vector<double>& localMap);
+    void filterNoise(vector<double>& localMap);
 };
 
-void LocalPathPlanner::addRobotRadius(){
+void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
 
-    int angAdd = round(asin(robotRad/mapRad));
+    vector<double> localMapNew = localMap;
+    int angAdd = round(asin(robotRad/mapRad)/2.0/M_PI*360);
     for (int i = 0; i < localMap.size(); i++) {
         for (int j = i-angAdd; j < i+angAdd; j++) {
-            if (localMap[j % 360] > 0) {
-               localMap[i] = 1.0;
+            if (localMap[mod(j,360)] > 0) {
+               localMapNew[i] = 1.0;
             }
         }
     }
+    localMap = localMapNew;
 }
+
+void LocalPathPlanner::filterNoise(vector<double>& localMap){
+
+    vector<double> localMapNew = localMap;
+    int w = 5; // window width = 2*w +1
+    for (int i = 0; i < localMap.size(); i++) {
+        if (localMap[i] > 0) {
+            int count = 0;
+            for (int j = i-w; j <= i+w; j++) {
+                if (localMap[mod(j,360)] > 0) {
+                   count += 1;
+                }
+            }
+            if (count < w+1) {
+                localMapNew[i] = 0.0;
+            }
+        }
+    }
+    localMap = localMapNew;
+}
+
 
 void LocalPathPlanner::updateLocalMapLidar() {
 
-    localMap = vector<double>(360,0);
-    double angleLid = M_PI;
-    double xOffset = 0.10;
+    vector<double> localMapNew(360,0);
+    double angleLid = -2*M_PI;
+    double xOffset = 0.05;
     for (int i=0; i < ranges.size(); i++) {
-        double x = ranges[i]*cos(angleLid) + xOffset;
-        double y = ranges[i]*sin(angleLid);
-        double r = pow(pow(x,2)+pow(y,2),0.5);
-        double angle = atan2(y,x) + M_PI;
-        int angleInd = round(angle/2.0/M_PI *360);
-        if (r <= mapRad) {
-            localMap[angleInd] = 1.0;
+        if (!isinf(ranges[i]) ) {
+            double x = ranges[i]*cos(angleLid) + xOffset;
+            double y = ranges[i]*sin(angleLid);
+            double r = pow(pow(x,2)+pow(y,2),0.5);
+            double angle = atan2(y,x);
+            int angleInd = round(angle/2.0/M_PI *360);
+            angleInd = mod(angleInd,360);
+            if (r <= mapRad) {
+                localMapNew[angleInd] = 1.0;
+            } else {
+                localMapNew[angleInd] = 0.0;
+            }
         }
-        angleLid -= angleIncrement;
+        angleLid += angleIncrement;
     }
-
+    filterNoise(localMapNew);
+    addRobotRadius(localMapNew);
+    localMap = localMapNew;
 }
 
 void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -90,15 +126,14 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
                                       project_msgs::direction::Response &res) {
 
-    addRobotRadius();
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
     int angleIndRight = angleInd;
-    while (localMap[angleIndLeft % 360] > 0 && abs(angleIndLeft - angleInd) <= 180) {
+    while (localMap[mod(angleIndLeft,360)] > 0 && abs(angleIndLeft - angleInd) <= 180) {
         angleIndLeft--;
     }
-    while (localMap[angleIndRight % 360] > 0 && abs(angleIndRight - angleInd) <= 180) {
+    while (localMap[mod(angleIndRight,360)] > 0 && abs(angleIndRight - angleInd) <= 180) {
         angleIndRight++;
     }
     if (abs(angleIndLeft - angleInd) >= abs(angleIndRight + angleInd)) {
@@ -106,23 +141,28 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     } else {
         res.angVel = angleIndLeft/360.0*2*M_PI;
     }
+    cout << "angleInd " << angleInd << ", right " << angleIndRight << ", left " << angleIndLeft << endl;
     return true;
 
 }
 
 void LocalPathPlanner::showLocalMap() {
 
+    //cout<< "Local Map: " ;
     visualization_msgs::MarkerArray markers;
     for (int i = 0; i < localMap.size(); i++) {
+        //cout << localMap[i] ;
         if (localMap[i] > 0) {
             visualization_msgs::Marker marker;
             marker.header.frame_id = "/base_link";
             marker.header.stamp = ros::Time::now();
+            marker.id = i;
+            marker.lifetime = ros::Duration(0.1);
             marker.ns = "local_map";
             marker.type = visualization_msgs::Marker::CUBE;
             marker.action = visualization_msgs::Marker::ADD;
-            marker.pose.position.x = localMap[i]*cos(2.0*M_PI*i/360);
-            marker.pose.position.y = localMap[i]*sin(2.0*M_PI*i/360);
+            marker.pose.position.x = cos(i/360.0*2.0*M_PI);
+            marker.pose.position.y = sin(i/360.0*2.0*M_PI);
             marker.pose.position.z = 0;
             marker.pose.orientation.x = 0.0;
             marker.pose.orientation.y = 0.0;
@@ -138,6 +178,7 @@ void LocalPathPlanner::showLocalMap() {
             markers.markers.push_back(marker);
         }
     }
+    //cout << endl;
     lppViz.publish(markers);
 }
 
@@ -147,15 +188,16 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "local_map_node");
     ros::NodeHandle nh;
 
-    LocalPathPlanner lpp(0.13, 0.20);
+    LocalPathPlanner lpp(0.13, 0.35);
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 
-    lpp.lppViz = nh.advertise<visualization_msgs::MarkerArray>("navigation/visualize_lpp", 1);
+    lpp.lppViz = nh.advertise<visualization_msgs::MarkerArray>("navigation/visualize_lpp", 360);
     ros::Rate loop_rate(10);
 
     while (ros::ok())
     {
+        lpp.showLocalMap();
 /*
         if (danger(violation_limit, lidar_listen.ranges, lidar_listen.angle_increment)) {
             stop = true;
