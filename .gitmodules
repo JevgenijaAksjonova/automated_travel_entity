@@ -1,0 +1,3 @@
+[submodule "camera/dep/keras"]
+	path = camera/dep/keras
+	url = https://github.com/fchollet/keras.git
