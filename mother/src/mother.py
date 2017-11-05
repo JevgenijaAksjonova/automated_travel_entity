@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import rospy
 import roslib
-from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose
+from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -22,6 +22,7 @@ import numpy as np
 RECOGNIZER_SERVICE_NAME = "/camera/recognizer"
 OBJECT_CANDIDATES_TOPIC = "/camera/object_candidates"
 GOAL_POSE_TOPIC = "/move_base_simple/goal"
+NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
 MOTHER_WORKING_FRAME = "base_link"  #REMEMBER TO CHANGE TO MAP IN THE END!!!!
 #GENERAL INFO FOR THE PYTHON NOVICE
 # I have tried to put helpfull comments here for the people that ar not so used to python.
@@ -108,6 +109,7 @@ class Mother:
 
         #Publishers
         self.evidence_pub = rospy.Publisher("evidence_publisher",RAS_Evidence,queue_size=1)
+	self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         
         #Wait for required services to come online
         rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
@@ -215,6 +217,11 @@ class Mother:
         # If the path following fails call self.set_following_path_to_main_goal()
         # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
 
+	    msg = Twist()
+        msg.linear.x = pose.position.x
+        msg.linear.y = pose.position.y
+        msg.angular.x = 1.57
+	    navigation_goal_pub.publish(msg)
         return True
 
     def try_classify(self):

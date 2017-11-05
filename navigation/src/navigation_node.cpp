@@ -104,7 +104,7 @@ class Path {
 
     ros::ServiceClient lppService;
 
-    Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI/45.0), move(false) {};
+    Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI), move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
