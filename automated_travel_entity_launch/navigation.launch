@@ -2,9 +2,12 @@
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find rplidar_ros)/launch/rplidar.launch"/>
 	<include file="$(find odometry)/launch/odometry_node.launch"/>
+	<include file="$(find navigation)/launch/navigation_node.launch"/>
+	<include file="$(find world_map)/launch/world_map_node.launch"/>
 	
-	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 0.1 0.12 0 0 0 0 base_link laser 100" />
+	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 0.08 0.145 0 0 -1 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
+
 	<include file="$(find camera)/vision.launch" />
 </launch>

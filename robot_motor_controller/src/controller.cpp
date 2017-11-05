@@ -15,7 +15,7 @@
  #include<phidgets/motor_encoder.h>  //For the message subscribed: Vreal
  #include<geometry_msgs/Twist.h>     //For the message subscribed: Vref
  #include<std_msgs/Float32.h>       //For the message to be published
- #include<math.h>
+
  
 
  //Declear STRUCT Var for encoder
@@ -58,90 +58,67 @@ int32_t   slow_flag1 = 0,slow_flag2 = 0;
 ros::Time last_slow_time1,last_slow_time2;
 // Control function
 void pwmCalc(){
-    pwm_delta_t = ros::Time::now().toSec() - last_pwm_time .toSec();
+  pwm_delta_t = ros::Time::now().toSec() - last_pwm_time .toSec();
   //Left
-    error1 = reference.angular_velocity_left - motor.angular_velocity_left;
-    int_error1 = int_error1 + error1*pwm_delta_t ;	//
-    pwm1 = (kp1*error1+ki1*int_error1);
+	error1 = reference.angular_velocity_left - motor.angular_velocity_left;
+    int_error1 = (int)int_error1 + error1*pwm_delta_t ;	//
+	pwm1 = (kp1*error1+ki1*int_error1);
 
   //Right
-    error2 = reference.angular_velocity_right - motor.angular_velocity_right;
-    int_error2 = int_error2 + error2*pwm_delta_t;	//
-    pwm2 = (kp2*error2+ki2*int_error2);
+	error2 = reference.angular_velocity_right - motor.angular_velocity_right;
+    int_error2 = (int)int_error2 + error2*pwm_delta_t;	//
+	pwm2 = (kp2*error2+ki2*int_error2);
     last_pwm_time = ros::Time::now();
-    if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("LEFT PWM LIMITATION");}  //To protect the motor
-    if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("LEFT PWM LIMITATION");}   //To protect the motor
 
-    if (((int)motor.angular_velocity_left ==0)&&(slow_flag1==0)&&(abs(pwm1)<5.5))  {
-        last_slow_time1 =ros::Time::now();slow_flag1=1;puts("Slow left wheel");
-    }  //To protect the motor
-    if (slow_flag1 ==1 ){
-        if (((int)motor.angular_velocity_left != 0)||(abs(pwm1)>5.5)) slow_flag1 =0;
-        else if (ros::Time::now().toSec() - last_slow_time1.toSec() >1.0) {
-                pwm1 = 0.0; puts("LEFT SLOW:stop！");
-            }
-    }
-	    //ROS_INFO_STREAM("leftPWM:"<<pwm1);
-    ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
+/*
     //Debug
-    ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
-    if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
-    if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
+      ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
+      if (pwm1 > 50.0)   {pwm1 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}  //To protect the motor
+      if (pwm1 < -50.0)  {pwm1 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}   //To protect the motor
+      if ((pwm1 > -8.5)&&(pwm1 < 8.5))   {last_slow_time1 =ros::Time::now(); slow_flag1=1;}  //To protect the motor
+      if (slow_flag1 ==1 ){
+      if ((pwm1 < -8.5)||(pwm1 > 8.5)) slow_flag1 = 0;
+          else if (ros::Time::now().toSec() - last_slow_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+      }
+          //ROS_INFO_STREAM("leftPWM:"<<pwm1);
 
-     //ROS_INFO_STREAM("leftPWM:"<<pwm1);
+      ROS_INFO_STREAM( "Right Error"<<error2<<"Right Int Error:"<<(int)int_error2<<"pwm2:"<<(int)pwm2 );
+      if (pwm2 > 50.0)   {pwm2 =  50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+      if (pwm2 < -50.0)  {pwm2 =  -50.0; ROS_INFO_STREAM("PWM LIMITATION");}
+      if ((pwm2 > -8.5)&&(pwm2 < 8.5))   {last_slow_time2 =ros::Time::now();slow_flag2=1;}  //To protect the motor
+      if (slow_flag2 ==1 ){
+      if ((pwm2 < -8.5)||(pwm2 > 8.5)) slow_flag2 = 0;
+          else if (ros::Time::now().toSec() - last_slow_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("PWM SLOW");}
+      }
 
-    if (pwm2 > 50.0)   {pwm2 =  50.0; ROS_INFO_STREAM("RIGHT PWM LIMITATION");}
-    if (pwm2 < -50.0)  {pwm2 =  -50.0; ROS_INFO_STREAM("RIGHT PWM LIMITATION");}
-   
-    if (((int)motor.angular_velocity_right ==0)&&(slow_flag2==0)&&(abs(pwm2)<5.5))  {
-        last_slow_time2 =ros::Time::now();slow_flag2=1;puts("Slow right wheel");
-    }  //To protect the motor
-    if (slow_flag2 ==1 ){
-        if (((int)motor.angular_velocity_right != 0)||(abs(pwm2)>5.5)) slow_flag2 =0;
-        else if (ros::Time::now().toSec() - last_slow_time2.toSec() >1.0) {
-                pwm2 = 0.0; puts("Right SLOW:stop！");
-            }
-    }
-    //ROS_INFO_STREAM( "Right Error"<<error2<<"Right Int Error:"<<(int)int_error2<<"pwm2:"<<(int)pwm2 );
-    //ROS_INFO_STREAM("RightPWM:"<<pwm2);
+
+*/
 }
 
 
 
 //Callback function 1: encoder left
 void motorMessageReceiverLeft( const phidgets::motor_encoder & msgRecEncoderLeft){
-    //ROS_INFO_STREAM("Left Encoder Message Receive!");
+	//ROS_INFO_STREAM("Left Encoder Message Receive!");
 
-    motor.angular_velocity_left = float(msgRecEncoderLeft.count-last_count_left)*2.0*3.1415/900.0/(ros::Time::now().toSec()-last_encoder_time_left.toSec() );// rad/s
+    motor.angular_velocity_left = float(msgRecEncoderLeft.count-last_count_left)*2.0*3.1415/3591.84/(ros::Time::now().toSec()-last_encoder_time_left.toSec() );// rad/s
   
   last_encoder_time_left =ros::Time::now();
   last_count_left = msgRecEncoderLeft.count;
-  ROS_INFO_STREAM(" leftReal:"<<motor.angular_velocity_left<<"leftRef:"<<reference.angular_velocity_left);
-
   ROS_INFO_STREAM("leftReal:"<<motor.angular_velocity_left<<"leftRef:"<<reference.angular_velocity_left);
-    if (motor.angular_velocity_left  == 0)   {last_slow_time1 =ros::Time::now(); slow_flag1=1;}  //To protect the motor
-    if (slow_flag1 == 1){
-    
-    if(motor.angular_velocity_left != 0) slow_flag1 = 0;
-        else if (ros::Time::now().toSec() - last_slow_time1.toSec() >3.0) {pwm1 =  0.0; ROS_INFO_STREAM("Left SLOW,Stop");}
-    }
+
 }
 
 //Callback function 2: encoder right
 void motorMessageReceiverRight( const phidgets::motor_encoder & msgRecEncoderRight){
 	//ROS_INFO_STREAM("Right Encoder Message Receive!");
 //msgRecEncoderRight.count-last_count_right  Right Wheel Rotate in oppsite direction
-  motor.angular_velocity_right = float(last_count_right-msgRecEncoderRight.count)*2.0*3.1415/900.0/(ros::Time::now().toSec()-last_encoder_time_right.toSec() );// rad/s
+  motor.angular_velocity_right = float(last_count_right-msgRecEncoderRight.count)*2.0*3.1415/3591.84/(ros::Time::now().toSec()-last_encoder_time_right.toSec() );// rad/s
   
     last_encoder_time_right =ros::Time::now();
     last_count_right = msgRecEncoderRight.count;
     ROS_INFO_STREAM("rightReal:"<<motor.angular_velocity_right<<"rightRef:"<<reference.angular_velocity_right);
 
-     if (motor.angular_velocity_right ==0)   {last_slow_time2 =ros::Time::now();slow_flag2=1;}  //To protect the motor
-    if (slow_flag2 ==1 ){
-	if (motor.angular_velocity_right != 0) slow_flag2 = 0;
-	   else if (ros::Time::now().toSec() - last_slow_time2.toSec() >3.0) {pwm2 =  0.0; ROS_INFO_STREAM("Right SLOW， stop！");}
-    }	
 }
 
 
@@ -153,11 +130,11 @@ void motorMessageReceiverRight( const phidgets::motor_encoder & msgRecEncoderRig
 void refMessageReceiver( const geometry_msgs::Twist & msgRecTwist){
 
 	ROS_INFO_STREAM("Twist Message Receive!");
-    reference.angular_velocity_left =  float(msgRecTwist.linear.x*2.0-msgRecTwist.angular.z*0.260)/(2.0*0.036);// rad/s  //Adjust robot param:base 0.26m    //Checked by Enyu & Oskar
-    reference.angular_velocity_right = float(msgRecTwist.linear.x*2.0+msgRecTwist.angular.z*0.260)/(2.0*0.036);// rad/s  //wheel radium 0.036m //Checked by Enyu & Oskar
+    reference.angular_velocity_left =  float(msgRecTwist.linear.x*2.0-msgRecTwist.angular.z*0.255)/(2.0*0.0309);// rad/s   //Adjust robot param
+    reference.angular_velocity_right = float(msgRecTwist.linear.x*2.0+msgRecTwist.angular.z*0.255)/(2.0*0.0309);// rad/s
 
 	//ROS_INFO_STREAM("Vref:"<<msgRec2.linear.x<<"  OmegaRef="<<msgRec2.angular.z );
-    ROS_INFO_STREAM(" leftREF=" <<reference.angular_velocity_left <<"  rightREF=" <<reference.angular_velocity_right);
+	ROS_INFO_STREAM("leftREF=" <<reference.angular_velocity_left <<"  rightREF=" <<reference.angular_velocity_right);
 /*
 	if (reference.angular_velocity_left  > 400.0)  reference.angular_velocity_left  =  400.0;   //Protect //Can be removed with analysis 
 	if (reference.angular_velocity_right > 400.0)  reference.angular_velocity_right  =  400.0;
@@ -218,8 +195,8 @@ int main (int argc, char **argv){
 		pwmCalc();
 
 	//Fill in the message
-        msg_left.data = pwm1;
-        msg_right.data= pwm2;
+		msg_left.data = pwm1;
+		msg_right.data= pwm2;
 
 	//Publish the msg
 		pub_pwm_left.publish(msg_left);

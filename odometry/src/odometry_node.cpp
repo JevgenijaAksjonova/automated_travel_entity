@@ -37,7 +37,7 @@ OdometryPublisher(int frequency){
     encoding_delta = std::vector<double>(2,0);
     first_loop = 1;
 
-    odom_publisher = n.advertise<nav_msgs::Odometry>("odom", 1);
+    odom_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
     encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
     encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
 
@@ -173,3 +173,4 @@ int main(int argc, char **argv)
 
   return 0;
 }
+
