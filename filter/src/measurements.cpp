@@ -6,6 +6,92 @@
 
 #include <measurements.h>
 
+
+void calculateIntrinsicParameters(vector<float> measurements) {
+
+    float z_hit;
+    float z_short;
+    float z_max;
+    float z_random;
+
+    float e_hit = 0;
+    float e_short = 0;
+    float e_max = 0;
+    float e_random = 0;
+
+    float sigma_hit;
+    float lambda_short;
+
+    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);    
+
+
+    for (int r = 0; r < rangeWithTrueRange.size(); r++)
+    {
+        float prob_hit = 0;
+        float prob_short = 0;
+        float prob_max = 0;
+        float prob_random = 0;
+
+        float eta = 0;
+        
+        float realRange = rangeWithTrueRange[r].first;
+        float measuredRange = rangeWithTrueRange[r].second;
+
+        // Calculate the hit probability
+        if (0 <= measuredRange && measuredRange <= max_distance)
+        {
+            normal_distribution<float> distribution(realRange, sigma_hit);
+            float prob = 0.5;
+
+            // CALCULATE ETA, FIND SOLUTION LATER
+            float eta_hit = 0;
+
+            prob_hit = prob * eta_hit;
+        }
+
+        // Calculate the short (unexpected objects) probability
+        if (0 <= measuredRange && measuredRange <= realRange)
+        {
+            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
+
+            prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
+        }
+
+        // Calculate the max probability
+        if (measuredRange > max_distance)
+        {
+            prob_max = 1;
+        }
+
+        // Calculate the random readings probability
+        if (0 <= measuredRange && measuredRange < max_distance)
+        {
+            prob_random = 1 / max_distance;
+        }
+
+        eta = 1 / (prob_hit + prob_short + prob_max + prob_random);
+
+        e_hit += eta * prob_hit;
+        e_short += eta * prob_short;
+        e_max += eta * prob_max;
+        e_random += eta * prob_random;
+
+        short_parameter += eta * prob_hit * pow(measuredRange - real_range, 2);
+
+    }
+
+    z_hit = e_hit / norm(measurements);
+    z_short = e_short / norm(measurements);
+    z_max = e_max / norm(measurements);
+    z_random = e_random / norm(measurements);
+
+    sigma_hit = sqrt((1 / e_hit) * short_parameter);
+
+    lambda_short = e_short / (e_short + sum(measuredRange));
+
+}
+
+
 pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser)
 {
 
