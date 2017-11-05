@@ -57,7 +57,7 @@ void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
 
   stringstream s;
   s << "Received position: " << x << " " << y << " "<< theta;
-  ROS_INFO("%s/n", s.str().c_str());
+  //ROS_INFO("%s/n", s.str().c_str());
 }
 
 
