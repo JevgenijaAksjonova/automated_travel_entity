@@ -23,6 +23,7 @@
 #include <map_visualization.h>
 #include <project_msgs/stop.h>
 #include "project_msgs/direction.h"
+#include "project_msgs/global_path.h"
 
 using namespace std;
 
@@ -62,39 +63,6 @@ void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
 }
 
 
-class GoalPosition {
-  public:
-    double x;
-    double y;
-    double theta;
-    bool changedPosition;
-
-    GoalPosition(): x(0), y(0), theta(0), changedPosition(false) {};
-    void callback(const geometry_msgs::Twist::ConstPtr& msg);
-};
-
-void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
-{
-  double x_new = msg->linear.x;
-  double y_new = msg->linear.y;
-  double theta_new = msg->angular.x;
-
-  stringstream s;
-  s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
-  ROS_INFO("%s/n", s.str().c_str());
-
-  if ((x_new != x)||(y_new != y)||(theta_new != theta)) {
-      x = x_new;
-      y = y_new;
-      theta = theta_new;
-      stringstream s;
-      s << "New goal position: " << x << " " << y << " " << theta;
-      ROS_INFO("%s/n", s.str().c_str());
-      changedPosition = true;
-  }
-
-}
-
 class Path {
   public:
     double linVel;
@@ -110,6 +78,7 @@ class Path {
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
+    void setPath(double x, double y, double theta, vector<pair<double,double> > &path);
   private:
     double pathRad;
     double distanceTol;
@@ -122,6 +91,12 @@ class Path {
     double diffAngles(double a, double b) ;
     void amendDirection();
 };
+
+void Path::setPath(double x, double y, double theta, vector<pair<double,double> > &path) {
+    globalPath = path;
+    setGoal(x, y, theta);
+    move = true;
+}
 
 void Path::setGoal(double x, double y, double theta) {
     goalX = x;
@@ -234,6 +209,98 @@ void Path::amendDirection() {
     }
 }
 
+
+class GoalPosition {
+  public:
+    double x;
+    double y;
+    double theta;
+    bool changedPosition;
+
+    GoalPosition(GlobalPathPlanner& _gpp, Location& _loc, Path& _path):
+                 x(0), y(0), theta(0),
+                 changedPosition(false),
+                 gpp(_gpp),
+                 loc(_loc),
+                 path(_path)
+        {};
+    void callback(const geometry_msgs::Twist::ConstPtr& msg);
+    bool serviceCallback(project_msgs::global_path::Request &request,
+                         project_msgs::global_path::Response &response);
+  private:
+    GlobalPathPlanner gpp;
+    Location loc;
+    Path path;
+};
+
+void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
+{
+  double x_new = msg->linear.x;
+  double y_new = msg->linear.y;
+  double theta_new = msg->angular.x;
+
+  stringstream s;
+  s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
+  ROS_INFO("%s/n", s.str().c_str());
+
+  if ((x_new != x)||(y_new != y)||(theta_new != theta)) {
+      x = x_new;
+      y = y_new;
+      theta = theta_new;
+      stringstream s;
+      s << "New goal position: " << x << " " << y << " " << theta;
+      ROS_INFO("%s/n", s.str().c_str());
+      changedPosition = true;
+  }
+
+}
+
+bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
+                                   project_msgs::global_path::Response &response)
+{
+  double x_new = request.pose.linear.x;
+  double y_new = request.pose.linear.y;
+  double theta_new = request.pose.angular.x;
+
+  stringstream s;
+  s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
+  ROS_INFO("%s/n", s.str().c_str());
+
+  if ((x_new != x)||(y_new != y)||(theta_new != theta)) {
+      x = x_new;
+      y = y_new;
+      theta = theta_new;
+      stringstream s;
+      s << "New goal position: " << x << " " << y << " " << theta;
+      ROS_INFO("%s/n", s.str().c_str());
+      changedPosition = true;
+  }
+
+  if (changedPosition) {
+      string msg = "Recalculate path";
+      ROS_INFO("%s/n", msg.c_str());
+      pair<double, double> startCoord(loc.x,loc.y);
+      pair<double, double> goalCoord(x,y);
+      vector<pair<double,double> >  globalPath = gpp.getPath(startCoord, goalCoord);
+      if (globalPath.size() == 0) {
+          stringstream s;
+          s << "Cant find a global path! Location " << loc.x <<" "<< loc.y;
+          ROS_INFO("%s/n", s.str().c_str());
+          response.path_found = false;
+      } else {
+          stringstream s;
+          s << "Path is found, size" << globalPath.size();
+          ROS_INFO("%s/n", s.str().c_str());
+          path.setPath(x, y, theta, globalPath);
+          changedPosition = false;
+          response.path_found = true;
+      }
+  }
+  return true;
+
+}
+
+
 string getHomeDir() {
     passwd* pw = getpwuid(getuid());
     string path(pw->pw_dir);
@@ -249,11 +316,13 @@ int main(int argc, char **argv)
   GlobalPathPlanner gpp(mapFile, 0.01, 0.13);
   Location loc(0.215,0.224, M_PI/2.0);
   ros::Subscriber locationSub = n.subscribe("/odom", 1000, &Location::callback, &loc);
-  GoalPosition goal = GoalPosition();
-  ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
   path.lppService = n.serviceClient<project_msgs::direction>("local_path");
   path.statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  GoalPosition goal = GoalPosition(gpp, loc, path);
+  //ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
+  ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
+
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);
@@ -268,26 +337,6 @@ int main(int argc, char **argv)
   int count = 0;
   while (ros::ok())
   {
-
-    if (goal.changedPosition) {
-        string msg = "Recalculate path";
-        ROS_INFO("%s/n", msg.c_str());
-        pair<double, double> startCoord(loc.x,loc.y);
-        pair<double, double> goalCoord(goal.x,goal.y);
-        path.globalPath = gpp.getPath(startCoord, goalCoord);
-        if (path.globalPath.size() == 0) {
-            stringstream s;
-            s << "Cant find a global path! Location " << loc.x <<" "<< loc.y;
-            ROS_INFO("%s/n", s.str().c_str());
-        } else {
-            stringstream s;
-            s << "Path is found, size" << path.globalPath.size();
-            ROS_INFO("%s/n", s.str().c_str());
-            path.setGoal(goal.x, goal.y, goal.theta);
-            goal.changedPosition = false;
-            path.move = true;
-        }
-    }
 
     if (path.move) {
         path.followPath(loc.x,loc.y,loc.theta);

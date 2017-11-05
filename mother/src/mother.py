@@ -5,6 +5,7 @@ import rospy
 import roslib
 from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist
 from std_msgs.msg import Bool
+from project_msgs.srv import global_path
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -115,7 +116,10 @@ class Mother:
 
         #Publishers
         self.evidence_pub = rospy.Publisher("evidence_publisher",RAS_Evidence,queue_size=1)
-        self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
+        #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
+
+        #Service client
+        self.global_path_service = rospy.ServiceProxy(project_msgs::direction, NAVIGATION_GOAL_TOPIC);
         
         #Wait for required services to come online
         rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
