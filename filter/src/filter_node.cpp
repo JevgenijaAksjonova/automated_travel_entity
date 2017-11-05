@@ -23,9 +23,6 @@ public:
     ros::Publisher filter_publisher;
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
-    float xpos;
-    float ypos;
-    float theta;
     float pi;
     std::vector<float> dphi_dt;
     tf::TransformBroadcaster odom_broadcaster;
@@ -43,9 +40,6 @@ public:
         control_frequency = frequency;
         n = ros::NodeHandle("~");
         pi = 3.1416;
-        xpos = 0;
-        ypos = 0;
-        theta = 0;
 
 
         encoding_abs_prev = std::vector<int>(2,0);
@@ -74,11 +68,11 @@ public:
         k_V=1;
         k_W=1;
 
-        float start_xy = 5.0;
-        float spread_xy = 2.0;
+        float start_xy = 0.0;
+        float spread_xy = 0.0;
         float start_theta = 0.0;
-        float spread_theta = pi/8;
-        int nr_particles = 200;
+        float spread_theta = 0.0;
+        int nr_particles = 100;
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
 
@@ -152,12 +146,15 @@ public:
 
         //sample particles with replacement
         float weight_sum = 0.0;
-        Particle most_likely_position(0.0, 0.0, 0.0, 0.0);
+        Particle most_likely_position;
+        most_likely_position.weight=0.0;
         srand (static_cast <unsigned> (time(0)));
         for (int m = 0; m < particles.size(); m++){
             weight_sum += particles[m].weight;
+            //ROS_INFO("Weight of particle [%d] is [%f]", m, particles[m].weight);
             if(particles[m].weight > most_likely_position.weight){
-                most_likely_position = particle[m];
+                most_likely_position = particles[m];
+                //ROS_INFO("New most likely position!: -  [%f], [%f], [%f], [%f]\n", most_likely_position.xPos, most_likely_position.yPos, most_likely_position.thetaPos, most_likely_position.weight);
             }
         }
 
@@ -221,8 +218,8 @@ public:
         float noise_V = dist_V(generator);
         float noise_W = dist_W(generator);
 
-        p.xPos += (linear_v*dt + noise_D)*cos(theta);
-        p.yPos += (linear_v*dt + noise_D)*sin(theta);
+        p.xPos += (linear_v*dt + noise_D)*cos(p.thetaPos);
+        p.yPos += (linear_v*dt + noise_D)*sin(p.thetaPos);
         p.thetaPos += (angular_w*dt + noise_W) + noise_V;
 
         if(p.thetaPos > pi){
@@ -238,23 +235,27 @@ public:
     void measurement_model(LocalizationGlobalMap map){
         //Sample the measurements
         int nr_measurements_used = 4;
-        int step_size = ranges.size()/nr_measurements_used;
+        int step_size = (ranges.size()/nr_measurements_used);
         std::vector<pair<float, float>> sampled_measurements;
         float angle = 0.0;
         float max_distance = 3.0;
+        float range;
 
-        for(int i = 0; i = i + step_size; i<ranges.size()){
+        int i = 0;
+        while(i < ranges.size()){
             angle = i*angle_increment;
-            std::pair <float,float> angle_measurement (angle, ranges[i]);
+            range = ranges[i];
+            std::pair <float,float> angle_measurement (angle, range);
             sampled_measurements.push_back(angle_measurement);
+            i = i + step_size;
         }
 
         //update particle weights
-        getParticlesWeight(particles, map, sampled_measurements, max_distance);
+        //getParticlesWeight(particles, map, sampled_measurements, max_distance);
     }
     
     void publishPosition(Particle ml_pos){
-        
+        ros::Time current_time = ros::Time::now();
         
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(ml_pos.thetaPos);
         geometry_msgs::TransformStamped odom_trans;
@@ -267,7 +268,7 @@ public:
         odom_trans.transform.translation.z = 0.0;
         odom_trans.transform.rotation = odom_quat;
 
-        odom_broadcaster.sendTransform(filter_trans);
+        odom_broadcaster.sendTransform(odom_trans);
 
         // Publish odometry message
         nav_msgs::Odometry odom_msg;
@@ -281,16 +282,16 @@ public:
 
         //set the velocity
         
-        float vx = linear_v*cos(ml_pos.theta);
-        float vy = linear_v*sin(ml_pos.theta);
+        float vx = linear_v*cos(ml_pos.thetaPos);
+        float vy = linear_v*sin(ml_pos.thetaPos);
         odom_msg.child_frame_id = "base_link";
         odom_msg.twist.twist.linear.x = vx;
         odom_msg.twist.twist.linear.y = vy;
         odom_msg.twist.twist.angular.z = angular_w;
 
-        odom_publisher.publish(odom_msg);
+        filter_publisher.publish(odom_msg);
 
-        ROS_INFO("new Position [%f] [%f] [%f] ", xpos, ypos, theta);
+        ROS_INFO("new Position x:[%f] y:[%f] theta:[%f] ", ml_pos.xPos, ml_pos.yPos, ml_pos.thetaPos);
         
     }
 
