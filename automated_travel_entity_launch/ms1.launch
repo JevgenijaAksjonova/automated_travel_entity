@@ -1,7 +1,7 @@
 <launch>
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find rplidar_ros)/launch/rplidar.launch"/>
-	<include file="$(find odometry)/launch/odometry_node.launch"/>
+	<include file="$(find filter)/launch/filter_node.launch"/>
 	
 	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 0.08 0.145 0 0 -1 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
