@@ -12,6 +12,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Bool.h>
 #include <tf/transform_broadcaster.h>
 #include <sstream>
 #include <math.h>
@@ -103,6 +104,7 @@ class Path {
     vector<pair<double,double> > globalPath;
 
     ros::ServiceClient lppService;
+    ros::Publisher statusPub;
 
     Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI), move(false) {};
     void setGoal(double x, double y, double theta);
@@ -199,6 +201,9 @@ void Path::followPath(double x, double y, double theta) {
     } else {
         string msg = "Goal is reached!";
         ROS_INFO("%s/n", msg.c_str());
+        std_msgs::Bool status_msg;
+        status_msg.data = 1;
+        statusPub.publish(status_msg);
         move = false;
         linVel = 0;
         angVel = 0;
@@ -248,6 +253,7 @@ int main(int argc, char **argv)
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal", 1000, &GoalPosition::callback, &goal);
   Path path;
   path.lppService = n.serviceClient<project_msgs::direction>("local_path");
+  path.statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, &path);
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1000);
   ros::Rate loop_rate(10);

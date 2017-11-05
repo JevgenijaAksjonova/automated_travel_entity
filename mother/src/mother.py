@@ -4,6 +4,7 @@ from __future__ import print_function
 import rospy
 import roslib
 from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist
+from std_msgs import Bool
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -23,6 +24,7 @@ RECOGNIZER_SERVICE_NAME = "/camera/recognizer"
 OBJECT_CANDIDATES_TOPIC = "/camera/object_candidates"
 GOAL_POSE_TOPIC = "/move_base_simple/goal"
 NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
+GOAL_ACHIEVED_TOPIC = "navigation/status"
 MOTHER_WORKING_FRAME = "base_link"  #REMEMBER TO CHANGE TO MAP IN THE END!!!!
 #GENERAL INFO FOR THE PYTHON NOVICE
 # I have tried to put helpfull comments here for the people that ar not so used to python.
@@ -107,9 +109,12 @@ class Mother:
         rospy.Subscriber(GOAL_POSE_TOPIC,PoseStamped,
             callback=self._goal_pose_callback)
 
+        rospy.Subscriber(GOAL_ACHIEVED_TOPIC,Bool,
+            callback=self._navigation_status_callback)
+
         #Publishers
         self.evidence_pub = rospy.Publisher("evidence_publisher",RAS_Evidence,queue_size=1)
-	self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
+	    self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         
         #Wait for required services to come online
         rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
@@ -136,6 +141,12 @@ class Mother:
         for obj in self.detected_objects:
             if obj.point_is_close(pos):
                 return obj
+
+    def _navigation_status_callback(self,status_msg):
+        rospy.loinfo("navigation status callback")
+        status = status_msg.data
+        if status:
+            self.nav_goal_acchieved = True
 
     def _handle_object_candidate_msg(self,obj_cand_msg):
         #Round
