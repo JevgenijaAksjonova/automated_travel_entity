@@ -3,15 +3,19 @@ from __future__ import print_function
 
 import rospy
 import roslib
+from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Point, Pose
 from tf import TransformerROS
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformerROS()
-from camera.srv import recognizer
 from camera.msg import PosAndImage
+from camera.srv import recognizer, recognizerRequest, recognizerResponse
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Pose2D, PoseStamped, Quaternion, Point, Pose
-from ras_msgs.msg import RAS_Evidence
-import random
+
+from mother.msg import RAS_Evidence
+
+#from ras_msgs.msg import RAS_Evidence
+
+#import random
 
 import numpy as np
 RECOGNIZER_SERVICE_NAME = "/camera/recognizer"
@@ -107,9 +111,11 @@ class Mother:
         if pos not in self.detected_objects:
             self.detected_objects[pos] = "an_object"
             self.object_classification_queue.append(pos)
+        self.last_obj_cand = obj_cand_msg
     
     @property
     def robot_pose(self):
+
         pose = PoseStamped()
         
         pose.header.frame_id="/base_link"
@@ -159,7 +165,7 @@ class Mother:
         pose.orientation = Quaternion(*quaternion_from_euler)
         return pose
 
-    def line_of_sight(self,point,point):
+    def line_of_sight(self,point_1,point_2):
         #Check wether there is a clear line of sight between the two points
         #Map people, please fill in. Can probably ignore right now
         return True
@@ -192,7 +198,12 @@ class Mother:
         #We are assuming that we now are in a position to see only one object
         #Which is of course unresonable, but we will deal with determening which of the
         #objects we are seeing that is at classification_object_pos later.
-        return "foo_bar"
+        
+        if self.last_obj_cand is not None:
+            resp = self.recognizer_srv(self.last_obj_cand.image)
+            if resp.probability > .95:
+                return resp.class_name,resp.class_id
+        return None
         
     def set_following_path_to_main_goal(self):
         if self.go_to_pose(self.goal_pose):
@@ -212,10 +223,6 @@ class Mother:
             self.mode = "set_following_path_to_object_classification"
         else:
             rospy.loginfo("Did not find any feasable path to the object")
-
-    def (self,object_pos):
-        #Christoffer
-        return True
 
     def set_lift_up_object(self,object_pos):
         if self.can_lift_object():
@@ -275,70 +282,16 @@ class Mother:
                 # The object you should lift up exists int the classification_object_pos variable.
                 # That pos is not very exact though so one probably needs to hope that the
                 #  object candidate we can see the object at classification_object_pos for now.
+                pass
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
-            rate.sleep()
-
-            if len(self.object_classification_queue) > 0:
-                object_candidate_pos = self.object_classification_queue.pop()
-                
-                #Step 4: go to object position so that the arm can reach it.
-                #Jegvenja, please add your stuff here to go to object_candidate_pos.
-                #and update classification_goal_pose_achieved as appropriate.
-                while not rospy.is_shutdown() and not self.classification_goal_pose_achieved:
-
-
-                #Classify the object.
-
-                #Then Enyu, please  the object upp
-            elif self.problem_with_path_following:
-                #Jegvenja, handle path following problem
-                self.problem_with_path_following = False
-                
-            rate.sleep()
-        #Step 3: loop and check if we detect any object_candidates.
-        #If we detect a new object. Stop path execution.
-
-       
-
-        #Step 5: Classify the object.
-
-        #Step 6: If the object is liftable, try to lift it up with the arm.
-
-        #Step 7: Go back to Step 2.
-
-        while not rospy.is_shutdown():
-            print("loop")
-            if self.has_received_obj_cand:
-                print("encoding =",self.obj_cand_msg.image.encoding)
-                try:
-                    resp = self.recognizer_srv(self.obj_cand_msg.image)
-
-                    class_name = resp.class_name
-                    class_id = resp.class_id
-                    confidence = resp.probability
-
-                    evidence_msg = RAS_Evidence()
-                    evidence_msg.group_number = 3
-                    evidence_msg.image_evidence = self.obj_cand_msg.image
-                    evidence_msg.object_id = class_name if confidence > .9 else "an_object"
-                    print("Sending evidence")                    
-                    self.evidence_pub.publish(evidence_msg)
-                except rospy.ServiceException, e:
-                    rospy.loginfo("Service call failed: " + str(e))
-            self.has_received_obj_cand = False
             rate.sleep()
 
 def main():        
     rospy.init_node("recognizer_server")    
     m = Mother()
     m.mother_forever()
-
-
-
-
-
 
 if __name__ == "__main__":
     try:
