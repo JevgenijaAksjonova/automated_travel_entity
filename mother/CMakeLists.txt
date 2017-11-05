@@ -6,38 +6,39 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   keyboard_input
-  navigation
+  #navigation
   odometry
   robot_motor_controller
   roscpp
   rospy
   sensor_msgs
   std_msgs
-  uarm_controller
+  #uarm_controller
   world_map
+  message_runtime
 )
 
 find_package(OpenCV 2 REQUIRED)
 
-add_message_files(
-   FILES
-   RAS_Evidence.msg
-)
+#add_message_files(
+#   FILES
+#   RAS_Evidence.msg
+#)
 
-generate_messages(
-  DEPENDENCIES
-  geometry_msgs
-  sensor_msgs
-  std_msgs
-)
+#generate_messages(
+#  DEPENDENCIES
+#  geometry_msgs
+#  sensor_msgs
+#  std_msgs
+#)
 
-catkin_package(
-  CATKIN_DEPENDS message_runtime
-)
+#catkin_package(
+#  CATKIN_DEPENDS message_runtime
+#)
 
-catkin_package(
+# catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES mother
-  CATKIN_DEPENDS camera geometry_msgs keyboard_input navigation odometry ras_msgs robot_motor_controller roscpp rospy sensor_msgs std_msgs uarm_controller world_map message_runtime
+#  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
-)
+#)

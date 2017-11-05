@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   #opencv2
   #cv_bridge
   #rospy
-  #
 )
 find_package(OpenCV 2 REQUIRED)
 
