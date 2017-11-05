@@ -225,6 +225,8 @@ public:
         if(p.thetaPos<-pi){
             p.thetaPos = p.thetaPos+2*pi;
         }
+        
+        //Use TF Matrix to translate p to lidar_link
     }
 
     void measurement_model(LocalizationGlobalMap map){
