@@ -6,92 +6,6 @@
 
 #include <measurements.h>
 
-
-void calculateIntrinsicParameters(vector<float> measurements) {
-
-    float z_hit;
-    float z_short;
-    float z_max;
-    float z_random;
-
-    float e_hit = 0;
-    float e_short = 0;
-    float e_max = 0;
-    float e_random = 0;
-
-    float sigma_hit;
-    float lambda_short;
-
-    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);    
-
-
-    for (int r = 0; r < rangeWithTrueRange.size(); r++)
-    {
-        float prob_hit = 0;
-        float prob_short = 0;
-        float prob_max = 0;
-        float prob_random = 0;
-
-        float eta = 0;
-        
-        float realRange = rangeWithTrueRange[r].first;
-        float measuredRange = rangeWithTrueRange[r].second;
-
-        // Calculate the hit probability
-        if (0 <= measuredRange && measuredRange <= max_distance)
-        {
-            normal_distribution<float> distribution(realRange, sigma_hit);
-            float prob = 0.5;
-
-            // CALCULATE ETA, FIND SOLUTION LATER
-            float eta_hit = 0;
-
-            prob_hit = prob * eta_hit;
-        }
-
-        // Calculate the short (unexpected objects) probability
-        if (0 <= measuredRange && measuredRange <= realRange)
-        {
-            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
-
-            prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
-        }
-
-        // Calculate the max probability
-        if (measuredRange > max_distance)
-        {
-            prob_max = 1;
-        }
-
-        // Calculate the random readings probability
-        if (0 <= measuredRange && measuredRange < max_distance)
-        {
-            prob_random = 1 / max_distance;
-        }
-
-        eta = 1 / (prob_hit + prob_short + prob_max + prob_random);
-
-        e_hit += eta * prob_hit;
-        e_short += eta * prob_short;
-        e_max += eta * prob_max;
-        e_random += eta * prob_random;
-
-        short_parameter += eta * prob_hit * pow(measuredRange - real_range, 2);
-
-    }
-
-    z_hit = e_hit / norm(measurements);
-    z_short = e_short / norm(measurements);
-    z_max = e_max / norm(measurements);
-    z_random = e_random / norm(measurements);
-
-    sigma_hit = sqrt((1 / e_hit) * short_parameter);
-
-    lambda_short = e_short / (e_short + sum(measuredRange));
-
-}
-
-
 pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser)
 {
 
@@ -161,20 +75,21 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
 {
     pair<int, int> particle_coordinates = map.getCell(translated_particle_x, translated_particle_y);
 
-    pair<float, float> particle_real_coordinates = map.getDistance(particle_coordinates.first, particle_coordinates.second);    
+    pair<float, float> particle_real_coordinates = map.getDistance(particle_coordinates.first, particle_coordinates.second);
 
     float currentAngle = 0;
 
     vector<pair<float, float>> ranges;
 
-    for(int i = 0; i < laser_data.size(); i++) {
+    for (int i = 0; i < laser_data.size(); i++)
+    {
 
-        float distance_real = 0;        
+        float distance_real = 0;
 
         currentAngle = laser_data[i].first + lidar_orientation;
-        
+
         pair<int, int> closestWall_coordinates = getClosestWallCoordinates(map.global_map, map.cellSize, currentAngle, particle_coordinates);
-        
+
         pair<float, float> wall_real_coordinates = map.getDistance(closestWall_coordinates.first, closestWall_coordinates.second);
 
         distance_real = distancesToRange(wall_real_coordinates, particle_real_coordinates);
@@ -257,23 +172,121 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
     return weight;
 }
 
-
 void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance)
 {
     float weight = 0;
 
     float lidar_x = 0.1;
     float lidar_y = 0;
-    float lidar_orientation = M_PI/2;
+    float lidar_orientation = M_PI / 2;
 
     for (int p = 0; p < particles.size(); p++)
     {
         //pair<float, float> new_particle_coordinates = localToWorldCoordinates(x, y, theta, lidar_x, lidar_y, lidar_orientation, laser_data.first, laser_data.second);
-        
+
         pair<float, float> new_particle_center = particleToLidarConversion(particles[p].xPos, particles[p].yPos, particles[p].thetaPos, lidar_x, lidar_y);
 
         weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation);
         particles[p].weight = weight;
     }
+}
 
+void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
+{
+
+    /*
+        float z_hit;
+        float z_short;
+        float z_max;
+        float z_random;
+        */
+
+    float e_hit = 0;
+    float e_short = 0;
+    float e_max = 0;
+    float e_random = 0;
+
+    float short_parameter = 0;
+
+    /*
+        float sigma_hit;
+        float lambda_short;
+        */
+
+    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
+
+    for (int r = 0; r < rangeWithTrueRange.size(); r++)
+    {
+        float prob_hit = 0;
+        float prob_short = 0;
+        float prob_max = 0;
+        float prob_random = 0;
+
+        float eta = 0;
+
+        float realRange = rangeWithTrueRange[r].first;
+        float measuredRange = rangeWithTrueRange[r].second;
+
+        // Calculate the hit probability
+        if (0 <= measuredRange && measuredRange <= max_distance)
+        {
+            normal_distribution<float> distribution(realRange, sigma_hit);
+            float prob = 0.5;
+
+            // CALCULATE ETA, FIND SOLUTION LATER
+            float eta_hit = 0;
+
+            prob_hit = prob * eta_hit;
+        }
+
+        // Calculate the short (unexpected objects) probability
+        if (0 <= measuredRange && measuredRange <= realRange)
+        {
+            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
+
+            prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
+        }
+
+        // Calculate the max probability
+        if (measuredRange > max_distance)
+        {
+            prob_max = 1;
+        }
+
+        // Calculate the random readings probability
+        if (0 <= measuredRange && measuredRange < max_distance)
+        {
+            prob_random = 1 / max_distance;
+        }
+
+        eta = 1 / (prob_hit + prob_short + prob_max + prob_random);
+
+        e_hit += eta * prob_hit;
+        e_short += eta * prob_short;
+        e_max += eta * prob_max;
+        e_random += eta * prob_random;
+
+        short_parameter += eta * prob_hit * pow(measuredRange - realRange, 2);
+    }
+
+    float Z_magnitude = 0;
+    float acc_measuredRange = 0;
+
+    float accum = 0.;
+    for (int i = 0; i < rangeWithTrueRange.size(); ++i)
+    {
+        accum += rangeWithTrueRange[i].first * rangeWithTrueRange[i].first;
+        acc_measuredRange += rangeWithTrueRange[i].first;
+    }
+    
+    Z_magnitude = sqrt(accum);
+
+    z_hit = e_hit / Z_magnitude;
+    z_short = e_short / Z_magnitude;
+    z_max = e_max / Z_magnitude;
+    z_random = e_random / Z_magnitude;
+
+    sigma_hit = sqrt((1 / e_hit) * short_parameter);
+
+    lambda_short = e_short / (e_short + acc_measuredRange);
 }
