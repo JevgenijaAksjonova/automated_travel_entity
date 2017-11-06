@@ -228,12 +228,12 @@ class Mother:
 
         # If the path following fails call self.set_following_path_to_main_goal()
         # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
-
+        print("type(pose) =",type(pose))
         msg = Twist()
-        msg.linear.x = pose.position.x
-        msg.linear.y = pose.position.y
+        msg.linear.x = pose.pose.position.x
+        msg.linear.y = pose.pose.position.y
         msg.angular.x = 1.57
-        navigation_goal_pub.publish(msg)
+        self.navigation_goal_pub.publish(msg)
         return True
 
     def try_classify(self):
