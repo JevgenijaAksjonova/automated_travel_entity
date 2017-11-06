@@ -10,7 +10,7 @@
 	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 0.08 0.145 0 0 -1 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
-
+	<node name="speaker" pkg="ras_espeak" type="espeak_node"/>
 	<include file="$(find camera)/vision.launch" pass_all_args="True"/>
 	<node name="mother" pkg="mother" type="mother.py" output="screen"/>
 </launch>
