@@ -44,11 +44,12 @@ void quit(int sig)
 //Callback function 1: destination message
 void objectCoordReceiver( const camera::PosAndImage & msgObjCoord){
 
-    ROS_INFO_STREAM(">>Reference Message Receive!");
+    ROS_INFO_STREAM(">>Camera Candidates Receive!");
 
     x = msgObjCoord.pos.x;  // unit: meter
     y = msgObjCoord.pos.y;
     z = msgObjCoord.pos.z;
+    ROS_INFO_STREAM("x:"<<x <<" y:"<<y<<" z:"<<z);
     //receive_state = 1;
 
 }
@@ -62,7 +63,7 @@ int main(int argc, char** argv)
     signal(SIGINT,quit); //To monitor Ctrl+C
 
     ros::Rate loop_rate(freq); //f=10Hz, T=100ms
-    ros::Publisher obj_pub = nh.advertise<geometry_msgs::Point>("/Coord_topic", 1);
+    ros::Publisher obj_pub = nh.advertise<geometry_msgs::Point>("/Coord_topic",1);
     //Create publisher: pub_pwm	// msg_type(use :: for /) //topic_name //buffer_size
 
     //Type:geometry_msgs/PointStamped
@@ -118,24 +119,24 @@ int main(int argc, char** argv)
         default:
             printf("Undefiend value: 0x%02X\n", c);
         }
-        geometry_msgs::Point msg;
-        //Fill in the message
-        msg.x = x*100.0+12.5;  //Add offset 12 cm
-        msg.y = y*100.0+0.0;  //Add offset 0
-        msg.z = z*100.0+0.0;  //Add offset 0
-
-        if(dirty ==true)
-        {
-            puts("Send Arm Command");
-            obj_pub.publish(msg);
-            dirty=false;
-        }
 
         ros::spinOnce();
         //------------------------------------------------------------------------------------------------------
         //ROS_INFO_STREAM("="<<var );
         //------------------------------------------------------------------------------------------------------
-        loop_rate.sleep(); //sleep
+        loop_rate.sleep(); //sleep and do the callback
+
+        if(dirty ==true)
+        {
+            geometry_msgs::Point msg;
+            //Fill in the message
+            msg.x = x*100.0+15.5;  //Add offset 13.5+2cm, arm center 2 camera center
+            msg.y = y*100.0+0.0;  //Add offset 0
+            msg.z = z*100.0-3.0;  //Add offset 3 cm : push hard!
+            puts("Send Arm Command");
+            obj_pub.publish(msg);
+            dirty=false;
+        }
     }
 
 
