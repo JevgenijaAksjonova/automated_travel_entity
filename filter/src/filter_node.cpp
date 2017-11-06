@@ -306,10 +306,17 @@ public:
         while(i < ranges.size()){
             angle = (i * angle_increment);
             range = ranges[i];
-            ROS_INFO("Laser range [%f], Angle [%f]", range, angle);
+
+            if(std::isinf(range)){
+                range = 3.0;
+            }
+            
 
             std::pair <float,float> angle_measurement (angle, range);
             sampled_measurements.push_back(angle_measurement);
+            ROS_INFO("Laser range [%f], Angle [%f]", range, angle);
+                
+            
             i = i + step_size;
         }
 
