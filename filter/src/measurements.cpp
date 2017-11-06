@@ -136,26 +136,23 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float prob_max = 0;
         float prob_random = 0;
 
-        // REAL RANGE == THE RANGE FROM THE SENSOR
-        // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
-        float realRange = rangeWithTrueRange[r].first;
-        float measuredRange = rangeWithTrueRange[r].second;
-
         float p = 0;
 
-        // Calculate the hit probability
-        if (0 <= measuredRange && measuredRange <= max_distance)
-        {
-            // unsigned seed = chrono::system_clock::now().time_since_epoch().count();
-            // default_random_engine generator = default_random_engine(seed);
-            
-            // normal_distribution<float> distribution(realRange, sigma_hit);
 
+        // REAL RANGE == THE RANGE FROM THE SENSOR
+        // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
+        float measuredRange = rangeWithTrueRange[r].first;
+        float realRange = rangeWithTrueRange[r].second;
+
+        // Calculate the hit probability
+        if (0 <= realRange && realRange <= max_distance)
+        {
+            //normal_distribution<float> distribution(realRange, sigma_hit);
             
-            float prob = get_dist_value(realRange, pow(sigma_hit,2), measuredRange );
+            float prob = get_dist_value(measuredRange, pow(sigma_hit,2), realRange);
             float eta_hit = 0.0;
             for(float i = 0; i < max_distance; i += 0.1){
-                eta_hit += get_dist_value(realRange, pow(sigma_hit,2), i );
+                eta_hit += get_dist_value(measuredRange, pow(sigma_hit,2), i);
             }
 
             // CALCULATE ETA, FIND SOLUTION LATER
@@ -164,24 +161,25 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         }
 
         // Calculate the short (unexpected objects) probability
-        if (0 <= measuredRange && measuredRange <= realRange)
+        if (0 <= realRange && realRange <= measuredRange)
         {
-            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
+            float eta_short = 1 / (1 - exp(-lambda_short * measuredRange));
 
             prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
         }
 
         // Calculate the max probability
-        if (measuredRange > max_distance)
+        if (realRange > max_distance)
         {
             prob_max = 1;
         }
 
         // Calculate the random readings probability
-        if (0 <= measuredRange && measuredRange < max_distance)
+        if (0 <= realRange && realRange < max_distance)
         {
             prob_random = 1 / max_distance;
         }
+
 
         p = z_hit * prob_hit + z_short * prob_short + z_max * prob_max + z_random * prob_random;
 
@@ -252,6 +250,8 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
         float eta = 0;
 
+        // REAL RANGE == THE RANGE FROM THE SENSOR
+        // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
 
