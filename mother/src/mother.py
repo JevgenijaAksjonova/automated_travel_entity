@@ -81,6 +81,7 @@ class MazeObject:
         msg.image_evidence = self.image
         msg.object_id = self.class_id
         msg.object_location = self.pos
+        return msg
 
 class Mother:
     
@@ -304,6 +305,7 @@ class Mother:
                     if self.try_classify():
                         rospy.loginfo("successfully classified object at {0} as {1}".format(
                             self.classifying_obj.pos,self.classifying_obj.class_label))
+                        self.evidence_pub.publish(self.classifying_obj.get_evidence_msg())
                         if "Cube" in self.classifying_obj.class_label:
                             self.set_lift_up_object(classifying_obj)
                         else:
