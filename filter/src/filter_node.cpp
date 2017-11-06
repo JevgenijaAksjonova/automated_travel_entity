@@ -310,19 +310,16 @@ public:
             if(std::isinf(range)){
                 range = 3.0;
             }
-            
 
+            
             std::pair <float,float> angle_measurement (angle, range);
             sampled_measurements.push_back(angle_measurement);
-            ROS_INFO("Laser range [%f], Angle [%f]", range, angle);
-                
-            
             i = i + step_size;
         }
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        if(sampled_measurements.size() > 400){
+        if(sampled_measurements.size() > 2000) {
             run_calibrations(map, sampled_measurements);
         }
 
@@ -339,12 +336,12 @@ public:
 
         std::pair<float, float> xy =  particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
         float lidar_orientation = pi/2;
-        float z_hit=0.0;
-        float z_short=0.0;
-        float z_max=0.0;
-        float z_random=0.0;
-        float sigma_hit=0.0;
-        float lambda_short=0.0;
+        float z_hit=0.5;
+        float z_short=0.5;
+        float z_max=0.5;
+        float z_random=0.5;
+        float sigma_hit=0.2;
+        float lambda_short=0.5;
         while (true){
             ROS_INFO("Before calculate");            
             calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, lidar_orientation, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);

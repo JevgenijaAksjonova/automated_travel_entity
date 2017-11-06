@@ -117,13 +117,13 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 {
     float weight = 0;
 
-    float z_hit;
-    float z_short;
-    float z_max;
-    float z_random;
+    float z_hit = 0.725370;
+    float z_short = 0.012792;
+    float z_max = 0.253992;
+    float z_random = 0.007843;
 
-    float sigma_hit;
-    float lambda_short;
+    float sigma_hit = 0.053669;
+    float lambda_short = 4.878501;
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);
 
@@ -137,7 +137,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float prob_random = 0;
 
         float p = 0;
-
 
         // REAL RANGE == THE RANGE FROM THE SENSOR
         // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
@@ -195,8 +194,8 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 {
     float weight = 0;
 
-    float lidar_x = 0.1;
-    float lidar_y = 0;
+    float lidar_x = 0.095;
+    float lidar_y = 0.0;
     float lidar_orientation = M_PI / 2;
 
     for (int p = 0; p < particles.size(); p++)
@@ -240,7 +239,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
     for (int r = 0; r < rangeWithTrueRange.size(); r++)
     {
 
-        ROS_INFO("Loop nr: %d", r);
+        //ROS_INFO("Loop nr: %d", r);
 
 
         float prob_hit = 0;
@@ -255,7 +254,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
 
-        ROS_INFO("M: %f, R: %f, MAX: %f", measuredRange, realRange, max_distance);
+        //ROS_INFO("M: %f, R: %f, MAX: %f", measuredRange, realRange, max_distance);
 
         // Calculate the hit probability
         if (0 <= realRange && realRange <= max_distance)
@@ -282,7 +281,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         }
 
         // Calculate the max probability
-        if (realRange > max_distance)
+        if (realRange >= max_distance)
         {
             prob_max = 1;
         }
@@ -295,6 +294,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
         eta = 1 / (prob_hit + prob_short + prob_max + prob_random);
 
+       
         e_hit += eta * prob_hit;
         e_short += eta * prob_short;
         e_max += eta * prob_max;
@@ -315,4 +315,6 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
     sigma_hit = sqrt((1 / e_hit) * sigma_parameter);
 
     lambda_short = e_short / lambda_parameter;
+
+    ROS_INFO("IN FUNCITON: Parameters found zhit:[%f] zshort:[%f] zmax:[%f], zradom:[%f], sigmahit[%f], lambdashort:[%f] ", z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
 }
