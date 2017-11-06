@@ -298,15 +298,15 @@ public:
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map){
         int nr_measurements_used = 4;
         int step_size = (ranges.size()/nr_measurements_used);
-        float angle = 0.0;
+        float angle = 0;
         float max_distance = 3.0;
         float range;
 
         int i = 0;
         while(i < ranges.size()){
-            angle = i*angle_increment;
+            angle = (i * angle_increment);
             range = ranges[i];
-            ROS_INFO("Laser range [%f]", range);
+            ROS_INFO("Laser range [%f], Angle [%f]", range, angle);
 
             std::pair <float,float> angle_measurement (angle, range);
             sampled_measurements.push_back(angle_measurement);
@@ -328,10 +328,10 @@ public:
         float max_distance = 3.0;
         float pos_x = 0.23;
         float pos_y = 0.2;
-        float theta = 0;
+        float theta = pi/2;
 
         std::pair<float, float> xy =  particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
-        float lidar_orientation = pi;
+        float lidar_orientation = pi/2;
         float z_hit=0.0;
         float z_short=0.0;
         float z_max=0.0;
@@ -383,7 +383,7 @@ int main(int argc, char **argv)
     float frequency = 10;
 
 
-    std::string _filename_map = "/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/test.txt";
+    std::string _filename_map = "/home/rikko/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");

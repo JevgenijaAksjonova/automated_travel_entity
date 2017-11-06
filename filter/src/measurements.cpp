@@ -136,6 +136,8 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float prob_max = 0;
         float prob_random = 0;
 
+        // REAL RANGE == THE RANGE FROM THE SENSOR
+        // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
         float realRange = rangeWithTrueRange[r].first;
         float measuredRange = rangeWithTrueRange[r].second;
 
@@ -152,7 +154,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
             
             float prob = get_dist_value(realRange, pow(sigma_hit,2), measuredRange );
             float eta_hit = 0.0;
-            for(float i = 0; i += 0.1; i<max_distance){
+            for(float i = 0; i < max_distance; i += 0.1){
                 eta_hit += get_dist_value(realRange, pow(sigma_hit,2), i );
             }
 
@@ -225,7 +227,8 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
     float e_max = 0;
     float e_random = 0;
 
-    float short_parameter = 0;
+    float sigma_parameter = 0;
+    float lambda_parameter = 0;
 
     /*
         float sigma_hit;
@@ -234,8 +237,14 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
 
+    ROS_INFO("After range conversion");
+
     for (int r = 0; r < rangeWithTrueRange.size(); r++)
     {
+
+        ROS_INFO("Loop nr: %d", r);
+
+
         float prob_hit = 0;
         float prob_short = 0;
         float prob_max = 0;
@@ -243,18 +252,20 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
         float eta = 0;
 
-        float realRange = rangeWithTrueRange[r].first;
-        float measuredRange = rangeWithTrueRange[r].second;
+        float measuredRange = rangeWithTrueRange[r].first;
+        float realRange = rangeWithTrueRange[r].second;
+
+        ROS_INFO("M: %f, R: %f, MAX: %f", measuredRange, realRange, max_distance);
 
         // Calculate the hit probability
-        if (0 <= measuredRange && measuredRange <= max_distance)
+        if (0 <= realRange && realRange <= max_distance)
         {
             //normal_distribution<float> distribution(realRange, sigma_hit);
             
-            float prob = get_dist_value(realRange, pow(sigma_hit,2), measuredRange );
+            float prob = get_dist_value(measuredRange, pow(sigma_hit,2), realRange);
             float eta_hit = 0.0;
-            for(float i = 0; i += 0.1; i<max_distance){
-                eta_hit += get_dist_value(realRange, pow(sigma_hit,2), i );
+            for(float i = 0; i < max_distance; i += 0.1){
+                eta_hit += get_dist_value(measuredRange, pow(sigma_hit,2), i);
             }
 
             // CALCULATE ETA, FIND SOLUTION LATER
@@ -263,21 +274,21 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         }
 
         // Calculate the short (unexpected objects) probability
-        if (0 <= measuredRange && measuredRange <= realRange)
+        if (0 <= realRange && realRange <= measuredRange)
         {
-            float eta_short = 1 / (1 - exp(-lambda_short * realRange));
+            float eta_short = 1 / (1 - exp(-lambda_short * measuredRange));
 
             prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
         }
 
         // Calculate the max probability
-        if (measuredRange > max_distance)
+        if (realRange > max_distance)
         {
             prob_max = 1;
         }
 
         // Calculate the random readings probability
-        if (0 <= measuredRange && measuredRange < max_distance)
+        if (0 <= realRange && realRange < max_distance)
         {
             prob_random = 1 / max_distance;
         }
@@ -289,27 +300,19 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         e_max += eta * prob_max;
         e_random += eta * prob_random;
 
-        short_parameter += eta * prob_hit * pow(measuredRange - realRange, 2);
+        sigma_parameter += eta * prob_hit * pow(realRange - measuredRange, 2);
+
+        lambda_parameter += eta * prob_short * realRange;
     }
 
-    float Z_magnitude = 0;
-    float acc_measuredRange = 0;
-
-    float accum = 0.;
-    for (int i = 0; i < rangeWithTrueRange.size(); ++i)
-    {
-        accum += rangeWithTrueRange[i].first * rangeWithTrueRange[i].first;
-        acc_measuredRange += rangeWithTrueRange[i].first;
-    }
-    
-    Z_magnitude = sqrt(accum);
+    float Z_magnitude = rangeWithTrueRange.size();
 
     z_hit = e_hit / Z_magnitude;
     z_short = e_short / Z_magnitude;
     z_max = e_max / Z_magnitude;
     z_random = e_random / Z_magnitude;
 
-    sigma_hit = sqrt((1 / e_hit) * short_parameter);
+    sigma_hit = sqrt((1 / e_hit) * sigma_parameter);
 
-    lambda_short = e_short / (e_short + acc_measuredRange);
+    lambda_short = e_short / lambda_parameter;
 }
