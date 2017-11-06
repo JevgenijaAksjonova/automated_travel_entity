@@ -18,7 +18,7 @@ include_directories(
 
 add_executable(navigation_node src/navigation_node.cpp include/global_path_planner.h include/map_visualization.h src/global_path_planner.cpp src/map_visualization.cpp)
 target_link_libraries(navigation_node ${catkin_LIBRARIES})
-add_dependencies(navigation_node geometry_msgs)
+add_dependencies(navigation_node geometry_msgs project_msgs)
 
 add_executable(local_map_node src/local_map_node.cpp)
 target_link_libraries(local_map_node ${catkin_LIBRARIES})
