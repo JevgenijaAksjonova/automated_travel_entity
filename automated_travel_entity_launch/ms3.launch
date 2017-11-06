@@ -1,4 +1,6 @@
 <launch>
+    <arg name="running_on_robot" default="True" />
+	
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find rplidar_ros)/launch/rplidar.launch"/>
 	<include file="$(find odometry)/launch/odometry_node.launch"/>
@@ -9,6 +11,6 @@
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
 
-	<include file="$(find camera)/vision.launch" />
+	<include file="$(find camera)/vision.launch" pass_all_args="True"/>
 	<node name="mother" pkg="mother" type="mother.py" output="screen"/>
 </launch>
