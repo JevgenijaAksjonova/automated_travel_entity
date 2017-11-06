@@ -1,12 +1,6 @@
 #! /usr/bin/env python
 from __future__ import print_function
 
-#Keras imports
-from keras.preprocessing import image as keras_image
-from keras.models import load_model
-from keras.utils.generic_utils import CustomObjectScope
-from keras.applications.mobilenet import relu6, DepthwiseConv2D, preprocess_input
-import keras
 #ros imports
 import rospy
 import roslib
@@ -14,6 +8,18 @@ from sensor_msgs.msg import Image
 from camera.srv import recognizer, recognizerResponse
 #general imports
 import numpy as np
+
+#Keras imports
+try:
+    from keras.preprocessing import image as keras_image
+    from keras.models import load_model
+    from keras.utils.generic_utils import CustomObjectScope
+    from keras.applications.mobilenet import relu6, DepthwiseConv2D, preprocess_input
+    import keras
+except ImportError:
+    rospy.logerr("Failed to import neural net libs")
+
+
 
 import cv2
 from cv_bridge import CvBridge
