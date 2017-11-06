@@ -8,7 +8,9 @@ from sensor_msgs.msg import Image
 from camera.srv import recognizer, recognizerResponse
 #general imports
 import numpy as np
-
+import rospkg
+from os import path
+rospack = rospkg.RosPack()
 #Keras imports
 try:
     from keras.preprocessing import image as keras_image
@@ -19,8 +21,7 @@ try:
 except ImportError:
     rospy.logerr("Failed to import neural net libs")
 
-
-
+import getpass
 import cv2
 from cv_bridge import CvBridge
 bridge = CvBridge()
@@ -29,10 +30,12 @@ class_indices = {'Orange Star': 6, 'Red Hollow Cube': 9, 'Purple Hollow Cross': 
 index_classes = {v: k for k, v in class_indices.items()}
 
 class Recognizer:    
-    def __init__(self,
-        model_path="/home/ras13/catkin_ws/src/automated_travel_entity/camera/data/models/model.spec"):
-        self.model_path = model_path
-                
+    def __init__(self):
+        base_dir = rospack.get_path("camera")
+        self.model_path=path.join(base_dir,"data/models/model.spec")
+        rospy.loginfo("self.model_path = " + self.model_path)
+        
+        rospy.loginfo("path.isfile(self.model_path) = " + str(path.isfile(self.model_path)))
         with CustomObjectScope({'relu6':relu6,'DepthwiseConv2D':DepthwiseConv2D}):
             self.model = load_model(self.model_path)
             self.model._make_predict_function() #Quickfix for bug #2397 in keras
