@@ -121,9 +121,9 @@ public:
             particles[i].weight = (float) 1.0/nr_particles;
         }
 
-        for (int i = 0; i<nr_particles; i++){
-            ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
-        }
+        // for (int i = 0; i<nr_particles; i++){
+        //     ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
+        // }
 
 
     }
@@ -295,6 +295,58 @@ public:
         
     }
 
+    void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map){
+        int nr_measurements_used = 4;
+        int step_size = (ranges.size()/nr_measurements_used);
+        float angle = 0.0;
+        float max_distance = 3.0;
+        float range;
+
+        int i = 0;
+        while(i < ranges.size()){
+            angle = i*angle_increment;
+            range = ranges[i];
+            ROS_INFO("Laser range [%f]", range);
+
+            std::pair <float,float> angle_measurement (angle, range);
+            sampled_measurements.push_back(angle_measurement);
+            i = i + step_size;
+        }
+
+        ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
+
+        if(sampled_measurements.size() > 400){
+            run_calibrations(map, sampled_measurements);
+        }
+
+    }
+
+    void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements){
+
+        
+
+        float max_distance = 3.0;
+        float pos_x = 0.23;
+        float pos_y = 0.2;
+        float theta = 0;
+
+        std::pair<float, float> xy =  particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
+        float lidar_orientation = pi;
+        float z_hit=0.0;
+        float z_short=0.0;
+        float z_max=0.0;
+        float z_random=0.0;
+        float sigma_hit=0.0;
+        float lambda_short=0.0;
+        while (true){
+            ROS_INFO("Before calculate");            
+            calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, lidar_orientation, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
+            ROS_INFO("Parameters found zhit:[%f] zshort:[%f] zmax:[%f], zradom:[%f], sigmahit[%f], lambdashort:[%f] ", z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
+            
+        }
+        
+    }
+
 private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
@@ -343,12 +395,15 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(frequency);
     
     Particle most_likely_position;
+    std::vector<std::pair<float, float>> sampled_measurements;
 
     int count = 0;
     while (filter.n.ok()){
 
-        most_likely_position = filter.localize(map);
-        filter.publishPosition(most_likely_position);
+        //most_likely_position = filter.localize(map);
+        //filter.publishPosition(most_likely_position);
+        filter.collect_measurements(sampled_measurements, map);
+
         ros::spinOnce();
 
         loop_rate.sleep();

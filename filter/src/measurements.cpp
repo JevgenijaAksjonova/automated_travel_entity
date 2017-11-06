@@ -3,6 +3,11 @@
 #include <tf/transform_listener.h>
 #include <math.h>
 #include <vector>
+#include <random>
+#include <functional>
+#include <chrono>
+#include <cmath>
+
 
 #include <measurements.h>
 
@@ -102,6 +107,12 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
     return ranges;
 }
 
+float get_dist_value(float mean, float sigma2, float number){
+    float exponent = exp(((-1.0/2.0)*pow((number-mean), 2))/sigma2);
+    float base = 1.0/sqrt(2.0*3.14*sigma2);
+    return base*exponent;
+}
+
 float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float lidar_orientation)
 {
     float weight = 0;
@@ -133,11 +144,19 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         // Calculate the hit probability
         if (0 <= measuredRange && measuredRange <= max_distance)
         {
-            normal_distribution<float> distribution(realRange, sigma_hit);
-            float prob = 0.5;
+            // unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+            // default_random_engine generator = default_random_engine(seed);
+            
+            // normal_distribution<float> distribution(realRange, sigma_hit);
+
+            
+            float prob = get_dist_value(realRange, pow(sigma_hit,2), measuredRange );
+            float eta_hit = 0.0;
+            for(float i = 0; i += 0.1; i<max_distance){
+                eta_hit += get_dist_value(realRange, pow(sigma_hit,2), i );
+            }
 
             // CALCULATE ETA, FIND SOLUTION LATER
-            float eta_hit = 0;
 
             prob_hit = prob * eta_hit;
         }
@@ -230,11 +249,15 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         // Calculate the hit probability
         if (0 <= measuredRange && measuredRange <= max_distance)
         {
-            normal_distribution<float> distribution(realRange, sigma_hit);
-            float prob = 0.5;
+            //normal_distribution<float> distribution(realRange, sigma_hit);
+            
+            float prob = get_dist_value(realRange, pow(sigma_hit,2), measuredRange );
+            float eta_hit = 0.0;
+            for(float i = 0; i += 0.1; i<max_distance){
+                eta_hit += get_dist_value(realRange, pow(sigma_hit,2), i );
+            }
 
             // CALCULATE ETA, FIND SOLUTION LATER
-            float eta_hit = 0;
 
             prob_hit = prob * eta_hit;
         }
