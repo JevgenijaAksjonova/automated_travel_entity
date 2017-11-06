@@ -18,10 +18,9 @@
 #include<math.h>
 // #include<uarm/Angles.h>  //For the message subscribed: destination joint  //BACK UP API
 float joint0,joint1,joint2,joint3; //joint3 is not connected.
-//Declear STRUCT Var for subscribed message
-//geometry_msgs::Point start_position, target, ms1,ms2,sub_dest;   //Intial important coords
-
-
+float x,y,z;
+float joint0_offset = -18.0;
+float joint2_offset = -30.0;
 //Declear STRUCT Var for reference
 int arm_state = 0;  // 0 for no task to move
 bool pump_state = 0; // Suck the object, and never loosen it.
@@ -44,17 +43,45 @@ void objectCoordReceiver( const geometry_msgs::Point & msgObjCoord){
 
     ROS_INFO_STREAM(">>Reference Message Receive!");
 
-    float c,theta,alpha,beta;
-    float y_1 = sqrt(pow(msgObjCoord.x,2)+pow(msgObjCoord.y,2)); //where joint0=0
-    float z = msgObjCoord.z;
 
+    float c,theta,alpha,beta,y1,z1;
 
-    c = sqrt(pow(4-z,2)+pow(y_1-5.5,2));
-    theta = atan( (4-z)/(y_1-5.5));
+   //DEBUG: MONITOR the values, can be removed after verification
+    float y_local,x_local,r,phi ; //where joint0=0
+    float z_local;
+    x = msgObjCoord.x;
+    y = msgObjCoord.y;
+    z = msgObjCoord.z;
+    // Calculate the xyz in arm frame, which is not needed really
+    z_local = msgObjCoord.z;
+    r   = sqrt(pow(msgObjCoord.x,2)+pow(msgObjCoord.y,2));
+    phi = atan(msgObjCoord.y/msgObjCoord.x)*360/(2*M_PI)+45; //degree
+    x_local = r * cos(phi*2*M_PI/360);
+    y_local = r * sin(phi*2*M_PI/360);
+   //End of debugging part
+/*
+    y1 = sqrt(pow(msgObjCoord.x,2)+pow(msgObjCoord.y,2));
+    z1 = msgObjCoord.z;
+
+    c = sqrt(pow(4-z1,2)+pow(y1-5.5,2));
+    theta = atan( (4-z1)/(y1-5.5));
     alpha = acos( (pow(c,2)+pow(16,2)-pow(15,2))/(2*16*c) );
     beta =  acos( (pow(c,2)+pow(15,2)-pow(16,2))/(2*15*c) );
     //    ROS_INFO_STREAM("sub destinations");
-    joint0 = atan(msgObjCoord.x/msgObjCoord.y)*360/(2*M_PI);//arctan
+    joint0 = atan(msgObjCoord.y/msgObjCoord.x)*360/(2*M_PI);//arctan, degree, arm frame
+    joint1 = (beta - theta)*360/(2*M_PI);
+    joint2 = (alpha+ theta)*360/(2*M_PI);
+    joint3 = 0;
+*/
+    y1 = sqrt(pow(msgObjCoord.x,2)+pow(msgObjCoord.y,2));
+    z1 = msgObjCoord.z;
+
+    c = sqrt(pow(4-z1,2)+pow(y1-5.5,2));
+    theta = atan( (4-z1)/(y1-5.5));
+    alpha = acos( (pow(c,2)+pow(16,2)-pow(15,2))/(2*16*c) );
+    beta =  acos( (pow(c,2)+pow(15,2)-pow(16,2))/(2*15*c) );
+    //    ROS_INFO_STREAM("sub destinations");
+    joint0 = atan(msgObjCoord.y/msgObjCoord.x)*360/(2*M_PI)+45;//arctan, degree, robot frame
     joint1 = (beta - theta)*360/(2*M_PI);
     joint2 = (alpha+ theta)*360/(2*M_PI);
     joint3 = 0;
@@ -105,10 +132,10 @@ int main (int argc, char **argv){
 
 
     // Initial
-    move_srv.request.j0 = 45.0 -10.0; //Correction for bad  45
+    move_srv.request.j0 = 45.0 + joint0_offset; //Correction for bad  45
     move_srv.request.j1 = 30.0;       // 30
-    move_srv.request.j2 = 60 -30.0; //Correction for bad 60-30
-    move_srv.request.j3 = 0;
+    move_srv.request.j2 = 60.0 + joint2_offset; //Correction for bad 60-30
+    move_srv.request.j3 = 0.0;
     move_srv.request.move_mode = 0; //  absolute in the robot frame
     move_srv.request.movement_duration = ros::Duration(2.0);
     move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
@@ -139,15 +166,16 @@ int main (int argc, char **argv){
         if (arm_state  != 0) {
             switch (arm_state ){
             case 1:           //go to target    //
-                move_srv.request.j0 = joint0 -10.0; //Correction for calibration
+                move_srv.request.j0 = joint0 + joint0_offset; //Correction for calibration
                 move_srv.request.j1 = joint1;
-                move_srv.request.j2 = joint2 -30.0; //Correction for calibration
+                move_srv.request.j2 = joint2 + joint2_offset; //Correction for calibration
                 move_srv.request.j3 = joint3;
                 move_srv.request.move_mode = 0; //  absolute in the robot frame
                 move_srv.request.movement_duration = ros::Duration(2.0);
                 move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
                 move_srv.request.check_limits      =false;
-        ROS_INFO_STREAM("joint0:"<<joint0 <<" joint1:"<<joint1<<" joint2:"<<joint2);
+                ROS_INFO_STREAM("x:"<<x <<" y:"<<y<<" z:"<<z);
+                ROS_INFO_STREAM("joint0:"<<joint0 <<" joint1:"<<joint1<<" joint2:"<<joint2);
                 if (moveClient.call(move_srv) ) // Response: pump_status true
                     ROS_INFO("Move to target");
                 else                            // Response: pump_status false
@@ -155,16 +183,20 @@ int main (int argc, char **argv){
                 break;
             case 2:
                 pump_srv.request.pump_status = true;
-                if (pumpClient.call(pump_srv) ) // Response: pump_status true
+                if (pumpClient.call(pump_srv) ){ // Response: pump_status true
                     ROS_INFO("Pump on");
+                //Debug
+                   // ros::Duration(10.0).sleep(); //Sleep 10 seconds
+                //End debugging
+                }
                 else                            // Response: pump_status false
                     ROS_ERROR("Fail to call Pump on");
                 break;
             case 3:
-                move_srv.request.j0 = 45.0 -10.0; //Correction for calibration
+                move_srv.request.j0 = 45.0 +joint0_offset; //Correction for calibration
                 move_srv.request.j1 = 30.0;
-                move_srv.request.j2 = 60 -30.0; //Correction for calibration
-                move_srv.request.j3 = 0;
+                move_srv.request.j2 = 60.0 + joint2_offset; //Correction for calibration
+                move_srv.request.j3 = 0.0;
                 move_srv.request.move_mode = 0; //  absolute in the robot frame
                 move_srv.request.movement_duration = ros::Duration(2.0);
                 move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1

@@ -21,7 +21,7 @@
 //------------------Need Change-------------------------------
 //------------------Need Change-------------------------------
 
-#define KEYCODE_G 0x43  //Go to the object
+#define KEYCODE_G 0x67  //Go to the object
 #define KEYCODE_Q 0x71  //Character Q for quit
 
 //Period
@@ -44,9 +44,9 @@ void objectCoordReceiver( const geometry_msgs::PointStamped & msgObjCoord){
 
     ROS_INFO_STREAM(">>Reference Message Receive!");
 
-    x = msgObjCoord.point.x;
-	y = msgObjCoord.point.x;
-	z = msgObjCoord.point.x;
+    x = msgObjCoord.point.x;  // unit: meter
+    y = msgObjCoord.point.y;
+    z = msgObjCoord.point.z;
     //receive_state = 1;
 
 }
@@ -117,9 +117,9 @@ int main(int argc, char** argv)
         }
         geometry_msgs::Point msg;
         //Fill in the message
-        msg.x = x*100.0+10.0;  //Add offset 5.0 cm
-        msg.y = y*100.0;  //Add offset 0
-        msg.z = z*100.0;  //Add offset 0
+        msg.x = x*100.0+12.5;  //Add offset 12 cm
+        msg.y = y*100.0+0.0;  //Add offset 0
+        msg.z = z*100.0+0.0;  //Add offset 0
 
         if(dirty ==true)
         {
@@ -127,16 +127,17 @@ int main(int argc, char** argv)
             obj_pub.publish(msg);
             dirty=false;
         }
+        ros::spinOnce();
+
+
+        //------------------------------------------------------------------------------------------------------
+        //ROS_INFO_STREAM("="<<var );
+        //------------------------------------------------------------------------------------------------------
+
+        loop_rate.sleep(); //sleep
     }
 
-    ros::spinOnce();
 
-
-    //------------------------------------------------------------------------------------------------------
-    //ROS_INFO_STREAM("="<<var );
-    //------------------------------------------------------------------------------------------------------
-
-    loop_rate.sleep(); //sleep
 
     return(0);
 }
