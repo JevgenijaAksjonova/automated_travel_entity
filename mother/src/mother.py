@@ -4,7 +4,7 @@ from __future__ import print_function
 import rospy
 import roslib
 from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist
-from std_msgs import Bool
+from std_msgs.msg import Bool
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -114,7 +114,7 @@ class Mother:
 
         #Publishers
         self.evidence_pub = rospy.Publisher("evidence_publisher",RAS_Evidence,queue_size=1)
-	    self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
+        self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         
         #Wait for required services to come online
         rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
@@ -228,11 +228,11 @@ class Mother:
         # If the path following fails call self.set_following_path_to_main_goal()
         # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
 
-	    msg = Twist()
+        msg = Twist()
         msg.linear.x = pose.position.x
         msg.linear.y = pose.position.y
         msg.angular.x = 1.57
-	    navigation_goal_pub.publish(msg)
+        navigation_goal_pub.publish(msg)
         return True
 
     def try_classify(self):
