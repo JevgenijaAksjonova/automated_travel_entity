@@ -45,11 +45,8 @@ class Recognizer:
         res = self.model.predict(image,steps=1)[0]
         print(type(res))
         probable_class = np.argmax(res)
-        print("Gussed ",index_classes[probable_class]," with probability ",res[probable_class])
+        print("Guessed ",index_classes[probable_class]," with probability ",res[probable_class])
         return probable_class,index_classes[probable_class],res[probable_class]
-
-
-
 
 def main():
     rospy.init_node("recognizer_server")
