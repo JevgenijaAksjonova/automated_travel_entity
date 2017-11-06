@@ -186,7 +186,7 @@ int main (int argc, char **argv){
                 if (pumpClient.call(pump_srv) ){ // Response: pump_status true
                     ROS_INFO("Pump on");
                 //Debug
-                   // ros::Duration(10.0).sleep(); //Sleep 10 seconds
+                    ros::Duration(10.0).sleep(); //Sleep 10 seconds
                 //End debugging
                 }
                 else                            // Response: pump_status false

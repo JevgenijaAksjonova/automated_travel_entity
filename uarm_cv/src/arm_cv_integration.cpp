@@ -17,7 +17,9 @@
 //------------------Need Change-------------------------------
 #include<geometry_msgs/PointStamped.h>  //For the message subscribed: object coordinate
 //------------------Need Change-------------------------------
-#include<geometry_msgs/Point.h>      //For the message to be published object coordinate
+
+#include<camera/PosAndImage.h>
+//#include<geometry_msgs/Point.h>      //For the message to be published object coordinate
 //------------------Need Change-------------------------------
 //------------------Need Change-------------------------------
 
@@ -28,7 +30,7 @@
 float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 // position m from camera
-float x,y,z;
+float x=12,y,z;
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -40,13 +42,13 @@ void quit(int sig)
     exit(0);
 }
 //Callback function 1: destination message
-void objectCoordReceiver( const geometry_msgs::PointStamped & msgObjCoord){
+void objectCoordReceiver( const camera::PosAndImage & msgObjCoord){
 
     ROS_INFO_STREAM(">>Reference Message Receive!");
 
-    x = msgObjCoord.point.x;  // unit: meter
-    y = msgObjCoord.point.y;
-    z = msgObjCoord.point.z;
+    x = msgObjCoord.pos.x;  // unit: meter
+    y = msgObjCoord.pos.y;
+    z = msgObjCoord.pos.z;
     //receive_state = 1;
 
 }
@@ -87,13 +89,14 @@ int main(int argc, char** argv)
 
     while (ros::ok() )
     {
+         ROS_INFO_STREAM("SPIN 1!!!");
         // get the next event from the keyboard
         if(read(kfd, &c, 1) < 0) {
             puts("Error");
             perror("read():");
             exit(-1);
         }
-
+        ROS_INFO_STREAM("SPIN 2!!!");
         ROS_DEBUG("value: 0x%02X\n", c);  // Debug message will not show in Terminal. 
         
         switch(c)    {
@@ -127,13 +130,11 @@ int main(int argc, char** argv)
             obj_pub.publish(msg);
             dirty=false;
         }
+
         ros::spinOnce();
-
-
         //------------------------------------------------------------------------------------------------------
         //ROS_INFO_STREAM("="<<var );
         //------------------------------------------------------------------------------------------------------
-
         loop_rate.sleep(); //sleep
     }
 
