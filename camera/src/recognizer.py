@@ -9,6 +9,7 @@ from camera.srv import recognizer, recognizerResponse
 #general imports
 import numpy as np
 import rospkg
+from os import path
 rospack = rospkg.RosPack()
 #Keras imports
 try:
@@ -31,10 +32,9 @@ index_classes = {v: k for k, v in class_indices.items()}
 class Recognizer:    
     def __init__(self):
         base_dir = rospack.get_path("camera")
-        model_path=path.join(base_dir,"data/models/model.spec"):
-        self.model_path = model_path
+        self.model_path=path.join(base_dir,"data/models/model.spec")
         rospy.loginfo("self.model_path = " + self.model_path)
-        from os import path
+        
         rospy.loginfo("path.isfile(self.model_path) = " + str(path.isfile(self.model_path)))
         with CustomObjectScope({'relu6':relu6,'DepthwiseConv2D':DepthwiseConv2D}):
             self.model = load_model(self.model_path)
