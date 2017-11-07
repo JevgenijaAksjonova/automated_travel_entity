@@ -14,13 +14,13 @@
 #include <signal.h>
 #include <termios.h>
 #include <stdio.h>
+#include<math.h>   // For math calculation: sin cos asin acos, etc.
 //------------------Need Change-------------------------------
 #include<geometry_msgs/PointStamped.h>  //For the message subscribed: object coordinate
 //------------------Need Change-------------------------------
 
 #include<camera/PosAndImage.h>
-#include <tf/transform_listener.h>
-#include<geometry_msgs/PointStamped.h>      //For the message to be published object coordinate
+//#include<geometry_msgs/Point.h>      //For the message to be published object coordinate
 //------------------Need Change-------------------------------
 //------------------Need Change-------------------------------
 
@@ -32,8 +32,7 @@ float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 // position m from camera
 float x=12,y,z;
-
-tf::TransformListener* listener = NULL;
+float camera_rotation=0; //degree
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -46,17 +45,18 @@ void quit(int sig)
 }
 //Callback function 1: destination message
 void objectCoordReceiver( const camera::PosAndImage & msgObjCoord){
-    listener = new(tf::TransformListener);
-    geometry_msgs::PointStamped ObjCoord;
-    ROS_INFO_STREAM(">>Camera Candidates Receive!");
-    std::string arm_link = "/arm_link";
-    ObjCoord.point = msgObjCoord.pos;
-    ObjCoord.header = msgObjCoord.header;
 
-    listener->transformPoint(arm_link,ObjCoord, ObjCoord);
-    x = msgObjCoord.pos.x;  // unit: meter
-    y = msgObjCoord.pos.y;
-    z = msgObjCoord.pos.z;
+    ROS_INFO_STREAM(">>Camera Candidates Receive!");
+float x_c,y_c,z_c,phi_xz,r_xz; //Camera
+    x_c = msgObjCoord.pos.x;  // unit: meter
+    y_c  = msgObjCoord.pos.y;
+    z_c  = msgObjCoord.pos.z;
+    r_xz = sqrt(pow(x_c,2)+pow(z_c,2));
+    phi_xz = atan(z_c/x_c)*360/(2*M_PI);
+// Calibrate the camera rotation
+    x = r_xz* cos((phi_xz+camera_rotation) *360/(2*M_PI) ) // unit: meter
+    y = y_c;
+    z = r_xz* sin((phi_xz+camera_rotation) *360/(2*M_PI) ) // unit: meter
     ROS_INFO_STREAM("x:"<<x <<" y:"<<y<<" z:"<<z);
 
     //receive_state = 1;
@@ -128,9 +128,7 @@ int main(int argc, char** argv)
         default:
             printf("Undefiend value: 0x%02X\n", c);
         }
-//
 
-//
         ros::spinOnce();
         //------------------------------------------------------------------------------------------------------
         //ROS_INFO_STREAM("="<<var );
@@ -154,3 +152,4 @@ int main(int argc, char** argv)
 
     return(0);
 }
+
