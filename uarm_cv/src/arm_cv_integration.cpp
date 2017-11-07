@@ -32,7 +32,7 @@ float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 // position m from camera
 float x=12,y,z;
-float camera_rotation=45; //degree
+float camera_rotation=60; //degree
 
 int kfd = 0;
 struct termios cooked, raw;
