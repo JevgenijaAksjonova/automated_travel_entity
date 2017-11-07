@@ -141,6 +141,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
     for (int r = 0; r < rangeWithTrueRange.size(); r++)
     {
+
         float prob_hit = 0;
         float prob_short = 0;
         float prob_max = 0;
@@ -152,6 +153,9 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
+
+        ROS_INFO("Real [%f], Measured in map [%f]", realRange, measuredRange);
+        
 
         // Calculate the hit probability
         if (0 <= realRange && realRange <= max_distance)
@@ -166,7 +170,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
             // CALCULATE ETA, FIND SOLUTION LATER
 
-            prob_hit = prob * eta_hit;
+            prob_hit = prob / eta_hit;
         }
 
         // Calculate the short (unexpected objects) probability
@@ -178,7 +182,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         }
 
         // Calculate the max probability
-        if (realRange > max_distance)
+        if (realRange >= max_distance)
         {
             prob_max = 1;
         }
@@ -193,6 +197,8 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         p = z_hit * prob_hit + z_short * prob_short + z_max * prob_max + z_random * prob_random;
 
         q *= p;
+
+        ROS_INFO("q-value: [%f]", q);
     }
 
     weight = q;
@@ -208,13 +214,31 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
     float lidar_y = 0.0;
     float lidar_orientation = M_PI / 2;
 
+    int x_map_max = map.global_map.size();
+    int y_map_max = map.global_map[0].size();
+
+    pair<float, float> max_distances = map.getDistance(x_map_max, y_map_max);
+
+    float x_map_max_distance = max_distances.first;
+    float y_map_max_distance = max_distances.second;
+
     for (int p = 0; p < particles.size(); p++)
     {
-        //pair<float, float> new_particle_coordinates = localToWorldCoordinates(x, y, theta, lidar_x, lidar_y, lidar_orientation, laser_data.first, laser_data.second);
-
         pair<float, float> new_particle_center = particleToLidarConversion(particles[p].xPos, particles[p].yPos, particles[p].thetaPos, lidar_x, lidar_y);
 
-        weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation);
+        ROS_INFO("Old center of particle [%d] = [%f], [%f]", p, particles[p].xPos, particles[p].yPos);
+        ROS_INFO("Center of particle [%d] = [%f], [%f]", p, new_particle_center.first, new_particle_center.second);
+
+        if(new_particle_center.first < x_map_max_distance && new_particle_center.first > 0 && new_particle_center.second < y_map_max_distance && new_particle_center.second > 0) {
+            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation); 
+            
+            ROS_INFO("Weight: [%f]", weight);
+            
+        } else {
+            weight = 0.0;
+        }
+
+
         particles[p].weight = weight;
     }
 }
