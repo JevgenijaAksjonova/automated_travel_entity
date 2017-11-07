@@ -19,6 +19,7 @@ from image_geometry import PinholeCameraModel
 pp = pprint.PrettyPrinter(indent = 4)
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
+from std_msgs.msg import String as String_msg
 
 bridge = CvBridge()
 #rec = Recognizer()
@@ -234,6 +235,9 @@ class ObjectDetector:
                     obj_cand_msg.pos.y = - point[0]
                     obj_cand_msg.pos.z = - point[1]
                     obj_cand_msg.image = obj_img
+                    color_msg = String_msg()
+                    color_msg.data = color
+                    obj_cand_msg.color = color_msg
 
                     print("x from camera coord=", point[2])
                     print("y from camera coord=", - point[0])
