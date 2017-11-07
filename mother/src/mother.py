@@ -5,7 +5,7 @@ import rospy
 import roslib
 from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist, TransformStamped
 from std_msgs.msg import Bool, String
-from project_msgs.srv import global_path
+from project_msgs.srv import global_path, global_pathRequest, global_pathResponse
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -42,8 +42,9 @@ MOTHER_WORKING_FRAME = "odom"  #REMEMBER TO CHANGE TO MAP IN THE END!!!!
 
 #Testing variables for disabling parts of the mother
 
-USING_PATH_PLANNING = False
+USING_PATH_PLANNING = True
 USING_ARM = False
+USING_VISION =False
 
 #Define verboseness of different parts
 RECOGNITION_VERBOSE = True
@@ -157,16 +158,21 @@ class Mother:
         self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
 
         #Wait for required services to come online
-        rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
-        rospy.wait_for_service(RECOGNIZER_SERVICE_NAME)
+        if USING_VISION:
+            rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
+            rospy.wait_for_service(RECOGNIZER_SERVICE_NAME)
+
+        if USING_PATH_PLANNING:
+            rospy.loginfo("Waiting for service {0}".format(NAVIGATION_GOAL_TOPIC))
+            rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
 
         #Service handles
         self.recognizer_srv = rospy.ServiceProxy(RECOGNIZER_SERVICE_NAME,recognizer,persistent=True)
-	self.global_path_service = rospy.ServiceProxy(NAVIGATION_GOAL_TOPIC, global_path , persistent=True)
+        self.global_path_service = rospy.ServiceProxy(NAVIGATION_GOAL_TOPIC, global_path , persistent=True)
         
         #Other initialisations
         self.classifying_obj = None
-
+        self.i = 0
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
     
@@ -266,27 +272,29 @@ class Mother:
         return pose
 
     def go_to_pose(self,pose):
+        if USING_PATH_PLANNING:
+            self.nav_goal_acchieved = False
 
-        self.nav_goal_acchieved = False
+            #Jegvenja
+            #Set goal and plan here.
+            #If no fesable path was found, return false, else true
+            #Using a ros service is probably right in this case.
 
-        #Jegvenja
-        #Set goal and plan here.
-        #If no fesable path was found, return false, else true
-        #Using a ros service is probably right in this case.
+            # When the nav goad ls achieved and the robot has stoped,
+            # Set self.nav_goal_acchieved = True, in the apropriate callback.
 
-        # When the nav goad ls achieved and the robot has stoped,
-        # Set self.nav_goal_acchieved = True, in the apropriate callback.
-
-        # If the path following fails call self.set_following_path_to_main_goal()
-        # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
-        srv = global_path()
-        srv.pose.linear.x = pose.position.x
-        srv.pose.linear.y = pose.position.y
-        srv.pose.angular.x = 1.57
-        if global_path_service.call(srv):
-            return srv.response.path_found
+            # If the path following fails call self.set_following_path_to_main_goal()
+            # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
+            request = Twist()
+            request.linear.x = pose.pose.position.x
+            request.linear.y = pose.pose.position.y
+            request.angular.x = 1.57
+            b = None
+            response = self.global_path_service(request)
+            return response.path_found
         else:
-	        return False
+            self.nav_goal_acchieved = True
+            return True
 
     def try_classify(self):
         rospy.loginfo("Trying to classify") 
@@ -389,13 +397,16 @@ class Mother:
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
+            
+            
+            rospy.loginfo("mother iter {i}".format(i = self.i))
+            rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
+            rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
+            rospy.loginfo("\tdetected objects = {0}".format(self.detected_objects))
+            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
+            self.i += 1
             rate.sleep()
-            rospy.loginfo("Classification queue = {0}".format(self.object_classification_queue))
-            
-            rospy.loginfo("classifying object = {0}".format(self.classifying_obj ))
-            rospy.loginfo("detected objects = {0}".format(self.detected_objects))
-            rospy.loginfo("New Mother loop, mode = \"{0}\"".format(self.mode))
-            
 def main():        
     rospy.init_node("recognizer_server")    
     m = Mother()
