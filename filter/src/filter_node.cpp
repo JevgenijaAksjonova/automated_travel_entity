@@ -71,7 +71,7 @@ public:
         float start_xy = 0.2;
         float spread_xy = 0.01;
         float start_theta = pi/2;
-        float spread_theta = pi/20;
+        float spread_theta = pi/40;
         int nr_particles = 100;
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -100,17 +100,11 @@ public:
         range_max = msg->range_max;
     }
 
-    // void createMapRepresentation(std::string map_filename, float cellSize) {
-    //     map = LocalizationGlobalMap(map_filename, cellSize);
-    // }
-
 
     void initializeParticles(float start_xy, float spread_xy, float start_theta, float spread_theta, int nr_particles){
 
         std::normal_distribution<float> dist_start_xy = std::normal_distribution<float>(start_xy, spread_xy);
         std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(start_theta, spread_theta);
-
-
 
         particles.resize(nr_particles);
         for (int i = 0; i<nr_particles; i++){
@@ -306,7 +300,7 @@ public:
     }
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map){
-        int nr_measurements_used = 4;
+        int nr_measurements_used = 8;
         int step_size = (ranges.size()/nr_measurements_used);
         float angle = 0;
         float max_distance = 3.0;
@@ -314,7 +308,7 @@ public:
 
         int i = 0;
         while(i < ranges.size()){
-            angle = (i * angle_increment);
+            angle = -(i * angle_increment);
             range = ranges[i];
 
             if(std::isinf(range) || range > max_distance){
@@ -329,10 +323,11 @@ public:
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        /*if(sampled_measurements.size() > 2000) {
+        if(sampled_measurements.size() > 4000) {
             run_calibrations(map, sampled_measurements);
-        }*/
+        }
 
+        /*
         vector<pair<float, float>> test_laser;
         test_laser.push_back(make_pair(0, 0.10));
         test_laser.push_back(make_pair(-pi/2, 0.20));
@@ -348,6 +343,7 @@ public:
         ROS_INFO("M, [%f]: R, [%f]", test_data[1].first, test_data[1].second);
         ROS_INFO("M, [%f]: R, [%f]", test_data[2].first, test_data[2].second);
         ROS_INFO("M, [%f]: R, [%f]", test_data[3].first, test_data[3].second);
+        */
         
 
     }
@@ -428,9 +424,9 @@ int main(int argc, char **argv)
     int count = 0;
     while (filter.n.ok()){
 
-        //most_likely_position = filter.localize(map);
-        //filter.publishPosition(most_likely_position);
-        filter.collect_measurements(sampled_measurements, map);
+        most_likely_position = filter.localize(map);
+        filter.publishPosition(most_likely_position);
+        //filter.collect_measurements(sampled_measurements, map);
 
         ros::spinOnce();
 

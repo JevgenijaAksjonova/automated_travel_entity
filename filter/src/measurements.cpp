@@ -55,23 +55,29 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_ma
     int y = base_coordinates.second;
     bool wallFound = false;
 
+    float x_cont = (float)x;
+    float y_cont = (float)y;
+
     float maxDistance = 2.0 / cellSize;
 
     int count = 0;
 
-    ROS_INFO("Angle: [%f]", angle/M_PI);
+    //ROS_INFO("Angle: [%f]", angle/M_PI);
     
     while (!wallFound && count < maxDistance)
     {
-        ROS_INFO("X: [%d], Y: [%d]", x, y);
+        //ROS_INFO("X: [%d], Y: [%d]", x, y);
+
+        x = round(x_cont);
+        y = round(y_cont);
         if (global_map[x][y] == 1)
         {
             wallFound = true;
         }
         else
         {
-            x = round(x + cos(angle));
-            y = round(y + sin(angle));
+            x_cont = x_cont + cos(angle);
+            y_cont = y_cont + sin(angle);
             count++;
         }
     }
@@ -121,13 +127,13 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 {
     float weight = 0;
 
-    float z_hit = 0.725370;
-    float z_short = 0.012792;
-    float z_max = 0.253992;
-    float z_random = 0.007843;
+    float z_hit = 0.728624;
+    float z_short = 0.009079;
+    float z_max = 0.254491;
+    float z_random = 0.007809;
 
-    float sigma_hit = 0.053669;
-    float lambda_short = 4.878501;
+    float sigma_hit = 0.051875;
+    float lambda_short = 4.172416;
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);
 
@@ -216,13 +222,6 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
 {
 
-    /*
-        float z_hit;
-        float z_short;
-        float z_max;
-        float z_random;
-        */
-
     float e_hit = 0;
     float e_short = 0;
     float e_max = 0;
@@ -230,11 +229,6 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
     float sigma_parameter = 0;
     float lambda_parameter = 0;
-
-    /*
-        float sigma_hit;
-        float lambda_short;
-        */
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
 
