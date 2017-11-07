@@ -32,7 +32,7 @@ float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 // position m from camera
 float x=12,y,z;
-float camera_rotation=0; //degree
+float camera_rotation=45; //degree
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -50,14 +50,15 @@ void objectCoordReceiver( const camera::PosAndImage & msgObjCoord){
 float x_c,y_c,z_c,phi_xz,r_xz; //Camera
     x_c = msgObjCoord.pos.x;  // unit: meter
     y_c  = msgObjCoord.pos.y;
-    z_c  = msgObjCoord.pos.z;
+    z_c  = - msgObjCoord.pos.z;
+    ROS_INFO_STREAM("x_c:"<<x_c <<" y_c:"<<y_c<<" z_c:"<<z_c); // related to camera center(but no rotation)
     r_xz = sqrt(pow(x_c,2)+pow(z_c,2));
-    phi_xz = atan(z_c/x_c)*360/(2*M_PI);
+    phi_xz = atan(z_c/x_c)*360/(2*M_PI);  //degree
 // Calibrate the camera rotation
-    x = r_xz* cos((phi_xz+camera_rotation) *360/(2*M_PI) ) // unit: meter
+    x = r_xz* cos((phi_xz+camera_rotation) *2*M_PI/360 ); // unit: meter
     y = y_c;
-    z = r_xz* sin((phi_xz+camera_rotation) *360/(2*M_PI) ) // unit: meter
-    ROS_INFO_STREAM("x:"<<x <<" y:"<<y<<" z:"<<z);
+    z =-r_xz* sin((phi_xz+camera_rotation) *2*M_PI/360); // unit: meter
+    ROS_INFO_STREAM("x:"<<x <<" y:"<<y<<" z:"<<z); // related to camera center(but no rotation)
 
     //receive_state = 1;
 
