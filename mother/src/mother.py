@@ -27,6 +27,8 @@ GOAL_POSE_TOPIC = "/move_base_simple/goal"
 NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
 GOAL_ACHIEVED_TOPIC = "navigation/status"
 MOTHER_WORKING_FRAME = "odom"  #REMEMBER TO CHANGE TO MAP IN THE END!!!!
+ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
+ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 #GENERAL INFO FOR THE PYTHON NOVICE
 # I have tried to put helpfull comments here for the people that ar not so used to python.
 # most of the stuff should be self explanatory, and you can probably follow the
@@ -90,6 +92,11 @@ class MazeObject:
             obj_cand_msg.header = obj_cand_msg_new.header
             obj_cand_msg.pos = obj_cand_msg_new.point
             self.pos = np.r_[obj_cand_msg.pos.x,obj_cand_msg.pos.y]
+            self.height = obj_cand_msg.pos.z
+            
+            if self.height < 0:
+                rospy.logwarn("Object candidate with negative height")
+            
             if np.any(np.isnan(self.pos)):
                 self.pos = None
 
@@ -152,29 +159,40 @@ class Mother:
         rospy.Subscriber(GOAL_ACHIEVED_TOPIC,Bool,
             callback=self._navigation_status_callback)
 
+        rospy.Subscriber(ARM_MOVEMENT_COMPLETE_TOPIC,Bool,
+            callback=self._arm_movement_complete_callback)
+
         #Publishers
         self.evidence_pub = rospy.Publisher("camera/evidence",RAS_Evidence,queue_size=1)
         #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
 
-        #Wait for required services to come online
+        #Wait for required services to come online and service handles
         if USING_VISION:
             rospy.loginfo("Waiting for service {0}".format(RECOGNIZER_SERVICE_NAME))
             rospy.wait_for_service(RECOGNIZER_SERVICE_NAME)
+            self.recognizer_srv = rospy.ServiceProxy(RECOGNIZER_SERVICE_NAME,recognizer,persistent=True)
 
         if USING_PATH_PLANNING:
             rospy.loginfo("Waiting for service {0}".format(NAVIGATION_GOAL_TOPIC))
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
-
-        #Service handles
-        self.recognizer_srv = rospy.ServiceProxy(RECOGNIZER_SERVICE_NAME,recognizer,persistent=True)
-        self.global_path_service = rospy.ServiceProxy(NAVIGATION_GOAL_TOPIC, global_path , persistent=True)
+            self.global_path_service = rospy.ServiceProxy(NAVIGATION_GOAL_TOPIC, global_path , persistent=True)
         
+        if USING_ARM:
+            rospy.loginfo("Waiting for service {0}".format(ARM_PICKUP_SERVICE_NAME))
+            rospy.wait_for_service(ARM_PICKUP_SERVICE_NAME)
+            self.arm_pickup_srv = rospy.ServiceProxy(ARM_PICKUP_SERVICE_NAME, Point , persistent=True)
+
         #Other initialisations
         self.classifying_obj = None
         self.i = 0
+        self.arm_movement_success = None
+        self.lifting_object = None
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
+
+    def _arm_movement_complete_callback(self,success_msg):
+        self.arm_movement_success = success_msg
     
     def _obj_cand_callback(self,obj_cand_msg):
         self.obj_cand_msg = obj_cand_msg
@@ -335,13 +353,21 @@ class Mother:
         else:
             rospy.loginfo("Did not find any feasable path to the object")
 
-    def set_lift_up_object(self,object_pos):
+    def set_lift_up_object(self,lifting_obj):
         if USING_ARM:
-            if self.can_lift_object():
-                rospy.log("lifting object at {0}".format(object_pos))
-                self.mode = "lift_up_object"
+            self.lifting_object = lifting_obj
+            rospy.log("lifting object at {0}".format(lifting_obj))
+            loc = Point()
+            loc.x = self.classifying_obj.pos.x
+            loc.y = self.classifying_obj.pos.y
+            loc.z = self.classifying_obj.pos.z
+            request_ok = self.arm_pickup_srv(loc)
+            self.arm_movement_success = None
+            if request_ok:
+                rospy.loginfo("Arm request was ok")
             else:
-                rospy.log("can't lift object because...")
+                rospy.loginfo("requested position out of arm range")
+            self.mode = "lift_up_object"
         else:
             self.set_following_path_to_main_goal()
 
@@ -378,11 +404,12 @@ class Mother:
                         self.speak_pub.publish(classification_msg)
                         self.evidence_pub.publish(self.classifying_obj.get_evidence_msg())
                         if "Cube" in self.classifying_obj.class_label:
+                            rospy.loginfo("Object {0} is liftable".format(self.classifying_obj.class_label))
                             self.set_lift_up_object(classifying_obj)
                         else:
                             rospy.loginfo("{0} is not liftable".format(self.classifying_obj.class_label))
                             self.set_following_path_to_main_goal()
-                            self.classifying_obj = None
+                        self.classifying_obj = None
                     else:
                         self.set_following_path_to_main_goal()
                         self.classifying_obj = None 
@@ -392,19 +419,26 @@ class Mother:
                 # The object you should lift up exists int the classifying_obj variable.
                 # That pos is not very exact though so one probably needs to hope that the
                 #  object candidate we can see the object at classifying_obj for now.
-                self.set_following_path_to_main_goal()
-                self.classifying_obj = None
+                if self.arm_movement_success is not None:
+                    if self.arm_movement_success:
+                        self.set_following_path_to_main_goal()
+                        self.arm_movement_success = None
+                        self.lifting_object = None
+                        rospy.loginfo("Arm movement success")
+                    else:
+                        rospy.loginfo("Arm movement failed")
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
             
             
-            rospy.loginfo("mother iter {i}".format(i = self.i))
+            rospy.loginfo("mother iter {i}\n".format(i = self.i))
             rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
             rospy.loginfo("\tdetected objects = {0}".format(self.detected_objects))
             rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
+            rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1
             rate.sleep()
 def main():        
