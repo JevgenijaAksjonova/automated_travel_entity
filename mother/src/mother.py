@@ -14,7 +14,7 @@ from camera.srv import recognizer, recognizerRequest, recognizerResponse
 from sensor_msgs.msg import Image
 from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
-
+import random
 #from ras_msgs.msg import RAS_Evidence
 
 #import random
@@ -44,20 +44,33 @@ ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 
 #Testing variables for disabling parts of the mother
 
-USING_PATH_PLANNING = True
+USING_PATH_PLANNING = False
 USING_ARM = False
-USING_VISION = False
+USING_VISION = True
+
+color_2_rgb = {
+    "green" : (0,255,0),
+    "red" : (255,0,0),
+    "blue_low" : (0,0,255),
+    "blue" : (0,0,255),
+    "yellow" : (0,255,255),
+}
 
 #Define verboseness of different parts
-RECOGNITION_VERBOSE = True
+
+VISION_VERBOSE = False
 DETECTION_VERBOSE = False
 
-def pose_to_msg(x,y,theta):
+def pose_to_msg(x,y,theta,z=0):
     pose = Pose()
     pose.position.x = x
     pose.position.y = y
-    pose.position.z = 0
-    pose.orientation = quaternion_from_euler(0,0,theta)
+    pose.position.z = z
+    quat = quaternion_from_euler(0,0,theta)
+    pose.orientation.x = quat[0]
+    pose.orientation.y = quat[1]
+    pose.orientation.z = quat[2]
+    pose.orientation.w = quat[3]
     return pose
 
 def point_to_msg(x,y):
@@ -67,20 +80,24 @@ def point_to_msg(x,y):
     point.z = 0
     return point
 
-def pose_to_msg_stamped(x,y,theta):
+def pose_to_msg_stamped(x,y,theta,z=0):
     pose_stamped = PoseStamped()
-    pose_stamped.pose = pose_to_msg(x,y,theta)
+    pose_stamped.pose = pose_to_msg(x,y,theta,z)
+    pose_stamped.header.frame_id = MOTHER_WORKING_FRAME
+    pose_stamped.header.stamp = rospy.Time.now()
     return pose_stamped
 
-class MazeObject:
+class MazeObject(object):
 
-    def __init__(self,obj_cand_msg,class_label="an_object",class_id=-1):
+    n_maze_objects = 0
+
+    def __init__(self,obj_cand_msg,class_label="an_object",class_id=-1,vis_pub=None):
         obj_cand_point_msg = PointStamped()
         obj_cand_point_msg.header.frame_id = obj_cand_msg.header.frame_id
         obj_cand_point_msg.header.stamp = obj_cand_msg.header.stamp
         obj_cand_point_msg.point = obj_cand_msg.pos
+        self.color = obj_cand_msg.color.data
         ros_sucks = True
-        start_t = rospy.Time.now().nsecs
         obj_cand_msg_new = None
         i = 0
         while ros_sucks and i <100:
@@ -88,53 +105,105 @@ class MazeObject:
                 obj_cand_msg_new = trans.transformPoint(MOTHER_WORKING_FRAME,obj_cand_point_msg)
                 ros_didnt_suck = False
             except ExtrapolationException as rosfuck:
-                #rospy.loginfo("i = {i}, stamp = {stamp}".format(
-                #    i=i,stamp=obj_cand_point_msg.header.stamp))
-                #rospy.loginfo("TF problem: {0}".format(rosfuck))
                 pass
             i+=1
-        if obj_cand_msg_new is not None:
-            obj_cand_msg.header = obj_cand_msg_new.header
-            obj_cand_msg.pos = obj_cand_msg_new.point
-            self.pos = np.r_[obj_cand_msg.pos.x,obj_cand_msg.pos.y]
-            self.height = obj_cand_msg.pos.z
-            
-            if self.height < 0:
-                rospy.logwarn("Object candidate with negative height")
-            
-            if np.any(np.isnan(self.pos)):
-                self.pos = None
 
-            self.class_label = class_label
-            self.class_id = class_id
-            self.image = obj_cand_msg.image
-        else:
+        if obj_cand_msg_new is None:
             raise ExtrapolationException
 
-    def is_close(self,other,tol=0.03):
+        obj_cand_msg.header = obj_cand_msg_new.header
+        obj_cand_msg.pos = obj_cand_msg_new.point
+        self._pos = np.r_[obj_cand_msg.pos.x,obj_cand_msg.pos.y]
+        self.height = obj_cand_msg.pos.z
+        
+        if self.height < 0:
+            if VISION_VERBOSE:
+                rospy.logwarn("Object candidate with negative height")
+        
+        if np.any(np.isnan(self._pos)):
+            raise ValueError("obj_cand_msg position contains nan values: {0}".format(self._pos))
+
+        self.class_label = class_label
+        self.class_id = class_id
+        self.image = obj_cand_msg.image
+        self.id = MazeObject.n_maze_objects
+        MazeObject.n_maze_objects += 1
+        self._marker = None
+        self._vis_pub = None
+        self.visulisation_publisher = vis_pub
+
+    def is_close(self,other,tol=0.1):
         return self.point_is_close(other.pos,tol=tol)
 
     def point_is_close(self,point,tol=0.1):
         point = np.asarray(point)
-        return tol > np.linalg.norm(self.pos - point)
+        return tol > np.linalg.norm(self._pos - point)
 
-    def get_marker(self):
-        m = Marker()
-        m.action = Marker.ADD
-        m.type = Marker.CUBE
-        m.header.frame_id = MOTHER_WORKING_FRAME
-        m.header.stamp = rospy.Time.now
-        m.pose.position.x = self.pos[0]
-        m.pose.position.y = self.pos[1]
-        m.pose.position.y = 0.2
-        m.scale.x = .02
-        m.scale.y = .02
-        m.scale.z = .02
-        m.color.r = 100
-        m.color.g = 100
-        m.color.b = 100
-        m.color.a = 1
-        return m
+    def is_close_and_same_color(self,other,tol=0.1):
+        return self.is_close(other,tol) and self.color == other.color
+
+    @property
+    def pos(self):
+        return self._pos
+
+    @pos.setter
+    def pos(self,pos):
+        self._pos = pos
+        self._update_marker()
+
+    @property
+    def visulisation_publisher(self):
+        return visulisation_publisher
+
+    @visulisation_publisher.setter
+    def visulisation_publisher(self,vis_pub):
+        if vis_pub is None:
+            self._remove_marker()
+            self._vis_pub = None
+        else:
+            self._vis_pub = vis_pub
+            self._add_marker()
+
+    @property
+    def pose_stamped(self):
+        return pose_to_msg_stamped(self._pos[0],self._pos[1],0,self.height)
+
+    def _remove_marker(self):
+        if self._vis_pub is not None:
+            self._marker.action = Marker.DELETE
+            self._vis_pub.publish(self._marker)
+            self._marker = None
+
+    def _update_marker(self):
+        if self._vis_pub is not None:
+            print("Updating marker pos")
+            pose_stmp = self.pose_stamped
+            self._marker.header = pose_stmp.header
+            self._marker.pose = pose_stmp.pose
+            self._marker.action = Marker.MODIFY
+            self._vis_pub.publish(self._marker)
+        print("In update marker but no vis_pub")
+
+    def _add_marker(self):
+        if self._vis_pub is not None:
+            self._marker = Marker()
+            pose_stmp = self.pose_stamped
+            self._marker.header = pose_stmp.header
+            self._marker.pose = pose_stmp.pose
+            self._marker.action = Marker.ADD
+            self._marker.type = Marker.CUBE
+            self._marker.scale.x = .02
+            self._marker.scale.y = .02
+            self._marker.scale.z = .02
+            (r,g,b) = color_2_rgb[self.color]
+            self._marker.color.r = r
+            self._marker.color.g = g
+            self._marker.color.b = b
+            self._marker.color.a = 1
+            self._marker.id = self.id
+            self._marker.ns = "MazeObjects"
+            self._marker.lifetime = rospy.Duration.from_sec(5)
+            self._vis_pub.publish(self._marker)
 
     def get_evidence_msg(self):
         msg = RAS_Evidence()
@@ -142,13 +211,13 @@ class MazeObject:
         msg.image_evidence = self.image
         msg.object_id = self.class_label
         pos_trans = TransformStamped()
-        pos_trans.transform.translation.x = self.pos[0]
-        pos_trans.transform.translation.y = self.pos[1]
+        pos_trans.transform.translation.x = self._pos[0]
+        pos_trans.transform.translation.y = self._pos[1]
         msg.object_location = pos_trans
         return msg
 
     def __str__(self):
-        return "{label} at {pos}".format(label=self.class_label,pos=self.pos)
+        return "{label} at {pos} id {id}".format(label=self.class_label,pos=self._pos,id=self.id)
 
     def __repr__(self):
         return self.__str__()
@@ -191,7 +260,7 @@ class Mother:
         #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
 
-        self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=1)
+        self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=20)
 
         #Wait for required services to come online and service handles
         if USING_VISION:
@@ -228,10 +297,11 @@ class Mother:
         rospy.loginfo("goal pose callback")
         self.goal_pose = goal_pose_msg
 
-    def object_at_pos(self,pos,tol=.1):
-        for obj_id, obj in enumerate(self.detected_objects):
-            if obj.point_is_close(pos):
-                return obj_id,obj
+    def detected_objs_close(self,obj,tol=.1):
+        close_objs = [detected_obj for detected_obj in self.detected_objects
+            if obj.is_close_and_same_color(detected_obj)]
+        return close_objs               
+
 
     def _navigation_status_callback(self,status_msg):
         rospy.loinfo("navigation status callback")
@@ -240,32 +310,42 @@ class Mother:
             self.nav_goal_acchieved = True
 
     def _handle_object_candidate_msg(self,obj_cand_msg):
-        #Round
-        #TODO: Define grid in a better manner, now we have 1 dm resolution.
         try:
             obj_cand = MazeObject(obj_cand_msg)
         except ExtrapolationException as tfuck:
             if DETECTION_VERBOSE:
                 rospy.loginfo("Could not transform because tf sucks")
             return
-        if obj_cand.pos is not None :
-            object_at_pos_and_id = self.object_at_pos(obj_cand.pos)
-            if object_at_pos_and_id is not None:
-                obj_id,obj_at_pos = object_at_pos_and_id
-                if DETECTION_VERBOSE:
-                    rospy.loginfo("new observation obj id {id} of object at {pos} ".format(id=obj_id, pos=obj_at_pos.pos))
-                #New obeservation of obj => Update position measurment and picture to latest
-                obj_at_pos.pos = obj_cand.pos
-                obj_at_pos.image = obj_cand.image
-            else:
-                if DETECTION_VERBOSE:
-                    rospy.loginfo("observation of new object at {0}".format(obj_cand.pos))
-                #No previous observation at location 
-                self.detected_objects.insert(0,obj_cand)
-                self.object_classification_queue.append(obj_cand)
+        except ValueError as nan_coord:
+            if DETECTION_VERBOSE:
+                rospy.logwarn(nan_coord)
+            return
+        close_objs = self.detected_objs_close(obj_cand)
+        if len(close_objs) != 0:
+            mean_height = np.mean([close_obj.height for close_obj in close_objs])
+            mean_pos = np.mean([close_obj.pos for close_obj in close_objs],axis=0)
+            close_images = [close_obj.image for close_obj in close_objs]
+            largest_image_idx = np.argmax([close_image.height * close_image.width for close_image in close_images])
+            image_large = close_images[largest_image_idx]
+            obj_at_pos = close_objs.pop()
+            #New obeservation of obj => Update position measurment and picture to latest
+            obj_at_pos.height = mean_height
+            obj_at_pos.pos = mean_pos
+            obj_at_pos.image = image_large
+            for close_obj in close_objs:
+                close_obj.visulisation_publisher = None
+                self.detected_objects.remove(close_obj)
+
+            if DETECTION_VERBOSE:
+                rospy.loginfo("new observation obj id {id} of object at {pos} ".format(id=obj_at_pos.id, pos=obj_at_pos.pos))
+            
         else:
             if DETECTION_VERBOSE:
-                rospy.loginfo("Invalid object position received. Ignoring")
+                rospy.loginfo("observation of new object at {0}".format(obj_cand._pos))
+            #No previous observation at location 
+            self.detected_objects.append(obj_cand)
+            self.object_classification_queue.append(obj_cand)
+            obj_cand.visulisation_publisher = self.map_pub
     
     @property
     def robot_pose(self):
@@ -370,9 +450,7 @@ class Mother:
     
     def set_following_path_to_object_classification(self,classifying_obj):
         
-        classification_pose = pose_to_msg_stamped(
-            classifying_obj.pos[0],classifying_obj.pos[1],0)
-        
+        classification_pose = classifying_obj.pose_stamped 
         if self.go_to_pose(classification_pose):
             self.mode = "following_path_to_object_classification"
             self.classifying_obj = classifying_obj
@@ -398,7 +476,7 @@ class Mother:
             self.set_following_path_to_main_goal()
 
     # Main mother loop
-    def mother_forever(self,rate=1):
+    def mother_forever(self,rate=10):
         rate = rospy.Rate(rate)
         rate.sleep()
 
@@ -457,9 +535,6 @@ class Mother:
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
-            for obj in self.detected_objects:
-                self.map_pub.publish(obj.get_marker())
-            
             rospy.loginfo("mother iter {i}\n".format(i = self.i))
             rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
@@ -469,14 +544,15 @@ class Mother:
             rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1
             rate.sleep()
-def main():        
-    rospy.init_node("recognizer_server")    
-    m = Mother()
-    m.mother_forever()
+
 
 if __name__ == "__main__":
     try:
-        print("Hllow")
-        main()
+        rospy.init_node("recognizer_server")    
+        m = Mother()
+        m.mother_forever()
     except rospy.ROSInterruptException:
-        pass
+        if m is not None:
+            if m.detected_objects is not None:
+                for obj in m.detected_objects:
+                    obj.visulisation_publisher = None
