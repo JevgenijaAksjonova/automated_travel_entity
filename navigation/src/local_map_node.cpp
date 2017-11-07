@@ -88,8 +88,9 @@ void LocalPathPlanner::filterNoise(vector<double>& localMap){
 
 void LocalPathPlanner::updateLocalMapLidar() {
 
-    vector<double> localMapNew(360,0);
-    double angleLid = -2*M_PI;
+    //vector<double> localMapNew(360,0);
+    vector<double> localMapNew = localMap;
+    double angleLid = 0.0;
     double xOffset = 0.05;
     for (int i=0; i < ranges.size(); i++) {
         if (!isinf(ranges[i]) ) {
