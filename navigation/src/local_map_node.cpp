@@ -29,7 +29,8 @@ class LocalPathPlanner {
     LocalPathPlanner(double p_robotRad, double p_mapRad):
                                     robotRad(p_robotRad),
                                     mapRad(p_mapRad),
-                                    localMap(360,0) {};
+                                    localMap(360,0),
+                                    distance(360,0) {};
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     bool amendDirection(project_msgs::direction::Request  &req,
@@ -46,6 +47,7 @@ class LocalPathPlanner {
     float range_max;
 
     vector<double> localMap;
+    vector<double> distance;
     void updateLocalMapLidar();
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
@@ -54,11 +56,13 @@ class LocalPathPlanner {
 void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
 
     vector<double> localMapNew = localMap;
-    int angAdd = round(asin(robotRad/mapRad)/2.0/M_PI*360);
     for (int i = 0; i < localMap.size(); i++) {
-        for (int j = i-angAdd; j < i+angAdd; j++) {
-            if (localMap[mod(j,360)] > 0) {
-               localMapNew[i] = 1.0;
+        if (localMap[i] > 0) {
+            int angAdd = round(asin(robotRad/distance[i])/2.0/M_PI*360);
+            for (int j = i-angAdd; j < i+angAdd; j++) {
+                if (localMap[mod(j,360)] > 0) {
+                   localMapNew[i] = 1.0;
+                }
             }
         }
     }
@@ -102,6 +106,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
             angleInd = mod(angleInd,360);
             if (r <= mapRad) {
                 localMapNew[angleInd] = 1.0;
+                distance[angleInd] = r;
             } else {
                 localMapNew[angleInd] = 0.0;
             }
