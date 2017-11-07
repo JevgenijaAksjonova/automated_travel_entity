@@ -78,6 +78,8 @@ class FilterPublisher
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
         int nr_particles = 100;
+        srand(static_cast<unsigned>(time(0)));
+        
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
     }
@@ -147,7 +149,6 @@ class FilterPublisher
         float weight_sum = 0.0;
         Particle most_likely_position;
         most_likely_position.weight = 0.0;
-        srand(static_cast<unsigned>(time(0)));
         for (int m = 0; m < particles.size(); m++)
         {
             weight_sum += particles[m].weight;
@@ -159,30 +160,49 @@ class FilterPublisher
             }
         }
 
+    
+
+        int nrRandomParticles = particles.size()/10;
+
+        if(linear_v != 0 || angular_w != 0) {
+            resampleParticles(weight_sum, nrRandomParticles);
+        }
+        return most_likely_position;
+    }
+
+    void resampleParticles(float weightSum, int nrRandomParticles){
         float rand_num;
         float cumulativeProb;
         int j;
-        std::vector<Particle> temp_vec;
+        std::vector<Particle> temp_vec;        
+        for (int i = 0; i < (particles.size() - nrRandomParticles); i++)
+        {
+            j = 0;
+            cumulativeProb = 0.0;
+            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / weightSum));
 
-        //if (linear_v != 0 || angular_w != 0)
-        //{
-            for (int i = 0; i < particles.size(); i++)
+            while (cumulativeProb < rand_num)
             {
-                j = 0;
-                cumulativeProb = 0.0;
-                rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / weight_sum));
-
-                while (cumulativeProb < rand_num)
-                {
-                    cumulativeProb += particles[j].weight;
-                    j++;
-                }
-
-                temp_vec.push_back(particles[j]);
+                cumulativeProb += particles[j].weight;
+                j++;
             }
-            particles = temp_vec;
-        //}
-        return most_likely_position;
+
+            temp_vec.push_back(particles[j]);
+        }
+
+        //add random particle
+        int v1;
+        for (int i = 0; i<nrRandomParticles; i++){
+            v1 = rand() % particles.size();
+            Particle p = particles[v1];
+            p.xPos+= -0.15 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.30)));
+            p.yPos+= -0.15 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.30)));
+            p.thetaPos+= -0.1 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.2)));
+            temp_vec.push_back(particles[j]);
+
+        }
+
+        particles = temp_vec;
     }
 
     void calculateVelocityAndNoise()
@@ -457,7 +477,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/rikko/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
@@ -479,6 +499,7 @@ int main(int argc, char **argv)
         filter.publishPosition(most_likely_position);
         filter.publish_rviz_particles();            
         //filter.collect_measurements(sampled_measurements, map);
+        ROS_INFO("Are we there");
         ros::spinOnce();
 
         loop_rate.sleep();

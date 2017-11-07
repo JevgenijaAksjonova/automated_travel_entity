@@ -154,7 +154,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
 
-        ROS_INFO("Real [%f], Measured in map [%f]", realRange, measuredRange);
         
 
         // Calculate the hit probability
@@ -198,7 +197,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
         q *= p;
 
-        ROS_INFO("q-value: [%f]", q);
     }
 
     weight = q;
@@ -226,13 +224,10 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
     {
         pair<float, float> new_particle_center = particleToLidarConversion(particles[p].xPos, particles[p].yPos, particles[p].thetaPos, lidar_x, lidar_y);
 
-        ROS_INFO("Old center of particle [%d] = [%f], [%f]", p, particles[p].xPos, particles[p].yPos);
-        ROS_INFO("Center of particle [%d] = [%f], [%f]", p, new_particle_center.first, new_particle_center.second);
 
         if(new_particle_center.first < x_map_max_distance && new_particle_center.first > 0 && new_particle_center.second < y_map_max_distance && new_particle_center.second > 0) {
             weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation); 
             
-            ROS_INFO("Weight: [%f]", weight);
             
         } else {
             weight = 0.0;
@@ -256,7 +251,6 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
 
-    ROS_INFO("After range conversion");
 
     for (int r = 0; r < rangeWithTrueRange.size(); r++)
     {
