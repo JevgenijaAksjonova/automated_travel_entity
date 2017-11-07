@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   #uarm_controller
   world_map
   message_runtime
+  visualization_msgs
 )
 
 find_package(OpenCV 2 REQUIRED)

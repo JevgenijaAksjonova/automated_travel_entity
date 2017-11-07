@@ -12,7 +12,7 @@ trans = TransformListener()
 from camera.msg import PosAndImage
 from camera.srv import recognizer, recognizerRequest, recognizerResponse
 from sensor_msgs.msg import Image
-
+from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 
 #from ras_msgs.msg import RAS_Evidence
@@ -113,6 +113,24 @@ class MazeObject:
         point = np.asarray(point)
         return tol > np.linalg.norm(self.pos - point)
 
+    def get_marker(self):
+        m = Marker()
+        m.action = Marker.ADD
+        m.type = Marker.CUBE
+        m.header.frame_id = MOTHER_WORKING_FRAME
+        m.header.stamp = rospy.Time.now
+        m.pose.position.x = self.pos[0]
+        m.pose.position.y = self.pos[1]
+        m.pose.position.y = 0.2
+        m.scale.x = .02
+        m.scale.y = .02
+        m.scale.z = .02
+        m.color.r = 100
+        m.color.g = 100
+        m.color.b = 100
+        m.color.a = 1
+        return m
+
     def get_evidence_msg(self):
         msg = RAS_Evidence()
         msg.stamp = rospy.Time.now()
@@ -166,6 +184,8 @@ class Mother:
         self.evidence_pub = rospy.Publisher("camera/evidence",RAS_Evidence,queue_size=1)
         #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
+
+        self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=1)
 
         #Wait for required services to come online and service handles
         if USING_VISION:
@@ -321,7 +341,6 @@ class Mother:
             rospy.loginfo("resp.probability = {0}".format(resp.probability.data))
             rospy.loginfo("resp.probability > .95 = {0}".format(resp.probability.data > .95))
             if resp.probability.data > .95:
-                
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
                 rospy.loginfo("returning tru from try classify")
@@ -430,7 +449,8 @@ class Mother:
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
-            
+            for obj in self.detected_objects:
+                self.map_pub.publish(obj.get_marker())
             
             rospy.loginfo("mother iter {i}\n".format(i = self.i))
             rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
