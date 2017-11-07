@@ -11,6 +11,9 @@
 #include <ctime>
 #include <stdlib.h>
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 #include <localization_global_map.h>
 #include <measurements.h>
 /**
@@ -22,6 +25,7 @@ class FilterPublisher
   public:
     ros::NodeHandle n;
     ros::Publisher filter_publisher;
+    ros::Publisher particle_publisher;
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
     float pi;
@@ -54,6 +58,7 @@ class FilterPublisher
         first_loop = true;
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
+        particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
@@ -159,23 +164,24 @@ class FilterPublisher
         int j;
         std::vector<Particle> temp_vec;
 
-        if(linear_v != 0 || angular_w != 0) {
+        //if (linear_v != 0 || angular_w != 0)
+        //{
             for (int i = 0; i < particles.size(); i++)
             {
                 j = 0;
                 cumulativeProb = 0.0;
                 rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / weight_sum));
-    
+
                 while (cumulativeProb < rand_num)
                 {
                     cumulativeProb += particles[j].weight;
                     j++;
                 }
-    
+
                 temp_vec.push_back(particles[j]);
             }
             particles = temp_vec;
-        }
+        //}
         return most_likely_position;
     }
 
@@ -377,6 +383,49 @@ class FilterPublisher
         }
     }
 
+    void publish_rviz_particles()
+    {
+        ros::Time current_time = ros::Time::now();
+
+        visualization_msgs::MarkerArray all_particles;
+        visualization_msgs::Marker particle;
+
+        particle.header.stamp = current_time;
+        particle.header.frame_id = "/odom";
+    
+        particle.ns = "all_particles";
+        particle.type = visualization_msgs::Marker::CUBE;
+        particle.action = visualization_msgs::Marker::ADD;
+    
+        particle.pose.position.z = 0.05;
+    
+        // Set the scale of the marker -- 1x1x1 here means 1m on a side
+        //marker.scale.x = 1.0;
+        particle.scale.y = 0.01;
+        particle.scale.x = 0.01;
+        particle.scale.z = 0.01;
+    
+        // Set the color -- be sure to set alpha to something non-zero!
+        particle.color.r = 0.0f;
+        particle.color.g = 1.0f;
+        particle.color.b = 0.0f;
+        particle.color.a = 1.0;
+
+        int id = 0;
+        for(int i = 0; i < particles.size(); i++) {
+
+            particle.pose.position.x = particles[i].xPos;
+            particle.pose.position.y = particles[i].yPos;     
+            
+            particle.id = id;
+            id++;
+            
+            all_particles.markers.push_back(particle);
+        }
+
+        particle_publisher.publish(all_particles);
+    }
+
   private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
@@ -428,6 +477,7 @@ int main(int argc, char **argv)
 
         most_likely_position = filter.localize(map);
         filter.publishPosition(most_likely_position);
+        filter.publish_rviz_particles();            
         //filter.collect_measurements(sampled_measurements, map);
         ros::spinOnce();
 
