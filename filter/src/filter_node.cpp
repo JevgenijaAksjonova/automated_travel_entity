@@ -68,10 +68,10 @@ public:
         k_V=1;
         k_W=1;
 
-        float start_xy = 0.0;
-        float spread_xy = 0.0;
-        float start_theta = 0.0;
-        float spread_theta = 0.0;
+        float start_xy = 0.2;
+        float spread_xy = 0.01;
+        float start_theta = pi/2;
+        float spread_theta = pi/20;
         int nr_particles = 100;
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -142,7 +142,9 @@ public:
             sample_motion_model(particles[m]);
         }
         //update weights according to measurements
+        ROS_INFO("Before measure model");
         measurement_model(map);
+        ROS_INFO("After measure model");
 
         //sample particles with replacement
         float weight_sum = 0.0;
@@ -151,7 +153,7 @@ public:
         srand (static_cast <unsigned> (time(0)));
         for (int m = 0; m < particles.size(); m++){
             weight_sum += particles[m].weight;
-            //ROS_INFO("Weight of particle [%d] is [%f]", m, particles[m].weight);
+            ROS_INFO("Weight of particle [%d] is [%f]", m, particles[m].weight);
             if(particles[m].weight > most_likely_position.weight){
                 most_likely_position = particles[m];
                 //ROS_INFO("New most likely position!: -  [%f], [%f], [%f], [%f]\n", most_likely_position.xPos, most_likely_position.yPos, most_likely_position.thetaPos, most_likely_position.weight);
@@ -242,16 +244,24 @@ public:
         float range;
 
         int i = 0;
+        
         while(i < ranges.size()){
             angle = i*angle_increment;
             range = ranges[i];
+            if(std::isinf(range) || range > max_distance){
+                range = max_distance;
+            }
             std::pair <float,float> angle_measurement (angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
         }
 
+        if(ranges.size()>0){
+            ROS_INFO("Readings have come");
+            getParticlesWeight(particles, map, sampled_measurements, max_distance);            
+
+        }
         //update particle weights
-        //getParticlesWeight(particles, map, sampled_measurements, max_distance);
     }
     
     void publishPosition(Particle ml_pos){
@@ -260,7 +270,7 @@ public:
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(ml_pos.thetaPos);
         geometry_msgs::TransformStamped odom_trans;
         odom_trans.header.stamp = current_time;
-        odom_trans.header.frame_id = "filter";
+        odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
         odom_trans.transform.translation.x = ml_pos.xPos;
@@ -273,7 +283,7 @@ public:
         // Publish odometry message
         nav_msgs::Odometry odom_msg;
         odom_msg.header.stamp = current_time;
-        odom_msg.header.frame_id = "filter";
+        odom_msg.header.frame_id = "odom";
 
         odom_msg.pose.pose.position.x = ml_pos.xPos;
         odom_msg.pose.pose.position.y = ml_pos.yPos;
@@ -307,8 +317,8 @@ public:
             angle = (i * angle_increment);
             range = ranges[i];
 
-            if(std::isinf(range)){
-                range = 3.0;
+            if(std::isinf(range) || range > max_distance){
+                range = max_distance;
             }
 
             
@@ -319,16 +329,30 @@ public:
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        if(sampled_measurements.size() > 2000) {
+        /*if(sampled_measurements.size() > 2000) {
             run_calibrations(map, sampled_measurements);
-        }
+        }*/
+
+        vector<pair<float, float>> test_laser;
+        test_laser.push_back(make_pair(0, 0.10));
+        test_laser.push_back(make_pair(-pi/2, 0.20));
+        test_laser.push_back(make_pair(-pi, 0.30));
+        test_laser.push_back(make_pair(-3*pi/2, 0.40));
+        std::pair<float, float> xy =  particleToLidarConversion(0.2, 0.2, pi/2, 0.095, 0.0);
+
+        ROS_INFO("X_WORLD: %f, Y_WORLD: %f", xy.first, xy.second);
+
+        vector<pair<float, float>> test_data = calculateRealRange(map, xy.first, xy.second, test_laser, pi/2);
+
+        ROS_INFO("M, [%f]: R, [%f]", test_data[0].first, test_data[0].second);
+        ROS_INFO("M, [%f]: R, [%f]", test_data[1].first, test_data[1].second);
+        ROS_INFO("M, [%f]: R, [%f]", test_data[2].first, test_data[2].second);
+        ROS_INFO("M, [%f]: R, [%f]", test_data[3].first, test_data[3].second);
+        
 
     }
 
     void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements){
-
-        
-
         float max_distance = 3.0;
         float pos_x = 0.23;
         float pos_y = 0.2;

@@ -58,8 +58,12 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_ma
     float maxDistance = 2.0 / cellSize;
 
     int count = 0;
+
+    ROS_INFO("Angle: [%f]", angle/M_PI);
+    
     while (!wallFound && count < maxDistance)
     {
+        ROS_INFO("X: [%d], Y: [%d]", x, y);
         if (global_map[x][y] == 1)
         {
             wallFound = true;
@@ -89,7 +93,7 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
     for (int i = 0; i < laser_data.size(); i++)
     {
 
-        float distance_real = 0;
+        float distance_map = 0;
 
         currentAngle = laser_data[i].first + lidar_orientation;
 
@@ -97,9 +101,9 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
 
         pair<float, float> wall_real_coordinates = map.getDistance(closestWall_coordinates.first, closestWall_coordinates.second);
 
-        distance_real = distancesToRange(wall_real_coordinates, particle_real_coordinates);
+        distance_map = distancesToRange(wall_real_coordinates, particle_real_coordinates);
 
-        pair<float, float> range = make_pair(distance_real, laser_data[i].second);
+        pair<float, float> range = make_pair(distance_map, laser_data[i].second);
 
         ranges.push_back(range);
     }
