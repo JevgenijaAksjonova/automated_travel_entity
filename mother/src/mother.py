@@ -46,7 +46,7 @@ ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 
 USING_PATH_PLANNING = True
 USING_ARM = False
-USING_VISION =False
+USING_VISION = False
 
 #Define verboseness of different parts
 RECOGNITION_VERBOSE = True
@@ -66,6 +66,11 @@ def point_to_msg(x,y):
     point.y = y
     point.z = 0
     return point
+
+def pose_to_msg_stamped(x,y,theta):
+    pose_stamped = PoseStamped()
+    pose_stamped.pose = pose_to_msg(x,y,theta)
+    return pose_stamped
 
 class MazeObject:
 
@@ -168,8 +173,9 @@ class Mother:
         # and any other initialisation bellow
         
         #Subscribers
-        rospy.Subscriber(OBJECT_CANDIDATES_TOPIC,PosAndImage,
-            callback=self._obj_cand_callback)
+        if USING_VISION:
+            rospy.Subscriber(OBJECT_CANDIDATES_TOPIC,PosAndImage,
+                callback=self._obj_cand_callback)
         
         rospy.Subscriber(GOAL_POSE_TOPIC,PoseStamped,
             callback=self._goal_pose_callback)
@@ -310,6 +316,7 @@ class Mother:
         return pose
 
     def go_to_pose(self,pose):
+        print("go pose = ", type(pose))
         if USING_PATH_PLANNING:
             self.nav_goal_acchieved = False
 
@@ -363,7 +370,7 @@ class Mother:
     
     def set_following_path_to_object_classification(self,classifying_obj):
         
-        classification_pose = pose_to_msg(
+        classification_pose = pose_to_msg_stamped(
             classifying_obj.pos[0],classifying_obj.pos[1],0)
         
         if self.go_to_pose(classification_pose):
@@ -409,6 +416,7 @@ class Mother:
             
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
+                    print("classifying object type = ", type(classifying_obj))
                     self.set_following_path_to_object_classification(classifying_obj)
             
             elif self.mode == "following_path_to_object_classification":
