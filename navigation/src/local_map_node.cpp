@@ -128,6 +128,11 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
                                       project_msgs::direction::Response &res) {
 
 
+    for (int i = 0; i < localMap.size(); i++) {
+        cout << localMap[i] << " ";
+    }
+    cout << endl;
+
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
     int angleIndRight = angleInd;
