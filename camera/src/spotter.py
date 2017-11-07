@@ -57,7 +57,7 @@ cv2.imwrite('very_secret_open_cv_hsv_space.png',cv_color_space)
 def extract_object_image((x_mid,y_mid),(x_min,y_min),(x_max,y_max),image):
     #Calculate the width of the window
     window_width = max(x_max - x_min,y_max - y_min)
-    alignment = int((window_width//2) * 3)
+    alignment = int((window_width//2) * 1.5)
 
     #Create preliminary new window
     new_x_min = x_mid - alignment
@@ -139,7 +139,7 @@ class ObjectDetector:
             "red":(np.array([110,240,10]),np.array([120,255,255])),
             "green":(np.array([40,130,50]),np.array([85,255,200])),
             "yellow":(np.array([0,180,100]),np.array([0,255,255])),
-            "blue":(np.array([18,100,15]),np.array([35,255,200])),
+            "blue":(np.array([18,100,15]),np.array([35,255,235])),
             "blue_high":(np.array([150,0,0]),np.array([180,255,255]))}
 
     def image_callback(self,ros_image):
