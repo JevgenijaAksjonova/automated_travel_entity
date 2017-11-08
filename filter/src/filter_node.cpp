@@ -37,6 +37,7 @@ class FilterPublisher
     float angle_increment;
     float range_min;
     float range_max;
+    bool readingsHaveCome;
 
     //LocalizationGlobalMap map;
 
@@ -45,6 +46,7 @@ class FilterPublisher
         control_frequency = frequency;
         n = ros::NodeHandle("~");
         pi = 3.1416;
+        readingsHaveCome = false;
 
         encoding_abs_prev = std::vector<int>(2, 0);
         encoding_abs_new = std::vector<int>(2, 0);
@@ -74,7 +76,7 @@ class FilterPublisher
         k_W = 1;
 
         float start_xy = 0.2;
-        float spread_xy = 0.02;
+        float spread_xy = 0.1;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
         int nr_particles = 100;
@@ -147,30 +149,50 @@ class FilterPublisher
 
         //sample particles with replacement
         float weight_sum = 0.0;
-        Particle most_likely_position;
-        most_likely_position.weight = 0.0;
         for (int m = 0; m < particles.size(); m++)
         {
             weight_sum += particles[m].weight;
-            ROS_INFO("Weight of particle [%d] is [%f]", m, particles[m].weight);
-            if (particles[m].weight > most_likely_position.weight)
-            {
-                most_likely_position = particles[m];
-                //ROS_INFO("New most likely position!: -  [%f], [%f], [%f], [%f]\n", most_likely_position.xPos, most_likely_position.yPos, most_likely_position.thetaPos, most_likely_position.weight);
-            }
         }
 
-    
+        //normalize weights
+        Particle most_likely_position = normalizeWeights(weight_sum);
+
+        // //Check of weights.
+        // if(readingsHaveCome){
+        //     for (int m = 0; m < particles.size(); m++)
+        //     {
+        //         ROS_INFO("Attributes x:[%f] y:[%f] theta:[%f] weight [%f]", particles[m].xPos, particles[m].yPos, particles[m].thetaPos, particles[m].weight);
+        //     }
+        //     exit(EXIT_SUCCESS);
+        // }
+        
+
 
         int nrRandomParticles = particles.size()/10;
 
         if(linear_v != 0 || angular_w != 0) {
-            resampleParticles(weight_sum, nrRandomParticles);
+            resampleParticles(nrRandomParticles);
         }
         return most_likely_position;
     }
 
-    void resampleParticles(float weightSum, int nrRandomParticles){
+    Particle normalizeWeights(float weightSum){
+
+        Particle mostLikelyPosition;
+        mostLikelyPosition.weight = 0.0;
+        for (int m = 0; m < particles.size(); m++)
+        {
+            particles[m].weight = particles[m].weight/weightSum;
+
+            if(particles[m].weight > mostLikelyPosition.weight){
+                mostLikelyPosition = particles[m];
+            }
+        }
+        return mostLikelyPosition;
+
+    }
+
+    void resampleParticles(int nrRandomParticles){
         float rand_num;
         float cumulativeProb;
         int j;
@@ -179,7 +201,7 @@ class FilterPublisher
         {
             j = 0;
             cumulativeProb = 0.0;
-            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / weightSum));
+            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX /0.99));
 
             while (cumulativeProb < rand_num)
             {
@@ -190,7 +212,7 @@ class FilterPublisher
             temp_vec.push_back(particles[j]);
         }
 
-        //add random particle
+        //add random particles
         int v1;
         for (int i = 0; i<nrRandomParticles; i++){
             v1 = rand() % particles.size();
@@ -284,6 +306,7 @@ class FilterPublisher
             ROS_INFO("Readings have come");
 
             getParticlesWeight(particles, map, sampled_measurements, max_distance);
+            readingsHaveCome = true;
             //exit(EXIT_SUCCESS);
         }
         //update particle weights
@@ -327,7 +350,7 @@ class FilterPublisher
 
         filter_publisher.publish(odom_msg);
 
-        ROS_INFO("new Position x:[%f] y:[%f] theta:[%f] ", ml_pos.xPos, ml_pos.yPos, ml_pos.thetaPos);
+        ROS_INFO("new Position x:[%f] y:[%f] theta:[%f] weight [%f]", ml_pos.xPos, ml_pos.yPos, ml_pos.thetaPos, ml_pos.weight);
     }
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
@@ -477,7 +500,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/oskar/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
