@@ -16,7 +16,7 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "world_map_node");
 
-    std::string _filename_map = "/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/test.txt";
+    std::string _filename_map = "/home/oskar/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     //std::string _filename_map;
 
     ros::NodeHandle n("~");
@@ -28,7 +28,7 @@ int main(int argc, char** argv)
     visualization_msgs::MarkerArray global_walls;
     visualization_msgs::Marker wall;
 
-    wall.header.frame_id = "/world_map";
+    wall.header.frame_id = "/odom";
     wall.header.stamp = ros::Time::now();
 
     wall.ns = "global_wall";

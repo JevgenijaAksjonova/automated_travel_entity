@@ -58,7 +58,7 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_ma
     float x_cont = (float)x;
     float y_cont = (float)y;
 
-    float maxDistance = 2.0 / cellSize;
+    float maxDistance = 8.0 / cellSize;
 
     int count = 0;
 
@@ -112,6 +112,7 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
         pair<float, float> range = make_pair(distance_map, laser_data[i].second);
 
         ranges.push_back(range);
+
     }
 
     return ranges;
@@ -127,6 +128,15 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 {
     float weight = 0;
 
+    float z_hit = 0.719204;
+    float z_short = 0.080313;
+    float z_max = 0.000000;
+    float z_random = 0.200482;
+
+    float sigma_hit = 0.012170;
+    float lambda_short = 4.776181;
+    
+    /*
     float z_hit = 0.728624;
     float z_short = 0.009079;
     float z_max = 0.254491;
@@ -134,6 +144,17 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
     float sigma_hit = 0.051875;
     float lambda_short = 4.172416;
+    */
+    
+    /*
+    float z_hit = 0.367695;
+    float z_short = 0.174866;
+    float z_max = 0.243883;
+    float z_random = 0.213559;
+
+    float sigma_hit = 0.027382;
+    float lambda_short = 3.905742;
+    */
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);
 
@@ -154,7 +175,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
 
-        
+        ROS_INFO("M: %f, R: %f", measuredRange, realRange);
 
         // Calculate the hit probability
         if (0 <= realRange && realRange <= max_distance)
@@ -285,7 +306,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
             // CALCULATE ETA, FIND SOLUTION LATER
 
-            prob_hit = prob * eta_hit;
+            prob_hit = prob / eta_hit;
         }
 
         // Calculate the short (unexpected objects) probability
