@@ -24,8 +24,10 @@ class FilterPublisher
 {
   public:
     ros::NodeHandle n;
+
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
+
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
     float pi;
@@ -74,12 +76,11 @@ class FilterPublisher
         k_W = 1;
 
         float start_xy = 0.2;
-        float spread_xy = 0.02;
+        float spread_xy = 0.1;
         float start_theta = pi / 2;
-        float spread_theta = pi / 40;
-        int nr_particles = 100;
+        float spread_theta = pi / 20;
+        int nr_particles = 200;
         srand(static_cast<unsigned>(time(0)));
-        
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
     }
@@ -142,7 +143,9 @@ class FilterPublisher
         }
         //update weights according to measurements
         ROS_INFO("Before measure model");
+
         measurement_model(map);
+
         ROS_INFO("After measure model");
 
         //sample particles with replacement
@@ -152,7 +155,7 @@ class FilterPublisher
         for (int m = 0; m < particles.size(); m++)
         {
             weight_sum += particles[m].weight;
-            ROS_INFO("Weight of particle [%d] is [%f]", m, particles[m].weight);
+
             if (particles[m].weight > most_likely_position.weight)
             {
                 most_likely_position = particles[m];
@@ -160,21 +163,33 @@ class FilterPublisher
             }
         }
 
-    
+        // Normalize weights here
+        for (int i = 0; i < particles.size(); i++)
+        {
+            particles[i].weight = particles[i].weight / weight_sum;
+            ROS_INFO("Position of particle [%d], x:[%f] y:[%f]", i, particles[i].xPos, particles[i].yPos);
+            ROS_INFO("Orientation of particle [%d], theta:[%f]", i, particles[i].thetaPos / pi);
+            ROS_INFO("Weight of particle [%d] is [%f]", i, particles[i].weight);
+        }
+        weight_sum = 1;
 
-        int nrRandomParticles = particles.size()/10;
+        int nrRandomParticles = particles.size() / 10;
 
-        if(linear_v != 0 || angular_w != 0) {
-            resampleParticles(weight_sum, nrRandomParticles);
+        //int nrRandomParticles = 0;
+
+        if (linear_v != 0 || angular_w != 0)
+        {
+            //resampleParticles(weight_sum, nrRandomParticles);
         }
         return most_likely_position;
     }
 
-    void resampleParticles(float weightSum, int nrRandomParticles){
+    void resampleParticles(float weightSum, int nrRandomParticles)
+    {
         float rand_num;
         float cumulativeProb;
         int j;
-        std::vector<Particle> temp_vec;        
+        std::vector<Particle> temp_vec;
         for (int i = 0; i < (particles.size() - nrRandomParticles); i++)
         {
             j = 0;
@@ -192,14 +207,14 @@ class FilterPublisher
 
         //add random particle
         int v1;
-        for (int i = 0; i<nrRandomParticles; i++){
-            v1 = rand() % particles.size();
-            Particle p = particles[v1];
-            p.xPos+= -0.15 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.30)));
-            p.yPos+= -0.15 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.30)));
-            p.thetaPos+= -0.1 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(0.2)));
-            temp_vec.push_back(particles[j]);
-
+        for (int i = 0; i < nrRandomParticles; i++)
+        {
+            v1 = rand() % temp_vec.size();
+            Particle p = temp_vec[v1];
+            p.xPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
+            p.yPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
+            p.thetaPos += -0.1 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.2)));
+            temp_vec.push_back(p);
         }
 
         particles = temp_vec;
@@ -231,9 +246,9 @@ class FilterPublisher
         dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt * k_V), 2));
         dist_W = std::normal_distribution<float>(0.0, pow((angular_w * dt * k_W), 2));
     }
+
     void sample_motion_model(Particle &p)
     {
-
         float noise_D = dist_D(generator);
         float noise_V = dist_V(generator);
         float noise_W = dist_W(generator);
@@ -268,12 +283,24 @@ class FilterPublisher
 
         while (i < ranges.size())
         {
-            angle = -(i * angle_increment);
+            angle = (i * angle_increment);
             range = ranges[i];
-            if (std::isinf(range) || range > max_distance)
+            
+            if (range > max_distance)
             {
                 range = max_distance;
             }
+
+            int j = 1;
+            while(std::isinf(range)) {
+                range = ranges[i + j];
+                angle += angle_increment * j;
+                j++;
+            }
+
+            ROS_INFO("Range: [%f]", range);
+            ROS_INFO("Angle: [%f]", angle);
+
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -284,7 +311,6 @@ class FilterPublisher
             ROS_INFO("Readings have come");
 
             getParticlesWeight(particles, map, sampled_measurements, max_distance);
-            //exit(EXIT_SUCCESS);
         }
         //update particle weights
     }
@@ -332,7 +358,7 @@ class FilterPublisher
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
     {
-        int nr_measurements_used = 8;
+        int nr_measurements_used = 16;
         int step_size = (ranges.size() / nr_measurements_used);
         float angle = 0;
         float max_distance = 3.0;
@@ -356,28 +382,10 @@ class FilterPublisher
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        if (sampled_measurements.size() > 4000)
+        if (sampled_measurements.size() > 10000)
         {
             run_calibrations(map, sampled_measurements);
         }
-
-        /*
-        vector<pair<float, float>> test_laser;
-        test_laser.push_back(make_pair(0, 0.10));
-        test_laser.push_back(make_pair(-pi/2, 0.20));
-        test_laser.push_back(make_pair(-pi, 0.30));
-        test_laser.push_back(make_pair(-3*pi/2, 0.40));
-        std::pair<float, float> xy =  particleToLidarConversion(0.2, 0.2, pi/2, 0.095, 0.0);
-
-        ROS_INFO("X_WORLD: %f, Y_WORLD: %f", xy.first, xy.second);
-
-        vector<pair<float, float>> test_data = calculateRealRange(map, xy.first, xy.second, test_laser, pi/2);
-
-        ROS_INFO("M, [%f]: R, [%f]", test_data[0].first, test_data[0].second);
-        ROS_INFO("M, [%f]: R, [%f]", test_data[1].first, test_data[1].second);
-        ROS_INFO("M, [%f]: R, [%f]", test_data[2].first, test_data[2].second);
-        ROS_INFO("M, [%f]: R, [%f]", test_data[3].first, test_data[3].second);
-        */
     }
 
     void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements)
@@ -389,10 +397,10 @@ class FilterPublisher
 
         std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
         float lidar_orientation = pi / 2;
-        float z_hit = 0.5;
-        float z_short = 0.5;
-        float z_max = 0.5;
-        float z_random = 0.5;
+        float z_hit = 0.25;
+        float z_short = 0.25;
+        float z_max = 0.25;
+        float z_random = 0.25;
         float sigma_hit = 0.2;
         float lambda_short = 0.5;
         while (true)
@@ -406,40 +414,44 @@ class FilterPublisher
     void publish_rviz_particles()
     {
         ros::Time current_time = ros::Time::now();
-
+        
         visualization_msgs::MarkerArray all_particles;
         visualization_msgs::Marker particle;
 
         particle.header.stamp = current_time;
         particle.header.frame_id = "/odom";
-    
+
         particle.ns = "all_particles";
         particle.type = visualization_msgs::Marker::CUBE;
         particle.action = visualization_msgs::Marker::ADD;
-    
+
         particle.pose.position.z = 0.05;
-    
-        // Set the scale of the marker -- 1x1x1 here means 1m on a side
-        //marker.scale.x = 1.0;
-        particle.scale.y = 0.01;
-        particle.scale.x = 0.01;
-        particle.scale.z = 0.01;
-    
+
         // Set the color -- be sure to set alpha to something non-zero!
         particle.color.r = 0.0f;
-        particle.color.g = 1.0f;
-        particle.color.b = 0.0f;
+        particle.color.g = 0.0f;
+        particle.color.b = 1.0f;
         particle.color.a = 1.0;
 
+        float weight = 0;
+
         int id = 0;
-        for(int i = 0; i < particles.size(); i++) {
+        for (int i = 0; i < particles.size(); i++)
+        {
 
             particle.pose.position.x = particles[i].xPos;
-            particle.pose.position.y = particles[i].yPos;     
-            
+            particle.pose.position.y = particles[i].yPos;
+
+            weight = particles[i].weight;
+
+            // Set the scale of the marker -- 1x1x1 here means 1m on a side
+            particle.scale.y = weight;
+            particle.scale.x = weight;
+            particle.scale.z = weight;
+
             particle.id = id;
             id++;
-            
+
             all_particles.markers.push_back(particle);
         }
 
@@ -477,7 +489,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/ras13/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/rikko/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
@@ -497,7 +509,7 @@ int main(int argc, char **argv)
 
         most_likely_position = filter.localize(map);
         filter.publishPosition(most_likely_position);
-        filter.publish_rviz_particles();            
+        filter.publish_rviz_particles();
         //filter.collect_measurements(sampled_measurements, map);
         ROS_INFO("Are we there");
         ros::spinOnce();
