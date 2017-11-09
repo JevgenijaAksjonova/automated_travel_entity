@@ -86,7 +86,7 @@ pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_ma
 }
 
 //MIGHT HAVE TO LOOK FOR INFINITES HERE IN CLOSESTWALLCOORDINATES
-vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float lidar_orientation)
+vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float theta)
 {
     pair<int, int> particle_coordinates = map.getCell(translated_particle_x, translated_particle_y);
 
@@ -101,7 +101,7 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
 
         float distance_map = 0;
 
-        currentAngle = laser_data[i].first + lidar_orientation;
+        currentAngle = laser_data[i].first + theta;
 
         pair<int, int> closestWall_coordinates = getClosestWallCoordinates(map.global_map, map.cellSize, currentAngle, particle_coordinates);
 
@@ -231,7 +231,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 
     float lidar_x = 0.095;
     float lidar_y = 0.0;
-    float lidar_orientation = M_PI / 2;
+    float lidar_orientation = 0;
 
     int x_map_max = map.global_map.size();
     int y_map_max = map.global_map[0].size();
@@ -247,7 +247,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 
 
         if(new_particle_center.first < x_map_max_distance && new_particle_center.first > 0 && new_particle_center.second < y_map_max_distance && new_particle_center.second > 0) {
-            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation); 
+            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, particles[p].thetaPos); 
             
             
         } else {
@@ -259,7 +259,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
     }
 }
 
-void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
+void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float theta, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
 {
 
     float e_hit = 0;
@@ -270,7 +270,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
     float sigma_parameter = 0;
     float lambda_parameter = 0;
 
-    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
+    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, theta);
 
 
     for (int r = 0; r < rangeWithTrueRange.size(); r++)

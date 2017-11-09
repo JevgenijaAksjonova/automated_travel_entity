@@ -282,13 +282,13 @@ class FilterPublisher
 
         while (i < ranges.size())
         {
-            angle = (i * angle_increment);
+            angle = -(i * angle_increment);
             range = ranges[i];
 
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle += angle_increment * j;
+                angle -= angle_increment * j;
                 j++;
             }
             
@@ -367,13 +367,13 @@ class FilterPublisher
         int i = 0;
         while (i < ranges.size())
         {
-            angle = (i * angle_increment);
+            angle = -(i * angle_increment);
             range = ranges[i];
 
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle += angle_increment * j;
+                angle -= angle_increment * j;
                 j++;
             }
             
@@ -404,7 +404,7 @@ class FilterPublisher
         float theta = pi / 2;
 
         std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
-        float lidar_orientation = pi / 2;
+        float lidar_orientation = 0;
         float z_hit = 0.25;
         float z_short = 0.25;
         float z_max = 0.25;
@@ -414,7 +414,7 @@ class FilterPublisher
         while (true)
         {
             ROS_INFO("Before calculate");
-            calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, lidar_orientation, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
+            calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, theta, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
             ROS_INFO("Parameters found zhit:[%f] zshort:[%f] zmax:[%f], zradom:[%f], sigmahit[%f], lambdashort:[%f] ", z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
         }
     }
