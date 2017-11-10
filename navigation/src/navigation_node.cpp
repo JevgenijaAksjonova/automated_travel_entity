@@ -19,6 +19,7 @@
 #include <iostream>
 #include <pwd.h>
 
+#include <location.h>
 #include <global_path_planner.h>
 #include <map_visualization.h>
 #include <project_msgs/stop.h>
@@ -26,42 +27,6 @@
 #include "project_msgs/global_path.h"
 
 using namespace std;
-
-class Location {
-  public:
-    double x;
-    double y;
-    double theta;
-
-    Location(double _xStart, double _yStart, double _thetaStart):
-        xStart(_xStart),
-        yStart(_yStart),
-        thetaStart(_thetaStart) {
-        x=xStart;
-        y=yStart;
-        theta = thetaStart;
-    };
-    void callback(const nav_msgs::Odometry::ConstPtr& msg);
-  private:
-    double xStart;
-    double yStart;
-    double thetaStart;
-};
-
-void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-
-  x = xStart - msg->pose.pose.position.y;
-  y = yStart + msg->pose.pose.position.x;
-
-  geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
-  theta = thetaStart + tf::getYaw(odom_quat);
-
-  stringstream s;
-  s << "Received position: " << x << " " << y << " "<< theta;
-  //ROS_INFO("%s/n", s.str().c_str());
-}
-
 
 class Path {
   public:
@@ -217,13 +182,7 @@ class GoalPosition {
     double theta;
     bool changedPosition;
 
-    GoalPosition(GlobalPathPlanner& _gpp, Location& _loc, Path& _path):
-                 x(0), y(0), theta(0),
-                 changedPosition(false),
-                 gpp(_gpp),
-                 loc(_loc),
-                 path(_path)
-        {};
+    GoalPosition(GlobalPathPlanner& _gpp, Location& _loc, Path& _path);
     void callback(const geometry_msgs::Twist::ConstPtr& msg);
     bool serviceCallback(project_msgs::global_path::Request &request,
                          project_msgs::global_path::Response &response);
@@ -232,6 +191,14 @@ class GoalPosition {
     Location loc;
     Path path;
 };
+
+GoalPosition::GoalPosition(GlobalPathPlanner& _gpp, Location& _loc, Path& _path):
+             x(0), y(0), theta(0),
+             changedPosition(false) {
+    gpp = _gpp;
+    loc = _loc;
+    path = _path;
+}
 
 void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
 {
@@ -337,7 +304,6 @@ int main(int argc, char **argv)
   int count = 0;
   while (ros::ok())
   {
-
     if (path.move) {
         path.followPath(loc.x,loc.y,loc.theta);
         stringstream s;
