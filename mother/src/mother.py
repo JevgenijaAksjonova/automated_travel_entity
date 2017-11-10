@@ -44,7 +44,7 @@ ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 
 #Testing variables for disabling parts of the mother
 
-USING_PATH_PLANNING = False
+USING_PATH_PLANNING = True
 USING_ARM = False
 USING_VISION = True
 
