@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <memory>
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
@@ -22,10 +23,10 @@ class MapVisualization {
     ros::NodeHandle n;
     ros::Publisher grid_pub;
     ros::Publisher path_pub;
-    GlobalPathPlanner gpp;
+    std::shared_ptr<GlobalPathPlanner> gpp;
     nav_msgs::OccupancyGrid grid;
   public:
-    MapVisualization(GlobalPathPlanner& _gpp);
+    MapVisualization(shared_ptr<GlobalPathPlanner> _gpp);
     void loadMap();
     void publishMap();
     void publishPath(vector<pair<double, double> >& globalPath);
