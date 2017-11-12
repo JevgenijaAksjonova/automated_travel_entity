@@ -25,6 +25,7 @@ MapVisualization::MapVisualization(shared_ptr<GlobalPathPlanner> _gpp):
     n = ros::NodeHandle("~");
     grid_pub = n.advertise<nav_msgs::OccupancyGrid>("/visualize_grid", 1);
     path_pub = n.advertise<nav_msgs::Path>("/visualize_path", 1);
+    direction_pub = n.advertise<visualization_msgs::Marker>("/visualize_direction", 1);
     loadMap();
 
 }
@@ -91,3 +92,29 @@ void MapVisualization::publishPath(vector<pair<double, double> >& globalPath) {
     path_pub.publish(path);
 }
 
+void MapVisualization::publishDirection(double linVel, double angVel) {
+
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "/base_link";
+    marker.header.stamp = ros::Time::now();
+    marker.id = 0;
+    marker.lifetime = ros::Duration(0.1);
+    marker.ns = "direction";
+    marker.type = visualization_msgs::Marker::ARROW;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = 0;
+    marker.pose.position.y = 0;
+    marker.pose.position.z = 0;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = linVel*cos(angVel);
+    marker.scale.y = linVel*sin(angVel);
+    marker.scale.z = 0.1;
+    marker.color.a = 0.5;
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    direction_pub.publish(marker);
+}

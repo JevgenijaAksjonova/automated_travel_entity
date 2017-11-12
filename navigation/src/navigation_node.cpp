@@ -143,7 +143,10 @@ int main(int argc, char **argv)
   ros::Subscriber locationSub = n.subscribe("/odom", 1, &Location::callback, loc.get());
 
   // Path
-  shared_ptr<Path> path = make_shared<Path>();
+  double pathRad = 0.20;
+  double distanceTol = 0.05;
+  double angleTol = 2*M_PI;
+  shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);
   path->lppService = n.serviceClient<project_msgs::direction>("local_path");
   path->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
   // emergency stop
@@ -185,6 +188,7 @@ int main(int argc, char **argv)
 
     mapViz.publishMap();
     mapViz.publishPath(path->globalPath);
+    mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();
     loop_rate.sleep();
     ++count;

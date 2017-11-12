@@ -155,12 +155,15 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     range_min = msg->range_min;
     range_max = msg->range_max;
 
-    updateLocalMapLidar();
+    //updateLocalMapLidar();
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
                                       project_msgs::direction::Response &res) {
 
+
+    mapRad = req.linVel;
+    updateLocalMapLidar();
 
     for (int i = 0; i < localMapProcessed.size(); i++) {
         cout << localMapProcessed[i] << " ";
@@ -228,7 +231,7 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "local_map_node");
     ros::NodeHandle nh;
 
-    LocalPathPlanner lpp(0.13, 0.35);
+    LocalPathPlanner lpp(0.13, 0.20);
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 

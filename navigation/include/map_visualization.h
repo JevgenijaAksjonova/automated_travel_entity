@@ -23,6 +23,7 @@ class MapVisualization {
     ros::NodeHandle n;
     ros::Publisher grid_pub;
     ros::Publisher path_pub;
+    ros::Publisher direction_pub;
     std::shared_ptr<GlobalPathPlanner> gpp;
     nav_msgs::OccupancyGrid grid;
   public:
@@ -30,6 +31,7 @@ class MapVisualization {
     void loadMap();
     void publishMap();
     void publishPath(vector<pair<double, double> >& globalPath);
+    void publishDirection(double linVel, double angVel);
 
 };
 
