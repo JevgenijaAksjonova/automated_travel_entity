@@ -46,6 +46,7 @@ class Path {
     double distance(pair<double,double>& a, pair<double, double>& b);
     double getAngle(pair<double,double> &g, pair<double, double> &p);
     double diffAngles(double a, double b) ;
+    double normalizeAngle(double angle);
     void amendDirection();
 };
 

@@ -130,7 +130,7 @@ int main(int argc, char **argv)
   // Global Path Planner
   string mapFile = getHomeDir()+"/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
   double gridCellSize = 0.01;
-  double robotRadius = 0.13;
+  double robotRadius = 0.17;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
 
   MapVisualization mapViz(gpp);
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
   ros::Subscriber locationSub = n.subscribe("/odom", 1, &Location::callback, loc.get());
 
   // Path
-  double pathRad = 0.20;
+  double pathRad = 0.25;
   double distanceTol = 0.05;
   double angleTol = 2*M_PI;
   shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);

@@ -26,6 +26,16 @@ void Path::setGoal(double x, double y, double theta) {
     goalAng = theta;
 }
 
+double Path::normalizeAngle(double angle) {
+    while (angle > M_PI) {
+        angle -= 2*M_PI ;
+    }
+    while (angle <= - M_PI) {
+        angle += 2*M_PI;
+    }
+    return angle;
+}
+
 // Euclidean distane
 double Path::distance(pair<double, double> &a, pair<double, double> &b){
     return sqrt (pow(a.first-b.first, 2) + pow(a.second-b.second, 2) );
@@ -42,28 +52,14 @@ double Path::getAngle(pair<double,double> &g, pair<double, double> &p) {
             return -M_PI/2.0;
         }
     }
-    double angle = atan(y/x);
-    if (x > 0) {
-        return angle;
-    } else {
-        if (y >= 0) {
-            return angle + M_PI;
-        } else {
-            return angle - M_PI;
-        }
-    }
-    // return atan2(y,x);
+    double angle = atan2(y,x);
+    return normalizeAngle(angle);
 }
+
 
 double Path::diffAngles(double a, double b) {
     double diff = a-b;
-    while (diff > M_PI) {
-        diff -= 2*M_PI ;
-    }
-    while (diff <= - M_PI) {
-        diff += 2*M_PI;
-    }
-    return diff;
+    return normalizeAngle(diff);
 }
 
 void Path::followPath(double x, double y, double theta) {
