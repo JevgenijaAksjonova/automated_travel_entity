@@ -74,52 +74,12 @@ void GoalPosition::callback(const geometry_msgs::Twist::ConstPtr& msg)
 
 }
 
-<<<<<<< HEAD
-class Path {
-  public:
-    double linVel;
-    double angVel;
-    bool move;
-
-    vector<pair<double,double> > globalPath;
-
-    ros::ServiceClient lppService;
-
-    Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.15), angleTol(2*M_PI/45.0), move(false) {};
-    void setGoal(double x, double y, double theta);
-    void followPath(double x, double y, double theta);
-    void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
-  private:
-    double pathRad;
-    double distanceTol;
-    double angleTol;
-    double goalX;
-    double goalY;
-    double goalAng;
-    double distance(pair<double,double>& a, pair<double, double>& b);
-    double getAngle(pair<double,double> &g, pair<double, double> &p);
-    double diffAngles(double a, double b) ;
-    void amendDirection();
-};
-
-void Path::setGoal(double x, double y, double theta) {
-    goalX = x;
-    goalY = y;
-    goalAng = theta;
-}
-
-// Euclidean distane
-double Path::distance(pair<double, double> &a, pair<double, double> &b){
-    return sqrt (pow(a.first-b.first, 2) + pow(a.second-b.second, 2) );
-}
-=======
 bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
                                    project_msgs::global_path::Response &response)
 {
   double x_new = request.pose.linear.x;
   double y_new = request.pose.linear.y;
   double theta_new = request.pose.angular.x;
->>>>>>> master
 
   stringstream s;
   s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
@@ -135,49 +95,6 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
       changedPosition = true;
   }
 
-<<<<<<< HEAD
-void Path::followPath(double x, double y, double theta) {
-    pair<double, double> loc(x,y);
-    pair<double,double> goal(goalX,goalY);
-    double dist = distance(goal,loc);
-    if (globalPath.size() > 0 ) {
-        while (globalPath.size() > 1 && 
-                   (distance(globalPath[0],loc) < pathRad ||
-                    distance(globalPath[1], loc) < distance(globalPath[0], loc))
-               ) {
-            globalPath.erase(globalPath.begin());
-        }
-        linVel = distance(globalPath[0], loc);
-        double targetAng = getAngle(globalPath[0],loc);
-        angVel = diffAngles(targetAng, theta);
-        amendDirection();
-        if (linVel < distanceTol) {
-            globalPath.erase(globalPath.begin());
-            linVel = 0;
-            angVel = diffAngles(goalAng,theta);
-        }
-        stringstream s;
-        s << "Angles " << targetAng <<" "<< theta << " " << angVel;
-        ROS_INFO("%s/n", s.str().c_str());
-    } else if (dist > distanceTol) {
-        linVel = distance(goal, loc);
-        angVel = getAngle(goal, loc);
-    } else if ( fabs(diffAngles(goalAng, theta)) > angleTol) {
-        linVel = 0;
-        angVel = diffAngles(goalAng, theta);
-    } else {
-        string msg = "Goal is reached!";
-        ROS_INFO("%s/n", msg.c_str());
-        move = false;
-        linVel = 0;
-        angVel = 0;
-    }
-    // avoid turns with big radius, turn first, then move
-    if (fabs(angVel) > M_PI/2.0 && linVel > 0) {
-        linVel = 0;
-    }
-}
-=======
   if (changedPosition) {
       string msg = "Recalculate path";
       ROS_INFO("%s/n", msg.c_str());
@@ -199,23 +116,8 @@ void Path::followPath(double x, double y, double theta) {
       }
   }
   return true;
->>>>>>> master
 
 }
-
-<<<<<<< HEAD
-void Path::amendDirection() {
-    project_msgs::direction srv;
-    srv.request.linVel = linVel;
-    srv.request.angVel = angVel;
-    if (lppService.call(srv)) {
-        cout << "Direction changed from " << angVel;
-        angVel = srv.response.angVel;
-        cout << "  to " << angVel << endl;
-    }
-}
-=======
->>>>>>> master
 
 string getHomeDir() {
     passwd* pw = getpwuid(getuid());
