@@ -1,41 +1,39 @@
 /*
  *  uarm_controller.cpp
  *
- *
- *  Created on: Oct 11, 2017
+ *  New edition: use move to joints service
+ *  Created on: Oct 13, 2017
  *  Authors:   Enyu Cao
  *            caoe <at> kth.se
  */
 
- //This program subscribes movement stage, and call 'move_to_joint' service ofr joint sub-destination,
+//This program subscribes movement stage, and call 'move_to_joint' service ofr joint sub-destination,
 
- // Node Rate: 1Hz
+// Node Rate: 1Hz
 
- #include <ros/ros.h> //This header defines the classic ROS classes
- #include<geometry_msgs/Point.h>  //For the message subscribed: destination  //
- #include<uarm/MoveTo.h>       //For the service: move to node
- #include<uarm/Pump.h>       //For the service: move to node
- #include<math.h>
-
-
- //Declear STRUCT Var for subscribed message
-geometry_msgs::Point start_position, target, ms1,ms2,sub_dest;   //Intial important coords
+#include <ros/ros.h> //This header defines the classic ROS classes
+#include<geometry_msgs/Point.h>  //For the message subscribed: destination
+#include<uarm/MoveToJoints.h>       //For the service: move to joints
+#include<uarm/Pump.h>       //For the service: move to node
+#include<math.h>
+// #include<uarm/Angles.h>  //For the message subscribed: destination joint  //BACK UP API
+float joint0,joint1,joint2,joint3; //joint3 is not connected.
+//Declear STRUCT Var for subscribed message
+//geometry_msgs::Point start_position, target, ms1,ms2,sub_dest;   //Intial important coords
 
 
 //Declear STRUCT Var for reference
-int stage = 0;  // 0 for no task to move
-  // 1 for y,z move ; 2 for rotation; 3 for go down; 4 for pump work;
-  //To be design 5,6 Go back; 6+1 ->7 for need to put down
+int arm_state = 0;  // 0 for no task to move
 bool pump_state = 0; // Suck the object, and never loosen it.
-  //To be deisgn : find a place and put it there.
+//To be deisgn : find a place and put it there.
 
 //Period
-int freq = 1;  // 1Hz
+float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 
 //Control Var
 
-// Control function
+// Control functionx
 //void calCommand(){
 //}
 
@@ -43,16 +41,25 @@ float T = 1.0/(float)freq;  // 1s
 
 //Callback function 1: destination message
 void objectCoordReceiver( const geometry_msgs::Point & msgObjCoord){
-    //ROS_INFO_STREAM("Left Encoder Message Receive!");
-   double r,h;
-   target = msgObjCoord;
-   r = sqrt(target.x * target.x +target.y *target.y );
-   if (r< 24)
-    h = sqrt(12.5*12.5 -(r-11.5)*(r-11.5));
-   else h = sqrt(12.5*12.5 -(36.5-r)*(36.5-r));
-   ms1.x = 0; ms1.y = r; ms1.z = h;
-   ms2=target; ms2.z = h;
-    ROS_INFO_STREAM("sub destinations");
+
+    ROS_INFO_STREAM(">>Reference Message Receive!");
+
+    float c,theta,alpha,beta;
+    float y_1 = sqrt(pow(msgObjCoord.x,2)+pow(msgObjCoord.y,2)); //where joint0=0
+    float z = msgObjCoord.z;
+
+
+    c = sqrt(pow(4-z,2)+pow(y_1-5.5,2));
+    theta = atan( (4-z)/(y_1-5.5));
+    alpha = acos( (pow(c,2)+pow(16,2)-pow(15,2))/(2*16*c) );
+    beta =  acos( (pow(c,2)+pow(15,2)-pow(16,2))/(2*15*c) );
+    //    ROS_INFO_STREAM("sub destinations");
+    joint0 = atan(msgObjCoord.x/msgObjCoord.y)*360/(2*M_PI);//arctan
+    joint1 = (beta - theta)*360/(2*M_PI);
+    joint2 = (alpha+ theta)*360/(2*M_PI);
+    joint3 = 0;
+
+    arm_state = 1;
 
 }
 
@@ -79,116 +86,125 @@ int main (int argc, char **argv){
     ros::init(argc, argv,"controller"); //Initialize the node, and set default name
     ros::NodeHandle nh;	//Establish this node with Master(roscore)
 
-    ros::ServiceClient moveClient  = nh.serviceClient<uarm::MoveTo>("/uarm/move_to");
+    ros::ServiceClient moveClient  = nh.serviceClient<uarm::MoveToJoints>("/uarm/move_to_joints");
     ros::ServiceClient pumpClient  = nh.serviceClient<uarm::Pump>("/uarm/pump");
     //Create publisher: pub_pwm	// msg_type(use :: for /) //topic_name //buffer_size
 
     //Topic name: to be defined
     //Type:geometry_msgs/Point
-    ros::Subscriber sub_obj = nh.subscribe("/topic",1, &objectCoordReceiver);
+    ros::Subscriber sub_obj = nh.subscribe("/Coord_topic",1, &objectCoordReceiver);
     //ros::Subscriber sub_reference = nh.subscribe("/mobile_base/commands/velocity",10, &refMessageReceiver); //Testing
 
     ros::Rate loop_rate(freq); //f=10Hz, T=100ms
 
-    start_position.x = 0.0;
-    start_position.y = 24.0;
-    start_position.z = 15.0;
+    uarm::MoveToJoints move_srv;//create the message to pub
+    uarm::Pump  pump_srv;
 
-     uarm::MoveTo move_srv;//create the message to pub
-     uarm::Pump  pump_srv;
+    //Debug
+       //pump_state
+
+
     // Initial
-            move_srv.request.position = start_position;
-            move_srv.request.eef_orientation   = 0.0; // Unknow: desired orientation
-            move_srv.request.move_mode         = 0; // position is absolute in the robot frame
-            move_srv.request.movement_duration = ros::Duration(0.9);
-            move_srv.request.ignore_orientation= false;
-            move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
-            move_srv.request.check_limits      =true;
+    move_srv.request.j0 = 45.0 -10.0; //Correction for bad  45
+    move_srv.request.j1 = 30.0;       // 30
+    move_srv.request.j2 = 60 -30.0; //Correction for bad 60-30
+    move_srv.request.j3 = 0;
+    move_srv.request.move_mode = 0; //  absolute in the robot frame
+    move_srv.request.movement_duration = ros::Duration(2.0);
+    move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
+    move_srv.request.check_limits      =true;
 
-            if (moveClient.call(move_srv) ) // Response: pump_status true
-                ROS_INFO("Move to inital position");
-            else                            // Response: pump_status false
-                ROS_ERROR("Fail to call inital MoveTo");
+    if (moveClient.call(move_srv) ) // Response: pump_status true
+        ROS_INFO("Move to inital position");
+    else                            // Response: pump_status false
+        ROS_ERROR("Fail to call inital MoveTo");
 
-//loop
+
+    pump_srv.request.pump_status = false;
+    if (pumpClient.call(pump_srv) ) // Response: pump_status true
+        ROS_INFO("Pump off");
+    else                            // Response: pump_status false
+        ROS_ERROR("Fail to set Pump off");
+
+    //ROS_INFO( ros::Time:now().toSecond() );
+
+    //loop
     while (ros::ok() ){
 
-        uarm::MoveTo move_srv;//create the message to pub
+        uarm::MoveToJoints move_srv;//create the message to pub
         uarm::Pump  pump_srv;
 
+        //calCommand();
+        //-----------------------
+        if (arm_state  != 0) {
+            switch (arm_state ){
+            case 1:           //go to target    //
+                move_srv.request.j0 = joint0 -10.0; //Correction for calibration
+                move_srv.request.j1 = joint1;
+                move_srv.request.j2 = joint2 -30.0; //Correction for calibration
+                move_srv.request.j3 = joint3;
+                move_srv.request.move_mode = 0; //  absolute in the robot frame
+                move_srv.request.movement_duration = ros::Duration(2.0);
+                move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
+                move_srv.request.check_limits      =false;
+        ROS_INFO_STREAM("joint0:"<<joint0 <<" joint1:"<<joint1<<" joint2:"<<joint2);
+                if (moveClient.call(move_srv) ) // Response: pump_status true
+                    ROS_INFO("Move to target");
+                else                            // Response: pump_status false
+                    ROS_ERROR("Fail to move to target ");
+                break;
+            case 2:
+                pump_srv.request.pump_status = true;
+                if (pumpClient.call(pump_srv) ) // Response: pump_status true
+                    ROS_INFO("Pump on");
+                else                            // Response: pump_status false
+                    ROS_ERROR("Fail to call Pump on");
+                break;
+            case 3:
+                move_srv.request.j0 = 45.0 -10.0; //Correction for calibration
+                move_srv.request.j1 = 30.0;
+                move_srv.request.j2 = 60 -30.0; //Correction for calibration
+                move_srv.request.j3 = 0;
+                move_srv.request.move_mode = 0; //  absolute in the robot frame
+                move_srv.request.movement_duration = ros::Duration(2.0);
+                move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
+                move_srv.request.check_limits      =true;
 
-    //calCommand();
-  //-----------------------
-     if (stage != 0) {
-        switch (stage){
-         case 1:
-           sub_dest=ms1;
-           break;
-         case 2:
-           sub_dest=ms2;
-           break;
-         case 3:
-           sub_dest=target;
-           break;
-         case 4:
-           // Pump
-           pump_state = true;
-           break;
-         case 5:
-           sub_dest=ms2;
-           break;
-         case 6:
-           sub_dest=ms1;
-           break;
-         case 7:
-           sub_dest=start_position;
-           break;
-         default:
-           ROS_INFO_STREAM("Wrong stage "<<stage);
-          }
+                if (moveClient.call(move_srv) ) // Response: pump_status true
+                    ROS_INFO("Back to inital position");
+                else                            // Response: pump_status false
+                    ROS_ERROR("Fail to back to inital position");
+// This process is just for functionality testing
+                pump_srv.request.pump_status = false;
+                if (pumpClient.call(pump_srv) ) // Response: pump_status true
+                    ROS_INFO("Pump off");
+                else                            // Response: pump_status false
+                    ROS_ERROR("Fail to set Pump off");
+                break;
+            default:
+                ROS_INFO_STREAM("Wrong stage "<<arm_state);
+            }
 
-         stage = stage + 1;
-         if (stage == 8)
-           stage =0; //Reach start point
-  //------------------------
-    if (pump_state == true){    //Fill in the message
-        pump_srv.request.pump_status = true;
-        if (pumpClient.call(pump_srv) ) // Response: pump_status true
-            ROS_INFO("Pump on");
-        else                            // Response: pump_status false
-            ROS_ERROR("Fail to call Pump on");
+            arm_state = arm_state + 1;
+            if (arm_state  == 4)
+                arm_state  =0; //Reach start point
+            //------------------------
+
+            //Send date to rosout
+            //ROS_INFO_STREAM("Sending PWM:"	<< "Left=" << msg_left.data <<"Right" << msg_right.data	);
         }
-    else {
-    //pump_srv.request = false; NO!!! Don't loosen it.
-        move_srv.request.position = sub_dest;
-        move_srv.request.eef_orientation   = 0; // Unknow: desired orientation
-        move_srv.request.move_mode         = 0; // position is absolute in the robot frame
-        move_srv.request.movement_duration = ros::Duration(0.9);
-        move_srv.request.ignore_orientation= true;
-        move_srv.request.interpolation_type= 1; //CUBIC_INTERPOLATION = 1
-        move_srv.request.check_limits      =true;
-
-        if (moveClient.call(move_srv) ) // Response: pump_status true
-            ROS_INFO("Move to next destination");
-        else                            // Response: pump_status false
-            ROS_ERROR("Fail to call MoveTo");
-    }
-
-    //Send date to rosout
-    //ROS_INFO_STREAM("Sending PWM:"	<< "Left=" << msg_left.data <<"Right" << msg_right.data	);
-}
-    ros::spinOnce();
+        ros::spinOnce();
 
 
-//------------------------------------------------------------------------------------------------------
-    //ROS_INFO_STREAM("="<<var );
-//------------------------------------------------------------------------------------------------------
+        //------------------------------------------------------------------------------------------------------
+        //ROS_INFO_STREAM("="<<var );
+        //------------------------------------------------------------------------------------------------------
 
-    loop_rate.sleep(); //sleep
+        loop_rate.sleep(); //sleep
 
     }
 
-//end loop
+    //end loop
     ROS_INFO_STREAM("ROS stop");
     return 0;
 }

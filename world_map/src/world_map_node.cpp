@@ -16,7 +16,7 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "world_map_node");
 
-    std::string _filename_map = "../maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/test.txt";
     //std::string _filename_map;
 
     ros::NodeHandle n("~");

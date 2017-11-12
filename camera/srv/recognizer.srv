@@ -1,0 +1,12 @@
+#Request
+
+sensor_msgs/Image image
+---
+#Response
+# Returns the class name of the most probable class 
+# in the image and the probability for that class
+std_msgs/String class_name
+std_msgs/Int32 class_id
+std_msgs/Float32 probability
+
+

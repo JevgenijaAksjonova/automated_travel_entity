@@ -20,4 +20,3 @@ add_executable(${PROJECT_NAME}_node src/uarm_control.cpp)
    ${catkin_LIBRARIES}
  )
 
-
