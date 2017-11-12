@@ -62,7 +62,7 @@ void calculateNewPosition(){
     double wheel_r = 0.04;
     double base_d = 0.25;
     double tick_per_rotation = 900;
-    double control_frequenzy = 10; //10 hz
+    double control_frequenzy = 100; //10 hz
     double dt = 1/control_frequenzy;
 
     ros::Time current_time = ros::Time::now();
@@ -151,7 +151,7 @@ private:
 int main(int argc, char **argv)
 {
 
-  double frequency = 10;
+  double frequency = 100;
   ros::init(argc, argv, "odometry_publisher");
 
   OdometryPublisher odom(frequency);
