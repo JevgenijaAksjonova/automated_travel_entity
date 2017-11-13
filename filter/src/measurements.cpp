@@ -229,7 +229,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 {
     float weight = 0;
 
-    float lidar_x = 0.095;
+    float lidar_x = 0.08;
     float lidar_y = 0.0;
     float lidar_orientation = 0;
 

@@ -274,7 +274,7 @@ class FilterPublisher
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
         std::vector<pair<float, float>> sampled_measurements;
-        float angle = 0.0;
+        float angle = -pi/2;
         float max_distance = 3.0;
         float range;
 
@@ -500,7 +500,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/oskar/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
