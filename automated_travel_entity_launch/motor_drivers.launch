@@ -1,13 +1,13 @@
 <launch>
 	<rosparam  file="$(find robot_motor_controller)/param.yaml" command="load"/>
    <node name="left_motor" pkg="phidgets" type="motor">
-        <param name="serial" type="int" value="469404" />
+        <param name="serial" type="int" value="465530" />
         <param name="invert_motor" type="bool" value="true" />
         <remap from="/motorcontrol/encoder" to="/motorcontrol/encoder/right"/>
         <remap from="/motorcontrol/cmd_vel" to="/motorcontrol/cmd_vel/right"/>
     </node>
     <node name="right_motor" pkg="phidgets" type="motor">
-        <param name="serial" type="int" value="465530" />
+        <param name="serial" type="int" value="469404" />
         <param name="invert_motor" type="bool" value="false" />
         <remap from="/motorcontrol/encoder" to="/motorcontrol/encoder/left"/>
         <remap from="/motorcontrol/cmd_vel" to="/motorcontrol/cmd_vel/left"/>
