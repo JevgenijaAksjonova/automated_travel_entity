@@ -67,7 +67,7 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
             }
         }
     }
-    cout << endl;
+    //cout << endl;
     localMap = localMapNew;
 }
 
@@ -122,17 +122,17 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //    cout << localMapNew[i] << ":" <<distance[i] <<" ";
     //}
     //cout << endl;
-    //cout << "LOCAL MAP NEW " << endl;
-    //for (int i = 0; i < localMapNew.size(); i++) {
-    //    cout << localMapNew[i] << " ";
-    //}
-    //cout << endl;
+    cout << "LOCAL MAP NEW " << endl;
+    for (int i = 0; i < localMapNew.size(); i++) {
+        cout << localMapNew[i] << " ";
+    }
+    cout << endl;
     filterNoise(localMapNew);
-    //cout << "LOCAL MAP FILTERED" << endl;
-    //for (int i = 0; i < localMapNew.size(); i++) {
-    //    cout << localMapNew[i] << " ";
-    //}
-    //cout << endl;
+    cout << "LOCAL MAP FILTERED" << endl;
+    for (int i = 0; i < localMapNew.size(); i++) {
+        cout << localMapNew[i] << " ";
+    }
+    cout << endl;
     addRobotRadius(localMapNew);
     //cout << "LOCAL MAP RADIUS" << endl;
     //for (int i = 0; i < localMapNew.size(); i++) {
@@ -190,9 +190,9 @@ void LocalPathPlanner::showLocalMap() {
 
     //cout<< "Local Map: " ;
     visualization_msgs::MarkerArray markers;
-    for (int i = 0; i < localMap.size(); i++) {
+    for (int i = 0; i < localMapProcessed.size(); i++) {
         //cout << localMap[i] ;
-        if (localMap[i] > 0) {
+        if (localMapProcessed[i] > 0) {
             visualization_msgs::Marker marker;
             marker.header.frame_id = "/base_link";
             marker.header.stamp = ros::Time::now();
