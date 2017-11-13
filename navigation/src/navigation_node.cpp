@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 
   // Global Path Planner
   string mapFile = getHomeDir()+"/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
-  double gridCellSize = 0.1;
+  double gridCellSize = 0.01;
   double robotRadius = 0.13;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
 
