@@ -58,11 +58,9 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
     vector<double> localMapNew = localMap;
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
-            int angAdd = round(asin(robotRad/min(distance[i],mapRad))/2.0/M_PI*360);
+            int angAdd = round(asin(robotRad/distance[i])/2.0/M_PI*360);
             for (int j = i-angAdd; j < i+angAdd; j++) {
-                if (localMap[mod(j,360)] > 0) {
-                   localMapNew[i] = 1.0;
-                }
+                localMapNew[i] = 1.0;
             }
         }
     }
@@ -94,8 +92,8 @@ void LocalPathPlanner::updateLocalMapLidar() {
 
     //vector<double> localMapNew(360,0);
     vector<double> localMapNew = localMap;
-    double angleLid = 0.0;
-    double xOffset = 0.05;
+    double angleLid = -M_PI/2.0;
+    double xOffset = 0.09;
     for (int i=0; i < ranges.size(); i++) {
         if (!isinf(ranges[i]) ) {
             double x = ranges[i]*cos(angleLid) + xOffset;
@@ -172,8 +170,8 @@ void LocalPathPlanner::showLocalMap() {
             marker.ns = "local_map";
             marker.type = visualization_msgs::Marker::CUBE;
             marker.action = visualization_msgs::Marker::ADD;
-            marker.pose.position.x = cos(i/360.0*2.0*M_PI);
-            marker.pose.position.y = sin(i/360.0*2.0*M_PI);
+            marker.pose.position.x = mapRad*cos(i/360.0*2.0*M_PI);
+            marker.pose.position.y = mapRad*sin(i/360.0*2.0*M_PI);
             marker.pose.position.z = 0;
             marker.pose.orientation.x = 0.0;
             marker.pose.orientation.y = 0.0;
