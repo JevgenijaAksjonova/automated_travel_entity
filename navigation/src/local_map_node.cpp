@@ -47,6 +47,7 @@ class LocalPathPlanner {
     float range_max;
 
     vector<double> localMap;
+    vector<double> localMapProcessed;
     vector<double> distance;
     void updateLocalMapLidar();
     void addRobotRadius(vector<double>& localMap);
@@ -55,21 +56,24 @@ class LocalPathPlanner {
 
 void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
 
-    vector<double> localMapNew = localMap;
+    vector<double> localMapNew(localMap);
+    //cout<< "ang add = ";
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
-            int angAdd = round(asin(robotRad/distance[i])/2.0/M_PI*360);
+            int angAdd = round(asin(robotRad/max(distance[i],robotRad))/2.0/M_PI*360);
+            //cout<< i << ":" <<angAdd << " ";
             for (int j = i-angAdd; j < i+angAdd; j++) {
-                localMapNew[i] = 1.0;
+                localMapNew[mod(j,360)] = 1.0;
             }
         }
     }
+    cout << endl;
     localMap = localMapNew;
 }
 
 void LocalPathPlanner::filterNoise(vector<double>& localMap){
 
-    vector<double> localMapNew = localMap;
+    vector<double> localMapNew(localMap);
     int w = 5; // window width = 2*w +1
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
@@ -104,16 +108,43 @@ void LocalPathPlanner::updateLocalMapLidar() {
             angleInd = mod(angleInd,360);
             if (r <= mapRad) {
                 localMapNew[angleInd] = 1.0;
-                distance[angleInd] = r;
+                //cout << angleInd << " " << r << endl;
             } else {
                 localMapNew[angleInd] = 0.0;
             }
+            distance[angleInd] = r;
         }
         angleLid += angleIncrement;
     }
-    filterNoise(localMapNew);
-    addRobotRadius(localMapNew);
     localMap = localMapNew;
+    //cout << "LOCAL MAP Distance " << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << ":" <<distance[i] <<" ";
+    //}
+    //cout << endl;
+    //cout << "LOCAL MAP NEW " << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << " ";
+    //}
+    //cout << endl;
+    filterNoise(localMapNew);
+    //cout << "LOCAL MAP FILTERED" << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << " ";
+    //}
+    //cout << endl;
+    addRobotRadius(localMapNew);
+    //cout << "LOCAL MAP RADIUS" << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << " ";
+    //}
+    //cout << endl;
+    localMapProcessed = localMapNew;
+    //cout << "LOCAL MAP" << endl ;
+    //for (int i = 0; i < localMap.size(); i++) {
+    //    cout << localMap[i] <<" ";
+    //}
+    //cout << endl;
 }
 
 void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -131,18 +162,18 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
                                       project_msgs::direction::Response &res) {
 
 
-    for (int i = 0; i < localMap.size(); i++) {
-        cout << localMap[i] << " ";
+    for (int i = 0; i < localMapProcessed.size(); i++) {
+        cout << localMapProcessed[i] << " ";
     }
     cout << endl;
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
     int angleIndRight = angleInd;
-    while (localMap[mod(angleIndLeft,360)] > 0 && abs(angleIndLeft - angleInd) <= 180) {
+    while (localMapProcessed[mod(angleIndLeft,360)] > 0 && abs(angleIndLeft - angleInd) <= 180) {
         angleIndLeft--;
     }
-    while (localMap[mod(angleIndRight,360)] > 0 && abs(angleIndRight - angleInd) <= 180) {
+    while (localMapProcessed[mod(angleIndRight,360)] > 0 && abs(angleIndRight - angleInd) <= 180) {
         angleIndRight++;
     }
     if (abs(angleIndLeft - angleInd) >= abs(angleIndRight + angleInd)) {
