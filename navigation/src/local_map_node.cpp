@@ -160,15 +160,15 @@ void LocalPathPlanner::updateLocalMapLidar() {
 }
 
 void LocalPathPlanner::emergencyStopLidar() {
-    cout << "RANGE "<< endl;
+    //cout << "RANGE "<< endl;
     int count = 0;
     for (int i=45; i < 136; i++) {
-        cout << ranges[i] << " ";
+        //cout << ranges[i] << " ";
         if ( isinf(ranges[i]) || ranges[i]< 0.15) {
             count++;
         }
     }
-    cout << endl;
+    //cout << endl;
     if (count == 136-45) {
         stop();
     }

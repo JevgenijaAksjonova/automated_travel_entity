@@ -175,6 +175,11 @@ int main(int argc, char **argv)
       path->angVel = 0;
     }
 
+    if (!path->move) {
+        path->linVel = 0;
+        path->angVel = 0;
+    }
+
     geometry_msgs::Twist msg;
     msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
@@ -184,9 +189,7 @@ int main(int argc, char **argv)
     msg.angular.z = path->angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
-    if (path->move) {
-        //pub.publish(msg);
-    }
+    pub.publish(msg);
 
     mapViz.publishMap();
     mapViz.publishPath(path->globalPath);
