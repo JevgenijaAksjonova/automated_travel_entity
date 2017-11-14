@@ -44,7 +44,7 @@ ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 
 #Testing variables for disabling parts of the mother
 
-USING_PATH_PLANNING = True
+USING_PATH_PLANNING = False
 USING_ARM = False
 USING_VISION = True
 
@@ -59,7 +59,7 @@ color_2_rgb = {
 #Define verboseness of different parts
 
 VISION_VERBOSE = False
-DETECTION_VERBOSE = False
+DETECTION_VERBOSE = True
 
 def pose_to_msg(x,y,theta,z=0):
     pose = Pose()
@@ -100,7 +100,7 @@ class MazeObject(object):
         ros_sucks = True
         obj_cand_msg_new = None
         i = 0
-        while ros_sucks and i <100:
+        while ros_sucks and i <1000:
             try:
                 obj_cand_msg_new = trans.transformPoint(MOTHER_WORKING_FRAME,obj_cand_point_msg)
                 ros_didnt_suck = False
@@ -141,7 +141,7 @@ class MazeObject(object):
 
     def is_close_and_same_color(self,other,tol=0.1):
         return self.is_close(other,tol) and self.color == other.color
-
+        
     @property
     def pos(self):
         return self._pos
@@ -221,14 +221,92 @@ class MazeObject(object):
 
     def __repr__(self):
         return self.__str__()
+
+class MazeMap:
+    #A general reprensentation of the robot map
+    def __init__(self,visulisation_publisher,p_increse_rate,p_loss_rate):
+        #Todo, supply map with walls and all to this
+        self.maze_objects = set()
+        self.visulisation_publisher = visulisation_publisher
+        self.p_increse_rate = p_increse_rate
+        self.p_loss_rate = p_loss_rate
+    #When the map has been modified, one must allways update any external references
+    #They may have disaperared, in witch case None is returned
+    def update_maze_object_reference(self,obj):
+        if obj in self.maze_objects:
+            return obj #the reference is the same
+        neighs = sorted(self._same_color_neighbors(obj),
+            lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - obj_b.pos))
+        if len(neighs) > 0:
+            return neighs[0] #Return closest neighbor
+        
+        return None #The object seems to be gone
+    #returns the objects to be classified, sortend on proximity to robot_pos
+    def get_unclassified_objects(self,robot_pos):
+        return sorted([obj for obj in self.maze_objects if not obj.is_classified]
+                ,lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - robot_pos) - np.linalg.norm(obj_b.pos - robot_pos))
+
+    # Add any type of object to the map.
+    # Returns a reference to the object in the map 
+    # as it may not be the same object as was added, eventhough it is equivilent
+    def add_object(self,obj):
+        if type(obj) is MazeObject:
+            return self._add_maze_obj(obj)
+        else:
+            raise Exception("tried to add invalid object to map")
+
+    #Update the map once every loop,
+    #Removes inprobable objects from map
+    def update(self):
+        for obj in self.maze_objects:
+            obj.p -= self.p_loss_rate
+            if obj.p <= 0:
+                obj.visulisation_publisher = None
+                self.maze_objects.remove(obj)
+
+    def _add_maze_obj(self,obj):
+        neighs = self._same_color_neighbors(obj)
+        obj.p = self.p_increse_rate
+        if neighs_idx > 0:
+            neighs.append(obj)
+            obj = self._merge_maze_objects(neighs)
+            obj.p = min(obj.p + self.p_increse_rate,1)
+        self.maze_objects.add(obj)
+        obj.visulisation_publisher = self.visulisation_publisher        
+        return obj
+
+    def _merge_maze_objects(self,maze_objs):
+        mean_height = np.mean([close_obj.height for close_obj in maze_objs])
+        mean_pos = np.mean([close_obj.pos for close_obj in maze_objs],axis=0)
+        close_images = [close_obj.image for close_obj in maze_objs]
+        largest_image_idx = np.argmax([close_image.height * close_image.width for close_image in close_images])
+        largest_image = close_images[largest_image_idx]
+        p_max = max(obj.p for obj in maze_objs)
+        classified = any(obj.classified for obj in maze_objs)
+        self.maze_objects.difference_update(maze_objs)
+        representative_obj = maze_objs.pop()
+        representative_obj.pos = mean_pos
+        representative_obj.image = image_large
+        representative_obj.height = mean_height
+        representative_obj.p = p_max
+        representative_obj.classified = classified
+        for maze_obj in maze_objs:
+            maze_obj.visulisation_publisher = None
+        return representative_obj
+        
+    def _same_color_neighbors(self,obj):
+        return [maze_obj for maze_obj in self.object_candidates
+                    if obj.is_close_and_same_color(maze_obj)]
+
+    
+
+
 class Mother:
     
     def __init__(self): 
             #Initialisation of expressions not dependent on imput arguments or rospy.
         self.problem_with_path_following = False
         self.nav_goal_acchieved = True
-
-        self.detected_objects = []
         self.mode = "waiting_for_main_goal"
 
         # A dictionary of all spotted objects.
@@ -237,7 +315,6 @@ class Mother:
         # "type" is one of the object classes specified in RAS_EVIDENCE
         # before classification, "type" is "an_object"
 
-        self.object_classification_queue = []
         # Add your subscribers and publishers, services handels
         # and any other initialisation bellow
         
@@ -283,6 +360,8 @@ class Mother:
         self.i = 0
         self.arm_movement_success = None
         self.lifting_object = None
+        self.maze_map = MazeMap(self.map_pub,0.1,0.01)
+        self.object_classification_queue = []
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
 
@@ -295,13 +374,7 @@ class Mother:
 
     def _goal_pose_callback(self,goal_pose_msg):
         rospy.loginfo("goal pose callback")
-        self.goal_pose = goal_pose_msg
-
-    def detected_objs_close(self,obj,tol=.1):
-        close_objs = [detected_obj for detected_obj in self.detected_objects
-            if obj.is_close_and_same_color(detected_obj)]
-        return close_objs               
-
+        self.goal_pose = goal_pose_msg     
 
     def _navigation_status_callback(self,status_msg):
         rospy.loinfo("navigation status callback")
@@ -310,8 +383,11 @@ class Mother:
             self.nav_goal_acchieved = True
 
     def _handle_object_candidate_msg(self,obj_cand_msg):
+        print("_handle_object_candidate_msg")
         try:
             obj_cand = MazeObject(obj_cand_msg)
+            if DETECTION_VERBOSE:
+                rospy.loginfo("successfully created maze object")
         except ExtrapolationException as tfuck:
             if DETECTION_VERBOSE:
                 rospy.loginfo("Could not transform because tf sucks")
@@ -320,33 +396,8 @@ class Mother:
             if DETECTION_VERBOSE:
                 rospy.logwarn(nan_coord)
             return
-        close_objs = self.detected_objs_close(obj_cand)
-        if len(close_objs) != 0:
-            mean_height = np.mean([close_obj.height for close_obj in close_objs])
-            mean_pos = np.mean([close_obj.pos for close_obj in close_objs],axis=0)
-            close_images = [close_obj.image for close_obj in close_objs]
-            largest_image_idx = np.argmax([close_image.height * close_image.width for close_image in close_images])
-            image_large = close_images[largest_image_idx]
-            obj_at_pos = close_objs.pop()
-            #New obeservation of obj => Update position measurment and picture to latest
-            obj_at_pos.height = mean_height
-            obj_at_pos.pos = mean_pos
-            obj_at_pos.image = image_large
-            for close_obj in close_objs:
-                close_obj.visulisation_publisher = None
-                self.detected_objects.remove(close_obj)
-
-            if DETECTION_VERBOSE:
-                rospy.loginfo("new observation obj id {id} of object at {pos} ".format(id=obj_at_pos.id, pos=obj_at_pos.pos))
-            
-        else:
-            if DETECTION_VERBOSE:
-                rospy.loginfo("observation of new object at {0}".format(obj_cand._pos))
-            #No previous observation at location 
-            self.detected_objects.append(obj_cand)
-            self.object_classification_queue.append(obj_cand)
-            obj_cand.visulisation_publisher = self.map_pub
-    
+        self.maze_map.add_object(obj_cand)   
+ 
     @property
     def robot_pose(self):
 
@@ -443,6 +494,7 @@ class Mother:
             rospy.loginfo("Could not find path to given main goal")
             self.set_waiting_for_main_goal()
 
+
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
         self.mode = "waiting_for_main_goal"
@@ -491,7 +543,7 @@ class Mother:
                     self.set_following_path_to_main_goal()
             
             elif self.mode == "following_path_to_main_goal":
-            
+                self.object_classification_queue = self.maze_map.get_unclassified_objects()
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
                     print("classifying object type = ", type(classifying_obj))
@@ -535,14 +587,16 @@ class Mother:
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
             
-            rospy.loginfo("mother iter {i}\n".format(i = self.i))
-            rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
+            #rospy.loginfo("mother iter {i}\n".format(i = self.i))
+            #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            rospy.loginfo("\tdetected objects = {0}".format(self.detected_objects))
-            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
-            rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
-            rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
+            rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
+            #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
+            #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1
+
+            self.maze_map.update()
             rate.sleep()
 
 
