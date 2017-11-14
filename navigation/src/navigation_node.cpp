@@ -143,7 +143,7 @@ int main(int argc, char **argv)
   ros::Subscriber locationSub = n.subscribe("/odom", 1, &Location::callback, loc.get());
 
   // Path
-  double pathRad = 0.20;
+  double pathRad = 0.25;
   double distanceTol = 0.05;
   double angleTol = 2*M_PI;
   shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);
@@ -184,7 +184,9 @@ int main(int argc, char **argv)
     msg.angular.z = path->angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
-    pub.publish(msg);
+    if (path->move) {
+        //pub.publish(msg);
+    }
 
     mapViz.publishMap();
     mapViz.publishPath(path->globalPath);
