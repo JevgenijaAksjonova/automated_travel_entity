@@ -38,7 +38,6 @@ class LocalPathPlanner {
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
     void showLocalMap();
-    void stop();
   private:
     double mapRad;
     double robotRad;
@@ -55,6 +54,9 @@ class LocalPathPlanner {
     void updateLocalMapLidar();
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
+
+    void stop();
+    void emergencyStopLidar();
 };
 
 void LocalPathPlanner::stop() {
@@ -132,17 +134,17 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //    cout << localMapNew[i] << ":" <<distance[i] <<" ";
     //}
     //cout << endl;
-    cout << "LOCAL MAP NEW " << endl;
-    for (int i = 0; i < localMapNew.size(); i++) {
-        cout << localMapNew[i] << " ";
-    }
-    cout << endl;
+    //cout << "LOCAL MAP NEW " << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << " ";
+    //}
+    //cout << endl;
     filterNoise(localMapNew);
-    cout << "LOCAL MAP FILTERED" << endl;
-    for (int i = 0; i < localMapNew.size(); i++) {
-        cout << localMapNew[i] << " ";
-    }
-    cout << endl;
+    //cout << "LOCAL MAP FILTERED" << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] << " ";
+    //}
+    //cout << endl;
     addRobotRadius(localMapNew);
     //cout << "LOCAL MAP RADIUS" << endl;
     //for (int i = 0; i < localMapNew.size(); i++) {
@@ -157,6 +159,21 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //cout << endl;
 }
 
+void LocalPathPlanner::emergencyStopLidar() {
+    cout << "RANGE "<< endl;
+    int count = 0;
+    for (int i=45; i < 136; i++) {
+        cout << ranges[i] << " ";
+        if ( isinf(ranges[i]) || ranges[i]< 0.15) {
+            count++;
+        }
+    }
+    cout << endl;
+    if (count == 136-45) {
+        stop();
+    }
+}
+
 void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
     ranges = msg->ranges;
@@ -166,6 +183,8 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     range_max = msg->range_max;
 
     //updateLocalMapLidar();
+
+    emergencyStopLidar();
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,

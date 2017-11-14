@@ -67,6 +67,11 @@ void Path::followPath(double x, double y, double theta) {
     pair<double,double> goal(goalX,goalY);
     double dist = distance(goal,loc);
     if (globalPath.size() > 0 ) {
+        if (distance(globalPath[0],loc) > 1.5*pathRad) {
+            move = false;
+            string msg = "STOP! DEVIATION FROM THE PATH!";
+            ROS_INFO("%s/n", msg.c_str());
+        }
         while (globalPath.size() > 1 &&
                    (distance(globalPath[0],loc) < pathRad ||
                     distance(globalPath[1], loc) < distance(globalPath[0], loc))
