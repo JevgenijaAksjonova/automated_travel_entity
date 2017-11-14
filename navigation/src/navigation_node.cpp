@@ -181,12 +181,12 @@ int main(int argc, char **argv)
     }
 
     geometry_msgs::Twist msg;
-    msg.linear.x = path->linVel;
+    msg.linear.x = 0.5*path->linVel;
     msg.linear.y = 0.0;
     msg.linear.z = 0.0;
     msg.angular.x = 0.0;
     msg.angular.y = 0.0;
-    msg.angular.z = path->angVel;
+    msg.angular.z = 0.5*path->angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);
