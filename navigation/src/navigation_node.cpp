@@ -184,7 +184,9 @@ int main(int argc, char **argv)
     msg.angular.z = path->angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
-    pub.publish(msg);
+    if (path->move) {
+        //pub.publish(msg);
+    }
 
     mapViz.publishMap();
     mapViz.publishPath(path->globalPath);

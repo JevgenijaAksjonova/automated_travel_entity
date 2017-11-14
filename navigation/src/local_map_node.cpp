@@ -12,6 +12,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include "math.h"
 #include "project_msgs/direction.h"
+#include "project_msgs/stop.h"
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -25,6 +26,7 @@ int mod(int a, int b) {
 class LocalPathPlanner {
   public:
     ros::Publisher lppViz;
+    ros::Publisher stopPub;
 
     LocalPathPlanner(double p_robotRad, double p_mapRad):
                                     robotRad(p_robotRad),
@@ -36,6 +38,7 @@ class LocalPathPlanner {
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
     void showLocalMap();
+    void stop();
   private:
     double mapRad;
     double robotRad;
@@ -53,6 +56,13 @@ class LocalPathPlanner {
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
 };
+
+void LocalPathPlanner::stop() {
+    project_msgs::stop msg;
+    msg.stamp = ros::Time::now();
+    msg.stop = true;
+    stopPub.publish(msg);
+}
 
 void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
 
@@ -165,10 +175,10 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     mapRad = req.linVel;
     updateLocalMapLidar();
 
-    for (int i = 0; i < localMapProcessed.size(); i++) {
-        cout << localMapProcessed[i] << " ";
-    }
-    cout << endl;
+    //for (int i = 0; i < localMapProcessed.size(); i++) {
+    //    cout << localMapProcessed[i] << " ";
+    //}
+    //cout << endl;
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
@@ -178,6 +188,10 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     }
     while (localMapProcessed[mod(angleIndRight,360)] > 0 && abs(angleIndRight - angleInd) <= 180) {
         angleIndRight++;
+    }
+    if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
+        res.angVel = 0;
+        stop();
     }
     if (abs(angleIndLeft - angleInd) >= abs(angleIndRight + angleInd)) {
         res.angVel = angleIndRight/360.0*2*M_PI;
@@ -202,7 +216,7 @@ void LocalPathPlanner::showLocalMap() {
             marker.id = i;
             marker.lifetime = ros::Duration(0.1);
             marker.ns = "local_map";
-            marker.type = visualization_msgs::Marker::CUBE;
+            marker.type = visualization_msgs::Marker::CYLINDER;
             marker.action = visualization_msgs::Marker::ADD;
             marker.pose.position.x = mapRad*cos(i/360.0*2.0*M_PI);
             marker.pose.position.y = mapRad*sin(i/360.0*2.0*M_PI);
@@ -211,8 +225,8 @@ void LocalPathPlanner::showLocalMap() {
             marker.pose.orientation.y = 0.0;
             marker.pose.orientation.z = 0.0;
             marker.pose.orientation.w = 1.0;
-            marker.scale.x = 0.1;
-            marker.scale.y = 0.1;
+            marker.scale.x = 0.05;
+            marker.scale.y = 0.05;
             marker.scale.z = 0.1;
             marker.color.a = 0.5;
             marker.color.r = 1.0;
@@ -235,7 +249,11 @@ int main(int argc, char **argv) {
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 
+    // Visualize
     lpp.lppViz = nh.advertise<visualization_msgs::MarkerArray>("navigation/visualize_lpp", 360);
+
+    // STOP!
+    lpp.stopPub = nh.advertise<project_msgs::stop>("navigation/obstacles", 1);
     ros::Rate loop_rate(10);
 
     while (ros::ok())
