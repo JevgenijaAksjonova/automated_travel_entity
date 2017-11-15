@@ -72,8 +72,12 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
     //cout<< "ang add = ";
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
-            int angAdd = round(asin(robotRad/max(distance[i],robotRad))/2.0/M_PI*360);
+            int angAdd = round(asin((robotRad-0.03)/max(distance[i],robotRad))/2.0/M_PI*360);
             //cout<< i << ":" <<angAdd << " ";
+            for (int j = i-angAdd; j < i+angAdd; j++) {
+                localMapNew[mod(j,360)] = 0.5;
+            }
+            int angAdd = round(asin((robotRad)/max(distance[i],robotRad))/2.0/M_PI*360);
             for (int j = i-angAdd; j < i+angAdd; j++) {
                 localMapNew[mod(j,360)] = 1.0;
             }
@@ -208,8 +212,18 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
         angleIndRight++;
     }
     if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
-        res.angVel = 0;
-        stop();
+        angleIndLeft = angleInd;
+        angleIndRight = angleInd;
+        while (localMapProcessed[mod(angleIndLeft,360)] > 0.5 && abs(angleIndLeft - angleInd) <= 180) {
+            angleIndLeft--;
+        }
+        while (localMapProcessed[mod(angleIndRight,360)] > 0.5 && abs(angleIndRight - angleInd) <= 180) {
+            angleIndRight++;
+        }
+        if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
+            res.angVel = 0;
+            stop();
+        }
     }
     if (abs(angleIndLeft - angleInd) >= abs(angleIndRight + angleInd)) {
         res.angVel = angleIndRight/360.0*2*M_PI;
