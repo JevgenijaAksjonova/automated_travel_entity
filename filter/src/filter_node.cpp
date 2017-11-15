@@ -79,7 +79,7 @@ class FilterPublisher
         float spread_xy = 0.05;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
-        int nr_particles = 100;
+        int nr_particles = 1000;
         srand(static_cast<unsigned>(time(0)));
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -172,7 +172,7 @@ class FilterPublisher
             //ROS_INFO("Weight of particle [%d] is [%f]", i, particles[i].weight);
         }
 
-        int nrRandomParticles = particles.size() / 10;
+        int nrRandomParticles = particles.size() / 100;
 
         //int nrRandomParticles = 0;
 
