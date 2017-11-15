@@ -167,7 +167,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
 void LocalPathPlanner::emergencyStopLidar() {
     //cout << "RANGE "<< endl;
     int count = 0;
-    for (int i=35; i < 126; i++) {
+    for (int i=25; i < 116; i++) {
         //cout << ranges[i] << " ";
         if (  ranges[i]< 0.215) {
             count++;
