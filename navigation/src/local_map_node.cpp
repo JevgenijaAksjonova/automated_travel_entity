@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "local_map_node");
     ros::NodeHandle nh;
 
-    LocalPathPlanner lpp(0.18, 0.25);
+    LocalPathPlanner lpp(0.16, 0.25);
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 
