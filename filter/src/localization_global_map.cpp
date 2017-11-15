@@ -1,10 +1,11 @@
-
+#define _USE_MATH_DEFINES
 #include <sstream>
 #include <fstream>
 #include <vector>
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <stdlib.h>
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
@@ -35,6 +36,75 @@ pair<float, float> LocalizationGlobalMap::getDistance(int x, int y) {
     return pair<float, float>(i,j);
 }
 
+float LocalizationGlobalMap::getLineIntersection(float x1, float y1, float theta){
+
+    float distance = 4;
+    float x2 = (cos(theta)*distance) + x1;
+    float y2 = (sin(theta)*distance) + y1;
+
+    //ROS_INFO("----------------------x1 [%f] y1 [%f] x2 [%f] y2 [%f] theta [%f]", x1,y1,x2,y2,theta);
+
+    float x3, y3, x4, y4;
+    float d = 0;
+    for(int i = 0; i < walls.size(); i++){
+        //ROS_INFO("for i = [%d]",i);
+        x3 = walls[i][0];
+        y3 = walls[i][1];
+        x4 = walls[i][2];
+        y4 = walls[i][3];
+
+        //ROS_INFO("Wall: x3 [%f] y3 [%f] x4 [%f] y4 [%f]", x3,y3,x4,y4);
+
+        //Start of line check algorithm
+        d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        // If d is zero, there is no intersection
+        
+        if (d == 0) continue;
+
+        // Get the x and y
+        float pre = (x1*y2 - y1*x2), post = (x3*y4 - y3*x4);
+        float x = ( pre * (x3 - x4) - (x1 - x2) * post ) / d;
+        float y = ( pre * (y3 - y4) - (y1 - y2) * post ) / d;
+
+        //ROS_INFO("Calculated x [%f] y [%f]",x,y);
+
+        // Check if the x and y coordinates are within both lines
+        float epsilon = 0.001;
+        if ( x+epsilon < min(x1,x2) || x-epsilon > max(x1,x2)){
+            //ROS_INFO("break1");
+            continue;
+        }
+
+        if ( x+epsilon < min(x3,x4) || x-epsilon > max(x3,x4)){
+            //ROS_INFO("break2");
+            continue;
+        }
+
+        if ( y+epsilon < min(y1,y2) || y-epsilon > max(y1,y2)){
+            //ROS_INFO("break3");
+            continue;
+        }
+
+        if ( y+epsilon < min(y3,y4) || y-epsilon > max(y3,y4)){
+            //ROS_INFO("break4");
+            continue;
+        }
+
+
+        float temp_dist = sqrt((pow((x-x1), 2) + pow((y-y1),2)));
+        //ROS_INFO("temp_dist = [%f]",temp_dist);
+        if(temp_dist < distance){
+            distance = temp_dist;
+        }
+    }
+    if(distance >3){
+        // ROS_INFO("Got 4!!");
+        // exit (EXIT_FAILURE);
+    }
+    return distance;
+
+}
+
 
 void LocalizationGlobalMap::createMap(string filename) {
 
@@ -48,7 +118,6 @@ void LocalizationGlobalMap::createMap(string filename) {
     double max_num = numeric_limits<double>::infinity();
     double min_num = -numeric_limits<double>::infinity();
     string line;
-    vector<vector<double> > walls;
     double x_min = max_num, y_min = max_num;
     double x_max = min_num, y_max = min_num;
 

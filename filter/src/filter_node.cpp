@@ -312,7 +312,6 @@ class FilterPublisher
             getParticlesWeight(particles, map, sampled_measurements, max_distance);
             ROS_INFO("after getweights");
         }
-        //update particle weights
     }
 
     void publishPosition(Particle ml_pos)
@@ -441,7 +440,7 @@ class FilterPublisher
         particle.color.b = 1.0f;
         particle.color.a = 1.0;
 
-        float weight = 0;
+        float weight = 0.01;
 
         int id = 0;
         for (int i = 0; i < particles.size(); i++)
@@ -449,11 +448,6 @@ class FilterPublisher
 
             particle.pose.position.x = particles[i].xPos;
             particle.pose.position.y = particles[i].yPos;
-
-            weight = particles[i].weight;
-            if(weight > 0.2){
-                weight = 0.2;
-            }
 
             // Set the scale of the marker -- 1x1x1 here means 1m on a side
             particle.scale.y = weight;
