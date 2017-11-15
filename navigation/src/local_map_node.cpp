@@ -92,7 +92,7 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
 void LocalPathPlanner::filterNoise(vector<double>& localMap){
 
     vector<double> localMapNew(localMap);
-    int w = 5; // window width = 2*w +1
+    int w = 4; // window width = 2*w +1
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
             int count = 0;
