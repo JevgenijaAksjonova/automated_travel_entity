@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 from __future__ import print_function
 
 import pprint
@@ -7,12 +8,13 @@ from shutil import copy2
 import numpy as np
 
 import cv2
-
+import math
 import yaml
 
 import random
 pp = pprint.PrettyPrinter(indent=4)
 #rec = Recognizer()p
+
 
 #Thresholds in hue for all collors
 colors = ["green", "red", "blue", "yellow", "purple", "orange"]
@@ -36,6 +38,7 @@ DEBUGGING = False
 
 #Function to extract a widnow from a object in a manner that perserves perspectives
 def extract_object_image(middle_point, top_left, bot_right, image):
+    #TODO: Fix bug where right side of image is cut of to early
     (x_mid, y_mid) = middle_point
     (x_min, y_min) = top_left
     (x_max, y_max) = bot_right
@@ -93,23 +96,26 @@ class ObjectCandidate(object):
         self.area = self.height * self.widht
         self.color = color
 
-    def extract_obj_img(self, full_rgb_img):
+    def find_img(self, full_rgb_img):
         self.img = extract_object_image(self.mid, self.top_left,
                                         self.bot_right, full_rgb_img)
         (x, y, z) = self.img.shape
         return x * y * z != 0
 
-    def find_z(self, full_depth_img):
-        pass
+    def find_depth(self, full_depth_img):
+        x_range = slice(self.center_point[1]-10,self.center_point[1]+10)
+        y_range = slice(self.center_point[0]-10,self.center_point[0]+10)
+        self.z = np.nanmean(full_depth_img[x_range,y_range])
+        return self.z is None or math.isnan(self.z)
 
 
 default_hsv_thresh = {
-    "green": (np.array([40, 130, 40]), np.array([85, 255, 200])),
-    "blue": (np.array([18, 130, 15]), np.array([35, 255, 200])),
-    "yellow": (np.array([90, 190, 80]), np.array([100, 255, 200])),
-    "purple": (np.array([120, 50, 30]), np.array([180, 130, 200])),
-    "red": (np.array([118, 130, 40]), np.array([130, 255, 200])),
-    "orange": (np.array([107, 150, 40]), np.array([115, 255, 230])),
+    "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
+    "blue": (np.array([18, 110, 40]), np.array([35, 255, 230])),
+    "yellow": (np.array([90, 190, 80]), np.array([100, 255, 240])),
+    "purple": (np.array([125, 30, 30]), np.array([170, 255, 255])),
+    "red": (np.array([110, 110, 80]), np.array([120, 255, 240])),
+    "orange": (np.array([107, 150, 80]), np.array([115, 255, 240])),
 }
 
 
@@ -127,6 +133,7 @@ def compute_mask(image, bounds):
 
 #Process image :D
 def color_segment_image(bgr_image,
+                        depth_image = None,
                         return_debug_image=False,
                         apply_checks=True,
                         hsv_thresholds = default_hsv_thresh):
@@ -135,16 +142,20 @@ def color_segment_image(bgr_image,
     #hsv_image = cv2.medianBlur(hsv_image,11)
 
     object_candidates = []
-
+    #to_many_object_candidates = False
     if return_debug_image:
         bgr_dbg = bgr_image.copy()
 
-    for color in colors:
+    for color in ["red","green","blue","purple"]:
+        #if to_many_object_candidates:
+            #break
         mask = compute_mask(hsv_image, hsv_thresholds[color])
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                         cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
+            #if to_many_object_candidates:
+                #break
             contour = cv2.convexHull(contour)
             x_min = int(contour[:, 0, 0].min())
             x_max = int(contour[:, 0, 0].max())
@@ -163,14 +174,14 @@ def color_segment_image(bgr_image,
                                 height_too_large) if apply_checks else True
 
             if not checks_ok:
-
                 print("area_too_big =", area_too_big)
                 print("width_too_large =", width_too_large)
                 print("height_too_large =", height_too_large)
-
-            if detected_obj.extract_obj_img(
-                    bgr_image) and not area_too_big:
-                object_candidates.append(detected_obj)
+            img_ok = detected_obj.find_img(bgr_image)
+            depth_ok = detected_obj.find_depth(depth_image)
+            #print(img_ok and depth_ok and checks_ok)
+            #if img_ok and depth_ok and checks_ok:
+            object_candidates.append(detected_obj)
             if return_debug_image:
                 cv2.drawContours(
                     bgr_dbg, [contour],
@@ -191,14 +202,14 @@ def color_segment_image(bgr_image,
                     color=(0, 0, 0),
                     thickness=2)
 
-    to_many_object_candidates = len(
-        object_candidates) > 8 if apply_checks else False
+            #to_many_object_candidates = len(
+                #object_candidates) > 8 if apply_checks else False         
 
     object_candidates, bgr_dbg = (
-        object_candidates, bgr_dbg) if not to_many_object_candidates else (
+        object_candidates, bgr_dbg) if True else (#not to_many_object_candidates else (
             [], bgr_image)
-    if to_many_object_candidates:
-        print("Too many object candidates")
+    #if to_many_object_candidates:
+        #print("Too many object candidates")
 
     if return_debug_image:
         return object_candidates, bgr_dbg
