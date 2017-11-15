@@ -182,9 +182,8 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     range_min = msg->range_min;
     range_max = msg->range_max;
 
-    //updateLocalMapLidar();
-
     emergencyStopLidar();
+    updateLocalMapLidar();
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
@@ -192,7 +191,7 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
 
 
     mapRad = req.linVel;
-    updateLocalMapLidar();
+    //updateLocalMapLidar();
 
     //for (int i = 0; i < localMapProcessed.size(); i++) {
     //    cout << localMapProcessed[i] << " ";
