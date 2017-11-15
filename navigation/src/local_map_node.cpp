@@ -167,7 +167,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
 void LocalPathPlanner::emergencyStopLidar() {
     //cout << "RANGE "<< endl;
     int count = 0;
-    for (int i=45; i < 136; i++) {
+    for (int i=35; i < 126; i++) {
         //cout << ranges[i] << " ";
         if (  ranges[i]< 0.215) {
             count++;
@@ -176,6 +176,8 @@ void LocalPathPlanner::emergencyStopLidar() {
     //cout << endl;
     //cout << count << endl;
     if (count > 0) {
+        string msg = "EMERGENCY STOP, LIDAR!";
+        ROS_INFO("%s/n", msg.c_str());
         stop();
     }
 }
