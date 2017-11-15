@@ -176,8 +176,14 @@ void LocalPathPlanner::emergencyStopLidar() {
     //cout << endl;
     //cout << count << endl;
     if (count > 0) {
-        string msg = "EMERGENCY STOP, LIDAR!";
-        ROS_INFO("%s/n", msg.c_str());
+        stringstream s;
+        s << "EMERGENCY STOP, LIDAR! ";
+        for (int i=25; i < 116; i++) {
+            if (  ranges[i]< 0.215) {
+                s << i <<" ";
+            }
+        }
+        ROS_INFO("%s/n", s.s_str().c_str());
         stop();
     }
 }
