@@ -72,7 +72,8 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
     //cout<< "ang add = ";
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
-            int angAdd = round(asin((robotRad-0.03)/max(distance[i],robotRad))/2.0/M_PI*360);
+
+            int angAdd = round(asin((robotRad-0.05)/max(distance[i],robotRad))/2.0/M_PI*360);
             //cout<< i << ":" <<angAdd << " ";
             for (int j = i-angAdd; j < i+angAdd; j++) {
                 localMapNew[mod(j,360)] = 0.5;
@@ -197,10 +198,10 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     mapRad = req.linVel;
     //updateLocalMapLidar();
 
-    //for (int i = 0; i < localMapProcessed.size(); i++) {
-    //    cout << localMapProcessed[i] << " ";
-    //}
-    //cout << endl;
+    for (int i = 0; i < localMapProcessed.size(); i++) {
+        cout << localMapProcessed[i] << " ";
+    }
+    cout << endl;
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
