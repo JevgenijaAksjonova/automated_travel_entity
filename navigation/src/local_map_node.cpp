@@ -184,7 +184,7 @@ void LocalPathPlanner::emergencyStopLidar() {
                 s << i <<" ";
             }
         }
-        ROS_INFO("%s/n", s.s_str().c_str());
+        ROS_INFO("%s/n", s.str().c_str());
         stop();
     }
 }
