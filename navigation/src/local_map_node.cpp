@@ -77,7 +77,7 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
             for (int j = i-angAdd; j < i+angAdd; j++) {
                 localMapNew[mod(j,360)] = 0.5;
             }
-            int angAdd = round(asin((robotRad)/max(distance[i],robotRad))/2.0/M_PI*360);
+            angAdd = round(asin((robotRad)/max(distance[i],robotRad))/2.0/M_PI*360);
             for (int j = i-angAdd; j < i+angAdd; j++) {
                 localMapNew[mod(j,360)] = 1.0;
             }
