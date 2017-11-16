@@ -271,6 +271,8 @@ class FilterPublisher
     void measurement_model(LocalizationGlobalMap map)
     {
         //Sample the measurements
+        float lidar_x = 0.095;
+        float lidar_y = 0.0;
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
         std::vector<pair<float, float>> sampled_measurements;
@@ -309,7 +311,7 @@ class FilterPublisher
         {
             ROS_INFO("Readings have come");
 
-            getParticlesWeight(particles, map, sampled_measurements, max_distance);
+            getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
             ROS_INFO("after getweights");
         }
     }
