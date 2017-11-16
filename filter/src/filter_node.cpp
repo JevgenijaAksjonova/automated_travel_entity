@@ -271,12 +271,12 @@ class FilterPublisher
     void measurement_model(LocalizationGlobalMap map)
     {
         //Sample the measurements
-        float lidar_x = 0.095;
+        float lidar_x = 0.085;
         float lidar_y = 0.0;
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
         std::vector<pair<float, float>> sampled_measurements;
-        float angle = 0.0;
+        float angle = -pi/2;
         float max_distance = 3.0;
         float range;
 
