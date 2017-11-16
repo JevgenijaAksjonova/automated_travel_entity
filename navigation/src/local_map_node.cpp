@@ -114,7 +114,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //vector<double> localMapNew(360,0);
     vector<double> localMapNew = localMap;
     double angleLid = -M_PI/2.0;
-    double xOffset = 0.09;
+    double xOffset = -0.03;
     for (int i=0; i < ranges.size(); i++) {
         if (!isinf(ranges[i]) ) {
             double x = ranges[i]*cos(angleLid) + xOffset;
@@ -169,12 +169,13 @@ void LocalPathPlanner::emergencyStopLidar() {
     int count = 0;
     for (int i=45; i < 136; i++) {
         //cout << ranges[i] << " ";
-        if ( isinf(ranges[i]) || ranges[i]< 0.15) {
+        if (  ranges[i]< 0.215) {
             count++;
         }
     }
     //cout << endl;
-    if (count == 136-45) {
+    //cout << count << endl;
+    if (count > 0) {
         stop();
     }
 }
