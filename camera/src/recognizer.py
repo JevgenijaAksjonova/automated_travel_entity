@@ -11,7 +11,9 @@ import numpy as np
 import rospkg
 from os import path
 rospack = rospkg.RosPack()
+
 #Keras imports
+
 try:
     from keras.preprocessing import image as keras_image
     from keras.models import load_model
@@ -66,7 +68,12 @@ def main():
     def handle_recognize(request):
         req_image = request.image
         img = bridge.imgmsg_to_cv2(req_image,"rgb8")
+        print("writing img")
+        cv2.imwrite("/home/ras13/img.jpg",img)
         class_id,class_name,probability = rec.predict(img)
+        class_id = 0
+        class_name = "foo"
+        probability = 0
         response = recognizerResponse()
         response.class_id.data = class_id
         response.class_name.data = class_name

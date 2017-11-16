@@ -90,8 +90,10 @@ def pose_to_msg_stamped(x,y,theta,z=0):
 class MazeObject(object):
 
     n_maze_objects = 0
-
+    classified = False
+    p = 0
     def __init__(self,obj_cand_msg,class_label="an_object",class_id=-1,vis_pub=None):
+        
         obj_cand_point_msg = PointStamped()
         obj_cand_point_msg.header.frame_id = obj_cand_msg.header.frame_id
         obj_cand_point_msg.header.stamp = obj_cand_msg.header.stamp
@@ -181,8 +183,8 @@ class MazeObject(object):
             self._marker.header = pose_stmp.header
             self._marker.pose = pose_stmp.pose
             self._marker.action = Marker.MODIFY
+            self._marker.color.a = self.p
             self._vis_pub.publish(self._marker)
-        print("In update marker but no vis_pub")
 
     def _add_marker(self):
         if self._vis_pub is not None:
@@ -199,10 +201,9 @@ class MazeObject(object):
             self._marker.color.r = r
             self._marker.color.g = g
             self._marker.color.b = b
-            self._marker.color.a = 1
+            self._marker.color.a = self.p
             self._marker.id = self.id
             self._marker.ns = "MazeObjects"
-            self._marker.lifetime = rospy.Duration.from_sec(5)
             self._vis_pub.publish(self._marker)
 
     def get_evidence_msg(self):
@@ -258,16 +259,21 @@ class MazeMap:
     #Update the map once every loop,
     #Removes inprobable objects from map
     def update(self):
+        objs_to_remove = set()
         for obj in self.maze_objects:
             obj.p -= self.p_loss_rate
+            obj._update_marker()
             if obj.p <= 0:
                 obj.visulisation_publisher = None
-                self.maze_objects.remove(obj)
+                objs_to_remove.add(obj)
+            print("------------------------- obj.p = {0} -----------------------".format(obj.p))
+        self.maze_objects.difference_update(objs_to_remove)
 
     def _add_maze_obj(self,obj):
         neighs = self._same_color_neighbors(obj)
         obj.p = self.p_increse_rate
-        if neighs_idx > 0:
+        obj.classified = False
+        if len(neighs) > 0:
             neighs.append(obj)
             obj = self._merge_maze_objects(neighs)
             obj.p = min(obj.p + self.p_increse_rate,1)
@@ -284,9 +290,9 @@ class MazeMap:
         p_max = max(obj.p for obj in maze_objs)
         classified = any(obj.classified for obj in maze_objs)
         self.maze_objects.difference_update(maze_objs)
-        representative_obj = maze_objs.pop()
+        representative_obj = sorted(maze_objs,lambda obj_a, obj_b: obj_a.id > obj_b.id)[0]
         representative_obj.pos = mean_pos
-        representative_obj.image = image_large
+        representative_obj.image = largest_image
         representative_obj.height = mean_height
         representative_obj.p = p_max
         representative_obj.classified = classified
@@ -295,7 +301,7 @@ class MazeMap:
         return representative_obj
         
     def _same_color_neighbors(self,obj):
-        return [maze_obj for maze_obj in self.object_candidates
+        return [maze_obj for maze_obj in self.maze_objects
                     if obj.is_close_and_same_color(maze_obj)]
 
     
@@ -318,6 +324,16 @@ class Mother:
         # Add your subscribers and publishers, services handels
         # and any other initialisation bellow
         
+
+        #Publishers
+        self.evidence_pub = rospy.Publisher("camera/evidence",RAS_Evidence,queue_size=1)
+        #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
+        self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
+
+        self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=20)
+
+        self.maze_map = MazeMap(self.map_pub,0.1,0.01)
+
         #Subscribers
         if USING_VISION:
             rospy.Subscriber(OBJECT_CANDIDATES_TOPIC,PosAndImage,
@@ -332,12 +348,6 @@ class Mother:
         rospy.Subscriber(ARM_MOVEMENT_COMPLETE_TOPIC,Bool,
             callback=self._arm_movement_complete_callback)
 
-        #Publishers
-        self.evidence_pub = rospy.Publisher("camera/evidence",RAS_Evidence,queue_size=1)
-        #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
-        self.speak_pub = rospy.Publisher("espeak/string",String,queue_size=1)
-
-        self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=20)
 
         #Wait for required services to come online and service handles
         if USING_VISION:
@@ -360,7 +370,6 @@ class Mother:
         self.i = 0
         self.arm_movement_success = None
         self.lifting_object = None
-        self.maze_map = MazeMap(self.map_pub,0.1,0.01)
         self.object_classification_queue = []
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
@@ -528,7 +537,7 @@ class Mother:
             self.set_following_path_to_main_goal()
 
     # Main mother loop
-    def mother_forever(self,rate=10):
+    def mother_forever(self,rate=1):
         rate = rospy.Rate(rate)
         rate.sleep()
 
