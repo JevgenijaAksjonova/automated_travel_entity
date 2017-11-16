@@ -79,7 +79,7 @@ class FilterPublisher
         float spread_xy = 0.05;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
-        int nr_particles = 1000;
+        int nr_particles = 100;
         srand(static_cast<unsigned>(time(0)));
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/oskar/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
