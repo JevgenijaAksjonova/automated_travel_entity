@@ -172,7 +172,7 @@ class FilterPublisher
             //ROS_INFO("Weight of particle [%d] is [%f]", i, particles[i].weight);
         }
 
-        int nrRandomParticles = particles.size() / 100;
+        int nrRandomParticles = particles.size() / 10;
 
         //int nrRandomParticles = 0;
 
@@ -216,7 +216,7 @@ class FilterPublisher
             temp_vec.push_back(p);
         }
 
-        particles = temp_vec;
+        particles.swap(temp_vec);
     }
 
     void calculateVelocityAndNoise()
