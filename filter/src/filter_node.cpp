@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <stdlib.h>
+#include <pwd.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -19,6 +20,7 @@
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
+
 
 class FilterPublisher
 {
@@ -119,10 +121,6 @@ class FilterPublisher
             particles[i].thetaPos = dist_start_theta(generator);
             particles[i].weight = (float)1.0 / nr_particles;
         }
-
-        // for (int i = 0; i<nr_particles; i++){
-        //     ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
-        // }
     }
 
     Particle localize(LocalizationGlobalMap map)
@@ -142,11 +140,8 @@ class FilterPublisher
             sample_motion_model(particles[m]);
         }
         //update weights according to measurements
-        ROS_INFO("Before measure model");
 
         measurement_model(map);
-
-        ROS_INFO("After measure model");
 
         //sample particles with replacement
         float weight_sum = 0.0;
@@ -160,14 +155,9 @@ class FilterPublisher
         for (int i = 0; i < particles.size(); i++)
         {
             particles[i].weight = particles[i].weight / weight_sum;
-            //ROS_INFO("Position of particle [%d], x:[%f] y:[%f]", i, particles[i].xPos, particles[i].yPos);
-            //ROS_INFO("Orientation of particle [%d], theta:[%f]", i, particles[i].thetaPos / pi);
-            //ROS_INFO("Weight of particle [%d] is [%f]", i, particles[i].weight);
         }
 
         int nrRandomParticles = particles.size() / 10;
-
-        //int nrRandomParticles = 0;
 
         if (linear_v != 0 || angular_w != 0)
         {
@@ -182,16 +172,20 @@ class FilterPublisher
         float x_estimate = 0;
         float y_estimate = 0;
         float theta_estimate = 0;
+        float sinPos;
+        float cosPos;
         for (int m = 0; m < particles.size(); m++)
         {
             x_estimate += particles[m].xPos;
             y_estimate += particles[m].yPos;
-            theta_estimate += particles[m].thetaPos;
+            sinPos +=  sin(particles[m].thetaPos);
+            cosPos +=  cos(particles[m].thetaPos);
+
         }
         Particle p;
         p.xPos = x_estimate/particles.size();
         p.yPos = y_estimate/particles.size();
-        p.thetaPos = theta_estimate/particles.size();
+        p.thetaPos = atan2(sinPos, cosPos);
 
         return p;
 
@@ -290,15 +284,16 @@ class FilterPublisher
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
         std::vector<pair<float, float>> sampled_measurements;
-        float angle = -pi/2;
+        float start_angle = -pi/2;
         float max_distance = 3.0;
         float range;
+        float angle = 0;
 
         int i = 0;
 
         while (i < ranges.size())
         {
-            angle = -(i * angle_increment);
+            angle = -(i * angle_increment) + start_angle;
             range = ranges[i];
 
             int j = 1;
@@ -510,7 +505,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras13" + "/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
