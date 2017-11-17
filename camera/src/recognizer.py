@@ -54,9 +54,7 @@ class Recognizer:
     def predict(self,image):
         image = self.preprocess(image)
         res = self.model.predict(image,steps=1)[0]
-        print(type(res))
         probable_class = np.argmax(res)
-        print("Gussed ",index_classes[probable_class]," with probability ",res[probable_class])
         return probable_class,index_classes[probable_class],res[probable_class]
 
 
@@ -67,13 +65,9 @@ def main():
     rec = Recognizer()
     def handle_recognize(request):
         req_image = request.image
-        img = bridge.imgmsg_to_cv2(req_image,"rgb8")
-        print("writing img")
+        img = bridge.imgmsg_to_cv2(req_image)
         cv2.imwrite("/home/ras13/img.jpg",img)
         class_id,class_name,probability = rec.predict(img)
-        class_id = 0
-        class_name = "foo"
-        probability = 0
         response = recognizerResponse()
         response.class_id.data = class_id
         response.class_name.data = class_name
