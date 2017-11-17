@@ -48,10 +48,12 @@ class MazeMap:
         
         return None #The object seems to be gone
     #returns the objects to be classified, sortend on proximity to robot_pos
-    def get_unclassified_objects(self,robot_pos):
-        return sorted([obj for obj in self.maze_objects if not obj.is_classified]
+    def get_unclassified_objects(self,robot_pos = None):
+        unclassified_objects = [obj for obj in self.maze_objects if not obj.classified]
+        if robot_pos is not None:
+            unclassified_objects = sorted(unclassified_objects
                 ,lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - robot_pos) - np.linalg.norm(obj_b.pos - robot_pos))
-
+        return unclassified_objects
     # Add any type of object to the map.
     # Returns a reference to the object in the map 
     # as it may not be the same object as was added, eventhough it is equivilent
@@ -65,13 +67,12 @@ class MazeMap:
     #Removes inprobable objects from map
     def update(self):
         objs_to_remove = set()
-        for obj in self.maze_objects:
+        for obj in list(self.maze_objects):
             obj.p -= self.p_loss_rate
             obj._update_marker()
             if obj.p <= 0:
                 obj.visulisation_publisher = None
                 objs_to_remove.add(obj)
-            print("------------------------- obj.p = {0} -----------------------".format(obj.p))
         self.maze_objects.difference_update(objs_to_remove)
 
     def _add_maze_obj(self,obj):
@@ -114,7 +115,7 @@ class MazeObject(object):
 
     n_maze_objects = 0
     classified = False
-    p = 0
+    #p = 0
     def __init__(self,obj_cand_msg,class_label="an_object",class_id=-1,vis_pub=None):
         
         obj_cand_point_msg = PointStamped()
@@ -125,7 +126,7 @@ class MazeObject(object):
         ros_sucks = True
         obj_cand_msg_new = None
         i = 0
-        while ros_sucks and i <1000:
+        while ros_sucks and i <100:
             try:
                 obj_cand_msg_new = trans.transformPoint(MOTHER_WORKING_FRAME,obj_cand_point_msg)
                 ros_didnt_suck = False
@@ -201,7 +202,6 @@ class MazeObject(object):
 
     def _update_marker(self):
         if self._vis_pub is not None:
-            print("Updating marker pos")
             pose_stmp = self.pose_stamped
             self._marker.header = pose_stmp.header
             self._marker.pose = pose_stmp.pose
@@ -217,9 +217,9 @@ class MazeObject(object):
             self._marker.pose = pose_stmp.pose
             self._marker.action = Marker.ADD
             self._marker.type = Marker.CUBE
-            self._marker.scale.x = .02
-            self._marker.scale.y = .02
-            self._marker.scale.z = .02
+            self._marker.scale.x = .05
+            self._marker.scale.y = .05
+            self._marker.scale.z = .05
             (r,g,b) = color_2_rgb[self.color]
             self._marker.color.r = r
             self._marker.color.g = g
@@ -241,7 +241,7 @@ class MazeObject(object):
         return msg
 
     def __str__(self):
-        return "{label} at {pos} id {id}".format(label=self.class_label,pos=self._pos,id=self.id)
+        return "{color} {label} at {pos} id {id} p {p}".format(color=self.color,label=self.class_label,pos=self._pos,id=self.id,p=self.p)
 
     def __repr__(self):
         return self.__str__()

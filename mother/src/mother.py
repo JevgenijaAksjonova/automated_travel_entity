@@ -204,7 +204,7 @@ class Mother:
             resp = self.recognizer_srv(self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(resp.probability.data))
             rospy.loginfo("resp.probability > .95 = {0}".format(resp.probability.data > .95))
-            resp.loginfo("resp.class_name = {0}".format(resp.class_name.data))
+            rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
             if resp.probability.data > .95:
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
