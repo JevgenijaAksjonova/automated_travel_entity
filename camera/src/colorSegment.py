@@ -53,8 +53,8 @@ def extract_object_image(middle_point, top_left, bot_right, image):
     new_y_max = y_mid + alignment
 
     #Check if resulting window is outside of image
-    if new_x_max >= image.shape[0]:
-        new_x_mid = x_mid - (new_x_max - image.shape[0])
+    if new_x_max >= image.shape[1]:
+        new_x_mid = x_mid - (new_x_max - image.shape[1])
     elif new_x_min < 0:
         new_x_mid = x_mid - new_x_min
     else:
