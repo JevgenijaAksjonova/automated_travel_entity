@@ -38,6 +38,7 @@ DEBUGGING = False
 
 #Function to extract a widnow from a object in a manner that perserves perspectives
 def extract_object_image(middle_point, top_left, bot_right, image):
+    #TODO: Fix bug where right side of image is cut of to early
     (x_mid, y_mid) = middle_point
     (x_min, y_min) = top_left
     (x_max, y_max) = bot_right
