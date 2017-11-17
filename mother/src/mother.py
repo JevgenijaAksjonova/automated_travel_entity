@@ -10,6 +10,7 @@ import roslib
 from geometry_msgs.msg import Pose2D, PoseStamped, PointStamped, Quaternion, Point, Pose, Twist, TransformStamped
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, global_pathRequest, global_pathResponse
+from nav_msgs.msg import Odometry
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler, vector_norm
 trans = TransformListener()
@@ -21,17 +22,21 @@ from ras_msgs.msg import RAS_Evidence
 import random
 import numpy as np
 
-from maze import MazeMap
+from maze import MazeMap, MazeObject
 from mother_settings import *
-
 class Mother:
-    
-    def __init__(self): 
-            #Initialisation of expressions not dependent on imput arguments or rospy.
-        self.problem_with_path_following = False
-        self.nav_goal_acchieved = True
-        self.mode = "waiting_for_main_goal"
 
+    odometry_msg = None
+    classifying_obj = None
+    i = 0
+    arm_movement_success = None
+    lifting_object = None
+    object_classification_queue = []
+    problem_with_path_following = False
+    nav_goal_acchieved = True
+    mode = "waiting_for_main_goal"
+
+    def __init__(self): 
         # A dictionary of all spotted objects.
         # form (x,y):"type"
         # where (x,y) are coordinates in the odom frame(shoudl this be map frame Jegvenja?) and 
@@ -49,7 +54,7 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects",Marker,queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub,0.1,0.01)
+        self.maze_map = MazeMap(self.map_pub,0.05,0.01)
 
         #Subscribers
         if USING_VISION:
@@ -65,6 +70,8 @@ class Mother:
         rospy.Subscriber(ARM_MOVEMENT_COMPLETE_TOPIC,Bool,
             callback=self._arm_movement_complete_callback)
 
+        rospy.Subscriber(ODOMETRY_TOPIC,Odometry,
+            callback=self._odometry_callback)
 
         #Wait for required services to come online and service handles
         if USING_VISION:
@@ -83,13 +90,12 @@ class Mother:
             self.arm_pickup_srv = rospy.ServiceProxy(ARM_PICKUP_SERVICE_NAME, Point , persistent=True)
 
         #Other initialisations
-        self.classifying_obj = None
-        self.i = 0
-        self.arm_movement_success = None
-        self.lifting_object = None
-        self.object_classification_queue = []
+
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
+
+    def _odometry_callback(self,odom_msg):
+        self.odometry = odom_msg
 
     def _arm_movement_complete_callback(self,success_msg):
         self.arm_movement_success = success_msg
@@ -108,8 +114,16 @@ class Mother:
         if status:
             self.nav_goal_acchieved = True
 
+    @property
+    def pos(self):
+        if self.odometry_msg is not None:
+            pos = self.odometry_msg.pose.pose.position
+            return np.r_[pos.x,pos.y]
+        else:
+            return None
+
+
     def _handle_object_candidate_msg(self,obj_cand_msg):
-        print("_handle_object_candidate_msg")
         try:
             obj_cand = MazeObject(obj_cand_msg)
             if DETECTION_VERBOSE:
@@ -124,20 +138,6 @@ class Mother:
             return
         self.maze_map.add_object(obj_cand)   
  
-    @property
-    def robot_pose(self):
-
-        pose = PoseStamped()
-        
-        pose.header.frame_id="/base_link"
-        pose.header.stamp = rospy.Time.now()
-
-        pos = Point()
-        pos.x = 0; pos.y = 0; pos.z = 0
-        pose.pose.position = pos
-        pose.pose.orientation = Quaternion(*quaternion_from_euler(0,0,0))
-        return trans.transformPose(MOTHER_WORKING_FRAME,pose).pose
-
     def get_pos_to_classify_object(self,object_pos):
         #TODO: Find resonable way of getting into position
         #current_pose = self.robot_pose
@@ -173,7 +173,7 @@ class Mother:
         return pose
 
     def go_to_pose(self,pose):
-        print("go pose = ", type(pose))
+        #print("go pose = ", type(pose))
         if USING_PATH_PLANNING:
             self.nav_goal_acchieved = False
 
@@ -269,22 +269,26 @@ class Mother:
                     self.set_following_path_to_main_goal()
             
             elif self.mode == "following_path_to_main_goal":
-                self.object_classification_queue = self.maze_map.get_unclassified_objects()
+                self.object_classification_queue = self.maze_map.get_unclassified_objects(self.pos)
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
                     print("classifying object type = ", type(classifying_obj))
                     self.set_following_path_to_object_classification(classifying_obj)
-            
+
             elif self.mode == "following_path_to_object_classification":
 
                 if self.nav_goal_acchieved:
                     if self.try_classify():
+                        self.classifying_obj.classified = True
                         classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                             x = np.round(self.classifying_obj.pos[0],2), y = np.round(self.classifying_obj.pos[1],2),
                             label = self.classifying_obj.class_label,frame=MOTHER_WORKING_FRAME)
-
+                        msg = String()
+                        msg.data = classification_msg
                         rospy.loginfo(classification_msg)
-                        self.speak_pub.publish(classification_msg)
+                        print("before speak")
+                        self.speak_pub.publish(msg)
+                        print("after speak")
                         self.evidence_pub.publish(self.classifying_obj.get_evidence_msg())
                         if "Cube" in self.classifying_obj.class_label:
                             rospy.loginfo("Object {0} is liftable".format(self.classifying_obj.class_label))
@@ -315,8 +319,8 @@ class Mother:
             
             #rospy.loginfo("mother iter {i}\n".format(i = self.i))
             #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
-            rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
+            #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
+            #rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
             #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
