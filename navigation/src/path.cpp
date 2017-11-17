@@ -26,6 +26,16 @@ void Path::setGoal(double x, double y, double theta) {
     goalAng = theta;
 }
 
+double Path::normalizeAngle(double angle) {
+    while (angle > M_PI) {
+        angle -= 2*M_PI ;
+    }
+    while (angle <= - M_PI) {
+        angle += 2*M_PI;
+    }
+    return angle;
+}
+
 // Euclidean distane
 double Path::distance(pair<double, double> &a, pair<double, double> &b){
     return sqrt (pow(a.first-b.first, 2) + pow(a.second-b.second, 2) );
@@ -42,28 +52,14 @@ double Path::getAngle(pair<double,double> &g, pair<double, double> &p) {
             return -M_PI/2.0;
         }
     }
-    double angle = atan(y/x);
-    if (x > 0) {
-        return angle;
-    } else {
-        if (y >= 0) {
-            return angle + M_PI;
-        } else {
-            return angle - M_PI;
-        }
-    }
-    // return atan2(y,x);
+    double angle = atan2(y,x);
+    return normalizeAngle(angle);
 }
+
 
 double Path::diffAngles(double a, double b) {
     double diff = a-b;
-    while (diff > M_PI) {
-        diff -= 2*M_PI ;
-    }
-    while (diff <= - M_PI) {
-        diff += 2*M_PI;
-    }
-    return diff;
+    return normalizeAngle(diff);
 }
 
 void Path::followPath(double x, double y, double theta) {
@@ -71,6 +67,11 @@ void Path::followPath(double x, double y, double theta) {
     pair<double,double> goal(goalX,goalY);
     double dist = distance(goal,loc);
     if (globalPath.size() > 0 ) {
+        if (distance(globalPath[0],loc) > 1.1*pathRad) {
+            move = false;
+            string msg = "STOP! DEVIATION FROM THE PATH!";
+            ROS_INFO("%s/n", msg.c_str());
+        }
         while (globalPath.size() > 1 &&
                    (distance(globalPath[0],loc) < pathRad ||
                     distance(globalPath[1], loc) < distance(globalPath[0], loc))
@@ -106,7 +107,7 @@ void Path::followPath(double x, double y, double theta) {
         angVel = 0;
     }
     // avoid turns with big radius, turn first, then move
-    if (fabs(angVel) > M_PI/2.0 && linVel > 0) {
+    if (fabs(angVel) > M_PI/3.0 && linVel > 0) {
         linVel = 0;
     }
 }
