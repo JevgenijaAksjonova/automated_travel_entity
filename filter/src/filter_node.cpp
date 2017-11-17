@@ -151,16 +151,9 @@ class FilterPublisher
         //sample particles with replacement
         float weight_sum = 0.0;
         Particle most_likely_position;
-        most_likely_position.weight = 0.0;
         for (int m = 0; m < particles.size(); m++)
         {
             weight_sum += particles[m].weight;
-
-            if (particles[m].weight > most_likely_position.weight)
-            {
-                most_likely_position = particles[m];
-                //ROS_INFO("New most likely position!: -  [%f], [%f], [%f], [%f]\n", most_likely_position.xPos, most_likely_position.yPos, most_likely_position.thetaPos, most_likely_position.weight);
-            }
         }
 
         // Normalize weights here
@@ -180,7 +173,28 @@ class FilterPublisher
         {
             resampleParticles(weight_sum, nrRandomParticles);
         }
-        return most_likely_position;
+
+
+        return getPositionEstimation();
+    }
+
+    Particle getPositionEstimation(){
+        float x_estimate = 0;
+        float y_estimate = 0;
+        float theta_estimate = 0;
+        for (int m = 0; m < particles.size(); m++)
+        {
+            x_estimate += particles[m].xPos;
+            y_estimate += particles[m].yPos;
+            theta_estimate += particles[m].thetaPos;
+        }
+        Particle p;
+        p.xPos = x_estimate/particles.size();
+        p.yPos = y_estimate/particles.size();
+        p.thetaPos = theta_estimate/particles.size();
+
+        return p;
+
     }
 
     void resampleParticles(float weightSum, int nrRandomParticles)
@@ -271,7 +285,7 @@ class FilterPublisher
     void measurement_model(LocalizationGlobalMap map)
     {
         //Sample the measurements
-        float lidar_x = 0.085;
+        float lidar_x = -0.03;
         float lidar_y = 0.0;
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
