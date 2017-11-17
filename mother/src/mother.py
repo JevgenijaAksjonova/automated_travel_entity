@@ -204,6 +204,7 @@ class Mother:
             resp = self.recognizer_srv(self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(resp.probability.data))
             rospy.loginfo("resp.probability > .95 = {0}".format(resp.probability.data > .95))
+            resp.loginfo("resp.class_name = {0}".format(resp.class_name.data))
             if resp.probability.data > .95:
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
@@ -272,7 +273,6 @@ class Mother:
                 self.object_classification_queue = self.maze_map.get_unclassified_objects()
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
-                    print("classifying object type = ", type(classifying_obj))
                     self.set_following_path_to_object_classification(classifying_obj)
             
             elif self.mode == "following_path_to_object_classification":
