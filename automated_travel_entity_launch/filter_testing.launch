@@ -1,0 +1,9 @@
+<launch>
+	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
+	<include file="$(find filter)/launch/filter_node.launch"/>
+	<include file="$(find world_map)/launch/world_map_node.launch"/>
+    <include file="$(find rplidar_ros)/launch/rplidar.launch"/>	
+	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node"/>
+	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
+	<include file="$(find camera)/vision.launch" />
+</launch>

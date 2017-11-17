@@ -30,13 +30,13 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
 
     vector<pair<float, float>> ranges;
     
-    // laser_data[0].first = 0.0;
-    // laser_data[1].first = 3.14/2;
-    // laser_data[2].first = 3.14;
-    // laser_data[3].first = 3*3.14/4;
+    // laser_data[0].first = -3.14/2;
+    // laser_data[1].first = 0;
+    // laser_data[2].first = 3.14/2;
+    // laser_data[3].first = 3*3.14/2;
 
-    // translated_particle_x = 0.2;
-    // translated_particle_y = 0.2;
+    // translated_particle_x = 0.205;
+    // translated_particle_y = 0.305;
     // particle_theta = 3.14/2;
     //ROS_INFO("------------");
 
@@ -47,8 +47,13 @@ vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float t
         float rangeFromMap = map.getLineIntersection(translated_particle_x, translated_particle_y, currentAngle);
 
         pair<float, float> range = make_pair(rangeFromMap, laser_data[i].second);
+
+        //ROS_INFO("RANGE ON MAP: %f", rangeFromMap);
+
         ranges.push_back(range);
     }
+
+    //exit(EXIT_SUCCESS);    
 
     return ranges;
 }

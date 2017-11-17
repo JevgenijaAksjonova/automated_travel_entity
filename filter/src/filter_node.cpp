@@ -81,7 +81,7 @@ class FilterPublisher
         float spread_xy = 0.05;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
-        int nr_particles = 100;
+        int nr_particles = 1000;
         srand(static_cast<unsigned>(time(0)));
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -293,13 +293,13 @@ class FilterPublisher
 
         while (i < ranges.size())
         {
-            angle = -(i * angle_increment) + start_angle;
+            angle = (i * angle_increment) + start_angle;
             range = ranges[i];
 
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle -= angle_increment * j;
+                angle += angle_increment * j;
                 j++;
             }
             
@@ -370,20 +370,22 @@ class FilterPublisher
     {
         int nr_measurements_used = 4;
         int step_size = (ranges.size() / nr_measurements_used);
-        float angle = 0;
+        float start_angle = -pi/2;
         float max_distance = 3.0;
         float range;
+        float angle = 0;
 
         int i = 0;
+
         while (i < ranges.size())
         {
-            angle = -(i * angle_increment);
+            angle = (i * angle_increment) + start_angle;
             range = ranges[i];
 
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle -= angle_increment * j;
+                angle += angle_increment * j;
                 j++;
             }
             
@@ -393,6 +395,8 @@ class FilterPublisher
             }
 
             
+            ROS_INFO("Range: [%f]", range);
+            ROS_INFO("Angle: [%f]", angle);
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -409,12 +413,12 @@ class FilterPublisher
     void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements)
     {
         float max_distance = 3.0;
-        float pos_x = 0.23;
-        float pos_y = 0.2;
+        float pos_x = 0.205;
+        float pos_y = 0.335;
         float theta = pi / 2;
 
-        std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
-        float lidar_orientation = 0;
+        std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, -0.03, 0.0);
+
         float z_hit = 0.25;
         float z_short = 0.25;
         float z_max = 0.25;

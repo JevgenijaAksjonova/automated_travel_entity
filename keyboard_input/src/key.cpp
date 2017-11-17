@@ -26,7 +26,7 @@
 #define KEYCODE_Reset 0x72  //Reset :stop
 #define KEYCODE_Q 0x71  //Character Q for quit
 
-double linear, angular, l_scale=0.05, a_scale=0.2;
+double linear, angular, l_scale=0.1, a_scale=0.2;
 // linear_velocity m/s  // angular_velocity rad/s
 int kfd = 0;
 struct termios cooked, raw;
