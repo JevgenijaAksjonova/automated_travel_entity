@@ -505,7 +505,7 @@ int main(int argc, char **argv)
 
     float frequency = 10;
 
-    std::string _filename_map = "/home/ras13" + "/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
+    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
