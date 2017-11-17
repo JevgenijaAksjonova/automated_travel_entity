@@ -64,10 +64,6 @@ class MazeMap:
         else:
             raise Exception("tried to add invalid object to map")
 
-    @property
-    def classified(self):
-        return self.class_id > -1
-
     #Update the map once every loop,
     #Removes inprobable objects from map
     def update(self):
@@ -95,20 +91,23 @@ class MazeMap:
         mean_height = np.mean([close_obj.height for close_obj in maze_objs])
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs],axis=0)
         close_images = (close_obj.image for close_obj in maze_objs)
-        largest_image_idx = np.argmax([close_image.height * close_image.width for close_image in close_images])
-        largest_image = close_images[largest_image_idx]
+        largest_image = max(close_images,
+            key = lambda close_image: close_image.height * close_image.width)
         p_max = max(obj.p for obj in maze_objs)
-        class_label,class_id = chain((obj.class_label,obj.class_id for obj in maze_objs if obj.classified),("an_object",-1)).next()
-        classification_atempts = max(obj.clasification_aptemts for obj in maze_objs)
+        ret = chain(((obj.class_label,obj.class_id) for obj in maze_objs if obj.classified),("an_object",-1)).next()
+        print("ret =",ret)
+        classification_attempts = max(obj.classification_apttemts for obj in maze_objs)
         self.maze_objects.difference_update(maze_objs)
-        representative_obj = sorted(maze_objs,lambda obj_a, obj_b: obj_a.id > obj_b.id)[0]
+        representative_obj = min(maze_objs,
+            key = lambda maze_obj,: maze_obj.id)
+
         representative_obj.pos = mean_pos
         representative_obj.image = largest_image
         representative_obj.height = mean_height
         representative_obj.p = p_max
         representative_obj.class_label = class_label
         representative_obj.class_id = class_id
-        representative_obj.clasification_aptemts = clasification_aptemts
+        representative_obj.classification_apttemts = classification_apttemts
         for maze_obj in maze_objs:
             maze_obj.visulisation_publisher = None
         return representative_obj
@@ -164,6 +163,10 @@ class MazeObject(object):
         self._marker = None
         self._vis_pub = None
         self.visulisation_publisher = vis_pub
+
+    @property
+    def classified(self):
+        return self.class_id >= 0
 
     def is_close(self,other,tol=0.1):
         return self.point_is_close(other.pos,tol=tol)

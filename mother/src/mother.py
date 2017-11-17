@@ -295,7 +295,7 @@ class Mother:
                             self.set_following_path_to_main_goal()
                         self.classifying_obj = None
                     else:
-                        self.classifying_obj.classification_atempts += 1
+                        self.classifying_obj.classification_attempts += 1
                         self.set_following_path_to_main_goal()
                         self.classifying_obj = None 
 
