@@ -27,6 +27,7 @@ from mother_settings import *
 from mother_utils import *
 import numpy as np
 
+from itertools import chain
 
 class MazeMap:
     #A general reprensentation of the robot map
@@ -48,8 +49,8 @@ class MazeMap:
         
         return None #The object seems to be gone
     #returns the objects to be classified, sortend on proximity to robot_pos
-    def get_unclassified_objects(self,robot_pos = None):
-        unclassified_objects = [obj for obj in self.maze_objects if not obj.classified]
+    def get_unclassified_objects(self,robot_pos = None,max_classification_atempts = 0):
+        unclassified_objects = (obj for obj in self.maze_objects if not obj.classified and obj.max_classification_atempts <= 1)
         if robot_pos is not None:
             unclassified_objects = sorted(unclassified_objects
                 ,lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - robot_pos) - np.linalg.norm(obj_b.pos - robot_pos))
@@ -63,11 +64,15 @@ class MazeMap:
         else:
             raise Exception("tried to add invalid object to map")
 
+    @property
+    def classified(self):
+        return self.class_id > -1
+
     #Update the map once every loop,
     #Removes inprobable objects from map
     def update(self):
         objs_to_remove = set()
-        for obj in list(self.maze_objects):
+        for obj in self.maze_objects.copy():
             obj.p -= self.p_loss_rate
             obj._update_marker()
             if obj.p <= 0:
@@ -78,7 +83,6 @@ class MazeMap:
     def _add_maze_obj(self,obj):
         neighs = self._same_color_neighbors(obj)
         obj.p = self.p_increse_rate
-        obj.classified = False
         if len(neighs) > 0:
             neighs.append(obj)
             obj = self._merge_maze_objects(neighs)
@@ -90,18 +94,21 @@ class MazeMap:
     def _merge_maze_objects(self,maze_objs):
         mean_height = np.mean([close_obj.height for close_obj in maze_objs])
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs],axis=0)
-        close_images = [close_obj.image for close_obj in maze_objs]
+        close_images = (close_obj.image for close_obj in maze_objs)
         largest_image_idx = np.argmax([close_image.height * close_image.width for close_image in close_images])
         largest_image = close_images[largest_image_idx]
         p_max = max(obj.p for obj in maze_objs)
-        classified = any(obj.classified for obj in maze_objs)
+        class_label,class_id = chain((obj.class_label,obj.class_id for obj in maze_objs if obj.classified),("an_object",-1)).next()
+        classification_atempts = max(obj.clasification_aptemts for obj in maze_objs)
         self.maze_objects.difference_update(maze_objs)
         representative_obj = sorted(maze_objs,lambda obj_a, obj_b: obj_a.id > obj_b.id)[0]
         representative_obj.pos = mean_pos
         representative_obj.image = largest_image
         representative_obj.height = mean_height
         representative_obj.p = p_max
-        representative_obj.classified = classified
+        representative_obj.class_label = class_label
+        representative_obj.class_id = class_id
+        representative_obj.clasification_aptemts = clasification_aptemts
         for maze_obj in maze_objs:
             maze_obj.visulisation_publisher = None
         return representative_obj
@@ -114,7 +121,7 @@ class MazeMap:
 class MazeObject(object):
 
     n_maze_objects = 0
-    classified = False
+    classification_atempts = 0
     #p = 0
     def __init__(self,obj_cand_msg,class_label="an_object",class_id=-1,vis_pub=None):
         

@@ -279,16 +279,13 @@ class Mother:
 
                 if self.nav_goal_acchieved:
                     if self.try_classify():
-                        self.classifying_obj.classified = True
                         classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                             x = np.round(self.classifying_obj.pos[0],2), y = np.round(self.classifying_obj.pos[1],2),
                             label = self.classifying_obj.class_label,frame=MOTHER_WORKING_FRAME)
                         msg = String()
                         msg.data = classification_msg
                         rospy.loginfo(classification_msg)
-                        print("before speak")
                         self.speak_pub.publish(msg)
-                        print("after speak")
                         self.evidence_pub.publish(self.classifying_obj.get_evidence_msg())
                         if "Cube" in self.classifying_obj.class_label:
                             rospy.loginfo("Object {0} is liftable".format(self.classifying_obj.class_label))
@@ -298,6 +295,7 @@ class Mother:
                             self.set_following_path_to_main_goal()
                         self.classifying_obj = None
                     else:
+                        self.classifying_obj.classification_atempts += 1
                         self.set_following_path_to_main_goal()
                         self.classifying_obj = None 
 
