@@ -43,6 +43,7 @@ public:
     pair<size_t,size_t> gridSize;
     float cellSize;
     pair<int, int> getCell(double x, double y);
+    int getDistance(pair<double,double> startCoord, pair<double,double> goalCoord);
 
 private:
     float robotRad;
@@ -52,9 +53,9 @@ private:
     void addRobotRadiusToObstacles(double r);
     void setMap(string mapFile);
     //getLocation(i,j);
-    int distanceHeuristic(const Node &a, const Node &b);
+    double distanceHeuristic(const Node &a, const Node &b);
     vector<pair<int,int> > getPathGrid(pair<int,int> startCoord, pair<int, int> goalCoord);
-
+    double findClosestFreeCell(const Node& goal,double maxDistance);
 };
 
 #endif // GLOBAL_PATH_PLANNER_H

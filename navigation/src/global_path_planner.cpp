@@ -16,6 +16,7 @@
 #include <sstream>
 #include <limits>
 #include <math.h>
+#include <ros/ros.h>
 
 #include <global_path_planner.h>
 
@@ -44,6 +45,11 @@ pair<int, int> GlobalPathPlanner::getCell(double x, double y){
     int i = trunc((x - mapOffset.first)/cellSize);
     int j = trunc((y - mapOffset.second)/cellSize);
     return pair<int,int>(i,j);
+}
+
+int GlobalPathPlanner::getDistance(pair<double,double> startCoord, pair<double,double> goalCoord) {
+    vector<pair<double,double> > path = getPath(startCoord, goalCoord);
+    return path.size();
 }
 
 void GlobalPathPlanner::addRobotRadiusToObstacles(double r){
@@ -196,11 +202,38 @@ void GlobalPathPlanner::updateMap(){
 
 }
 
-int GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
+double GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
     // Manhattan distance
     //return abs(b.x - a.x) + abs(b.y - a.y);
     // Euclidean distance
     return pow(pow(b.x - a.x,2) + pow(b.y - a.y,2),0.5);
+}
+
+
+// return distance to the closest free cell
+double GlobalPathPlanner::findClosestFreeCell(const Node& goal,double maxDistance){
+    priority_queue<Node> cells;
+    int maxD = ceil(maxDistance/cellSize);
+    //cout << "Cell values " << endl;
+    for (int dx = -maxD; dx < maxD+1; dx++) {
+        for (int dy = -maxD; dy < maxD+1; dy++) {
+            if (goal.x+dx >= 0 && goal.x+dx < gridSize.first &&
+                goal.y+dy >= 0 && goal.y+dy < gridSize.second &&
+                map[goal.x+dx][goal.y+dy] == 0) {
+                Node cell(goal.x+dx, goal.y+dy,0);
+                cell.val = distanceHeuristic(goal, cell);
+                //cout << cell.val <<  " ";
+                cells.push(cell);
+            }
+        }
+    }
+    if (!cells.empty()) {
+        Node top = cells.top();
+        //cout << "There are free cells! Top " << top.x << " " << top.y << " "<< top.val<<endl;
+        return top.val;
+    } else {
+        return maxD+1;
+    }
 }
 
 vector<pair<double,double> > GlobalPathPlanner::getPath(pair<double,double> startCoord, pair<double,double> goalCoord) {
@@ -224,9 +257,19 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     Node start = Node(startCoord.first, startCoord.second, 0);
     Node goal = Node(goalCoord.first, goalCoord.second, 0);
 
-    if (map[goal.x][goal.y] > 0) {
-       // not empty
-       return vector<pair<int,int> >();
+    //cout <<"GPP started, goal cell: "<< goal.x <<  " " <<goal.y << endl;
+    double distanceTol = 0;
+    if (map[goal.x][goal.y] == 1) {
+       //cout <<"Cell is not empty! " << robotRad <<endl;
+       // cell is not empty, find the closest, which is within robotRad
+       distanceTol = findClosestFreeCell(goal, robotRad);
+       if (distanceTol*cellSize > robotRad) {
+           return vector<pair<int,int> >();
+       } else {
+           stringstream s;
+           s << "Search path to the closest point within the distance = " << distanceTol << endl;
+           ROS_INFO("%s/n", s.str().c_str());
+       }
     }
 
     start.val = distanceHeuristic(start, goal);
@@ -238,17 +281,20 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     while (!nodes.empty()){
         Node position = nodes.top();
         nodes.pop();
-        if (position == goal) {
+        int dh = distanceHeuristic(position, goal);
+        //cout << position.x << " " << position.y << " " << dh << " " << endl;
+        if (dh <= distanceTol) {
+            goal = position;
             break;
         }
-        int dh = distanceHeuristic(position, goal);
         for (int dx = -1; dx <= 1; dx += 1) {
             for (int dy = -1; dy <= 1; dy += 1) {
                 if (abs(dx) + abs(dy) == 1 &&
                     position.x + dx >= 0 && position.y + dy >= 0 &&
                     position.x + dx < nx && position.y + dy < ny &&
                     map[position.x + dx][position.y + dy] == 0 &&
-                    prev_node[position.x + dx][position.y + dy].x == -1) {
+                    prev_node[position.x + dx][position.y + dy].x == -1)
+                {
                     Node new_node(position.x + dx, position.y + dy, 0);
                     new_node.val = position.val - dh + 1 + distanceHeuristic(new_node, goal);
                     nodes.push(new_node);
@@ -275,6 +321,10 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     reverse(path.begin(),path.end());
     return path;
 }
+
+
+//vectorexplorationPath(alreadyexplored path)
+
 
 /*
 int main() {
