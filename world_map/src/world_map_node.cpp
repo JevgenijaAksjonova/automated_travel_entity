@@ -18,7 +18,10 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "world_map_node");
 
-    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
+    struct passwd *pw = getpwuid(getuid());
+    std::string homePath(pw->pw_dir);
+
+    std::string _filename_map = homePath+"/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     //std::string _filename_map;
 
     ros::NodeHandle n("~");

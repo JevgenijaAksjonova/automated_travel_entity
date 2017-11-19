@@ -20,7 +20,7 @@
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
-
+using namespace std;
 
 class FilterPublisher
 {
@@ -41,10 +41,12 @@ class FilterPublisher
     float angle_increment;
     float range_min;
     float range_max;
+    int _nr_measurements;
+    int _nr_random_particles;
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(int frequency)
+    FilterPublisher(int frequency, int nr_particles, int nr_measure, int nr_random_particles, float random_particle_spread)
     {
         control_frequency = frequency;
         n = ros::NodeHandle("~");
@@ -73,16 +75,18 @@ class FilterPublisher
         control_frequenzy = 10; //10 hz
         dt = 1 / control_frequenzy;
 
-        k_D = 1;
-        k_V = 1;
-        k_W = 1;
+        k_D = 0.5;
+        k_V = 0.5;
+        k_W = 0.5;
 
         float start_xy = 0.2;
         float spread_xy = 0.05;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
-        int nr_particles = 1000;
         srand(static_cast<unsigned>(time(0)));
+        particle_randomness = std::normal_distribution<float>(0.0, random_particle_spread);
+        _nr_measurements = nr_measure;
+        _nr_random_particles = nr_random_particles;
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
     }
@@ -134,34 +138,30 @@ class FilterPublisher
 
         calculateVelocityAndNoise();
 
-        //update according to odom
-        for (int m = 0; m < particles.size(); m++)
-        {
-            sample_motion_model(particles[m]);
-        }
-        //update weights according to measurements
-
-        measurement_model(map);
-
-        //sample particles with replacement
-        float weight_sum = 0.0;
-        Particle most_likely_position;
-        for (int m = 0; m < particles.size(); m++)
-        {
-            weight_sum += particles[m].weight;
-        }
-
-        // Normalize weights here
-        for (int i = 0; i < particles.size(); i++)
-        {
-            particles[i].weight = particles[i].weight / weight_sum;
-        }
-
-        int nrRandomParticles = particles.size() / 10;
-
         if (linear_v != 0 || angular_w != 0)
         {
-            resampleParticles(weight_sum, nrRandomParticles);
+            //update according to odom
+            for (int m = 0; m < particles.size(); m++)
+            {
+                sample_motion_model(particles[m]);
+            }
+            //update weights according to measurements
+
+            measurement_model(map);
+
+            float weight_sum = 0.0;
+            for (int m = 0; m < particles.size(); m++)
+            {
+                weight_sum += particles[m].weight;
+            }
+
+            // Normalize weights here
+            for (int i = 0; i < particles.size(); i++)
+            {
+                particles[i].weight = particles[i].weight / weight_sum;
+            }
+
+            resampleParticles();
         }
 
 
@@ -191,13 +191,13 @@ class FilterPublisher
 
     }
 
-    void resampleParticles(float weightSum, int nrRandomParticles)
+    void resampleParticles()
     {
         float rand_num;
         float cumulativeProb;
         int j;
         std::vector<Particle> temp_vec;
-        for (int i = 0; i < (particles.size() - nrRandomParticles); i++)
+        for (int i = 0; i < (particles.size() - _nr_random_particles); i++)
         {
             j = 0;
             cumulativeProb = particles[0].weight;
@@ -214,16 +214,46 @@ class FilterPublisher
 
         //add random particle
         int v1;
-        for (int i = 0; i < nrRandomParticles; i++)
+        particle_randomness(generator);
+        for (int i = 0; i < _nr_random_particles; i++)
         {
             v1 = rand() % temp_vec.size();
             Particle p = temp_vec[v1];
-            p.xPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
-            p.yPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
-            p.thetaPos += -0.1 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.2)));
+            p.xPos += particle_randomness(generator);;
+            p.yPos += particle_randomness(generator);;
+            p.thetaPos += particle_randomness(generator);;
             temp_vec.push_back(p);
         }
 
+        particles.swap(temp_vec);
+    }
+
+    // WORKS VERY BAD, WHY?
+    void resampleParticles2()
+    {
+        float rand_num;
+        float cumulativeProb;
+        int j;
+        std::vector<Particle> temp_vec;
+        for (int i = 0; i < (particles.size()); i++)
+        {
+            j = 0;
+            cumulativeProb = particles[0].weight;
+            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX));
+
+            while ((cumulativeProb < rand_num) && j<particles.size()-1)
+            {
+                j++;
+                cumulativeProb += particles[j].weight;
+            }
+
+            particles[j].xPos += particle_randomness(generator);
+            particles[j].yPos += particle_randomness(generator);
+            particles[j].thetaPos += particle_randomness(generator);
+
+            temp_vec.push_back(particles[j]);
+        }
+        
         particles.swap(temp_vec);
     }
 
@@ -281,8 +311,7 @@ class FilterPublisher
         //Sample the measurements
         float lidar_x = -0.03;
         float lidar_y = 0.0;
-        int nr_measurements_used = 4;
-        int step_size = (ranges.size() / nr_measurements_used);
+        int step_size = (ranges.size() / _nr_measurements);
         std::vector<pair<float, float>> sampled_measurements;
         float start_angle = -pi/2;
         float max_distance = 3.0;
@@ -310,7 +339,8 @@ class FilterPublisher
 
             
             ROS_INFO("Range: [%f]", range);
-            ROS_INFO("Angle: [%f]", angle);
+            ROS_INFO("Angle: [%f] pi", angle/pi);
+            ROS_INFO("-----------");
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -478,6 +508,7 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
+
   private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
@@ -486,6 +517,7 @@ class FilterPublisher
     std::normal_distribution<float> dist_D;
     std::normal_distribution<float> dist_V;
     std::normal_distribution<float> dist_W;
+    std::normal_distribution<float> particle_randomness;
     std::vector<Particle> particles;
 
     float wheel_r = 0.04;
@@ -505,16 +537,27 @@ class FilterPublisher
 
 int main(int argc, char **argv)
 {
+    //PARAMETERS:
+    int nr_particles = 1000;
+    int nr_measurements = 8;
+    int nr_random_particles = 100;
+    float random_particle_spread = 0.1;
+
+    //----------
+
     ROS_INFO("Spin!");
 
     float frequency = 10;
+    struct passwd *pw = getpwuid(getuid());
+    std::string homePath(pw->pw_dir);
 
-    std::string _filename_map = "/home/ras13/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
+    std::string _filename_map = homePath+"/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
 
-    FilterPublisher filter(frequency);
+
+    FilterPublisher filter(frequency, nr_particles, nr_measurements, nr_random_particles, random_particle_spread);
 
     LocalizationGlobalMap map(_filename_map, cellSize);
 
@@ -522,6 +565,8 @@ int main(int argc, char **argv)
 
     Particle most_likely_position;
     std::vector<std::pair<float, float>> sampled_measurements;
+
+
 
     int count = 0;
     while (filter.n.ok())
