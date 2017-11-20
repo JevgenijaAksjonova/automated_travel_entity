@@ -180,6 +180,10 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
+    double minLinVel = 0.10;
+    if (path->linVel > 0) {
+        path->linVel = max(minLinVel, path->linVel);
+    }
     geometry_msgs::Twist msg;
     msg.linear.x = 0.5*path->linVel;
     msg.linear.y = 0.0;
