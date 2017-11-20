@@ -295,9 +295,9 @@ class FilterPublisher
                 cumulativeProb += particles[j].weight;
             }
 
-            particles[j].xPos += particle_randomness(generator);
-            particles[j].yPos += particle_randomness(generator);
-            particles[j].thetaPos += particle_randomness(generator);
+            particles[j].xPos += particle_randomness(generator)*0.2;
+            particles[j].yPos += particle_randomness(generator)*0.2;
+            particles[j].thetaPos += particle_randomness(generator)*0.1;
 
             temp_vec.push_back(particles[j]);
         }
@@ -398,18 +398,22 @@ class FilterPublisher
         }
     }
 
-    void publishPosition(Particle ml_pos)
+    void publishPosition(Particle ml_pos, Particle ml_pos_prev)
     {
         ros::Time current_time = ros::Time::now();
+        float theta = atan2(sin(ml_pos.thetaPos)+sin(ml_pos_prev.thetaPos), cos(ml_pos_prev.thetaPos) +cos(ml_pos.thetaPos));
+        float x = (ml_pos.xPos + ml_pos_prev.xPos)/2;
+        float y = (ml_pos.yPos + ml_pos_prev.yPos)/2;
 
-        geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(ml_pos.thetaPos);
+
+        geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
         odom_trans.header.stamp = current_time;
         odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
-        odom_trans.transform.translation.x = ml_pos.xPos;
-        odom_trans.transform.translation.y = ml_pos.yPos;
+        odom_trans.transform.translation.x = x;
+        odom_trans.transform.translation.y = y;
         odom_trans.transform.translation.z = 0.0;
         odom_trans.transform.rotation = odom_quat;
 
@@ -420,15 +424,15 @@ class FilterPublisher
         odom_msg.header.stamp = current_time;
         odom_msg.header.frame_id = "odom";
 
-        odom_msg.pose.pose.position.x = ml_pos.xPos;
-        odom_msg.pose.pose.position.y = ml_pos.yPos;
+        odom_msg.pose.pose.position.x = x;
+        odom_msg.pose.pose.position.y = y;
         odom_msg.pose.pose.position.z = 0.0;
         odom_msg.pose.pose.orientation = odom_quat;
 
         //set the velocity
 
-        float vx = linear_v * cos(ml_pos.thetaPos);
-        float vy = linear_v * sin(ml_pos.thetaPos);
+        float vx = linear_v * cos(theta);
+        float vy = linear_v * sin(theta);
         odom_msg.child_frame_id = "base_link";
         odom_msg.twist.twist.linear.x = vx;
         odom_msg.twist.twist.linear.y = vy;
@@ -440,7 +444,7 @@ class FilterPublisher
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
     {
-        int nr_measurements_used = 4;
+        int nr_measurements_used = 8;
         int step_size = (ranges.size() / nr_measurements_used);
         float start_angle = -pi/2;
         float max_distance = 3.0;
@@ -476,7 +480,7 @@ class FilterPublisher
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        if (sampled_measurements.size() > 2000)
+        if (sampled_measurements.size() > 3000)
         {
             run_calibrations(map, sampled_measurements);
         }
@@ -599,6 +603,10 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(frequency);
 
     Particle most_likely_position;
+    Particle most_likely_position_prev;
+    most_likely_position_prev.xPos = 0.0;
+    most_likely_position_prev.yPos = 0.0;
+    most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
 
 
@@ -607,10 +615,12 @@ int main(int argc, char **argv)
     while (filter.n.ok())
     {
 
+
         most_likely_position = filter.localize(map);
-        filter.publishPosition(most_likely_position);
+        filter.publishPosition(most_likely_position, most_likely_position_prev);
         filter.publish_rviz_particles();
         //filter.collect_measurements(sampled_measurements, map);
+        most_likely_position_prev = most_likely_position;
         ros::spinOnce();
 
         loop_rate.sleep();

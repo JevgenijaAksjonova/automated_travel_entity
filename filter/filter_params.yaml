@@ -1,8 +1,8 @@
 filter:
     particle_params:
-        nr_particles : 1000
+        nr_particles : 500
         nr_measurements : 8
-        nr_random_particles : 100
+        nr_random_particles : 50
         random_particle_spread : 0.1
     odom_noise:
         k_D : 0.5
