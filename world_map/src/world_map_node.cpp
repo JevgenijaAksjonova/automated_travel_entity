@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <pwd.h>
+
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
@@ -16,7 +18,10 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "world_map_node");
 
-    std::string _filename_map = "/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/test.txt";
+    struct passwd *pw = getpwuid(getuid());
+    std::string homePath(pw->pw_dir);
+
+    std::string _filename_map = homePath+"/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     //std::string _filename_map;
 
     ros::NodeHandle n("~");
@@ -28,7 +33,7 @@ int main(int argc, char** argv)
     visualization_msgs::MarkerArray global_walls;
     visualization_msgs::Marker wall;
 
-    wall.header.frame_id = "/world_map";
+    wall.header.frame_id = "/odom";
     wall.header.stamp = ros::Time::now();
 
     wall.ns = "global_wall";

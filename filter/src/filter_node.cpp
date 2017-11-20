@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <stdlib.h>
+#include <pwd.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -19,6 +20,7 @@
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
+using namespace std;
 
 class FilterPublisher
 {
@@ -39,6 +41,8 @@ class FilterPublisher
     float angle_increment;
     float range_min;
     float range_max;
+    int _nr_measurements;
+    int _nr_random_particles;
 
     //LocalizationGlobalMap map;
 
@@ -46,6 +50,52 @@ class FilterPublisher
     {
         control_frequency = frequency;
         n = ros::NodeHandle("~");
+        int nr_particles = 500;
+        int nr_measurements = 8;
+        int nr_random_particles = 10;
+        float random_particle_spread = 0.1;
+        float k_D = 0.5;
+        float k_V = 0.5;
+        float k_W = 0.5;
+
+        
+        if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
+            ROS_ERROR("failed to detect parameter 1");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/nr_measurements",nr_measurements)){
+            ROS_ERROR("failed to detect parameter 2");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/nr_random_particles",nr_random_particles)){
+            ROS_ERROR("failed to detect parameter 3");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/random_particle_spread",random_particle_spread)){
+            ROS_ERROR("failed to detect parameter 4");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_D",k_D)){
+            ROS_ERROR("failed to detect parameter 5");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_V",k_V)){
+            ROS_ERROR("failed to detect parameter 6");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_W",k_W)){
+            ROS_ERROR("failed to detect parameter 7");
+            exit(EXIT_FAILURE);
+        }
+
+        ROS_INFO("Running filter with parameters:");
+        ROS_INFO("Number of particles: [%d]", nr_particles);
+        ROS_INFO("Number of measurements: [%d]", nr_measurements);
+        ROS_INFO("Number of random particles: [%d]", nr_random_particles);
+        ROS_INFO("Random particle spread: [%f]", random_particle_spread);
+        ROS_INFO("Odom k_V: [%f]", k_V);
+        ROS_INFO("Odom k_D: [%f]", k_D);
+        ROS_INFO("Odom k_W: [%f]", k_W);
         pi = 3.1416;
 
         encoding_abs_prev = std::vector<int>(2, 0);
@@ -65,24 +115,27 @@ class FilterPublisher
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
 
-        wheel_r = 0.04;
-        base_d = 0.25;
+        _wheel_r = 0.04;
+        _base_d = 0.2;
         tick_per_rotation = 900;
         control_frequenzy = 10; //10 hz
         dt = 1 / control_frequenzy;
 
-        k_D = 1;
-        k_V = 1;
-        k_W = 1;
+        _k_D = k_D;
+        _k_V = k_V;
+        _k_W = k_W;
 
-        float start_xy = 0.2;
-        float spread_xy = 0.1;
+        float start_x = 0.215;
+        float start_y = 0.26;
+        float spread_xy = 0.05;
         float start_theta = pi / 2;
-        float spread_theta = pi / 20;
-        int nr_particles = 200;
+        float spread_theta = pi / 40;
         srand(static_cast<unsigned>(time(0)));
+        particle_randomness = std::normal_distribution<float>(0.0, random_particle_spread);
+        _nr_measurements = nr_measurements;
+        _nr_random_particles = nr_random_particles;
 
-        initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
+        initializeParticles(start_x, start_y, spread_xy, start_theta, spread_theta, nr_particles);
     }
 
     void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr &msg)
@@ -104,25 +157,22 @@ class FilterPublisher
         range_max = msg->range_max;
     }
 
-    void initializeParticles(float start_xy, float spread_xy, float start_theta, float spread_theta, int nr_particles)
+    void initializeParticles(float start_x, float start_y, float spread_xy, float start_theta, float spread_theta, int nr_particles)
     {
 
-        std::normal_distribution<float> dist_start_xy = std::normal_distribution<float>(start_xy, spread_xy);
+        std::normal_distribution<float> dist_start_x = std::normal_distribution<float>(start_x, spread_xy);
+        std::normal_distribution<float> dist_start_y = std::normal_distribution<float>(start_y, spread_xy);
         std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(start_theta, spread_theta);
 
         particles.resize(nr_particles);
         for (int i = 0; i < nr_particles; i++)
         {
 
-            particles[i].xPos = dist_start_xy(generator);
-            particles[i].yPos = dist_start_xy(generator);
+            particles[i].xPos = dist_start_x(generator);
+            particles[i].yPos = dist_start_y(generator);
             particles[i].thetaPos = dist_start_theta(generator);
             particles[i].weight = (float)1.0 / nr_particles;
         }
-
-        // for (int i = 0; i<nr_particles; i++){
-        //     ROS_INFO("Attributes for particle nr: [%d] -  [%f], [%f], [%f], [%f]\n",i , particles[i].xPos, particles[i].yPos, particles[i].thetaPos, particles[i].weight);
-        // }
     }
 
     Particle localize(LocalizationGlobalMap map)
@@ -136,70 +186,75 @@ class FilterPublisher
 
         calculateVelocityAndNoise();
 
-        //update according to odom
-        for (int m = 0; m < particles.size(); m++)
-        {
-            sample_motion_model(particles[m]);
-        }
-        //update weights according to measurements
-        ROS_INFO("Before measure model");
-
-        measurement_model(map);
-
-        ROS_INFO("After measure model");
-
-        //sample particles with replacement
-        float weight_sum = 0.0;
-        Particle most_likely_position;
-        most_likely_position.weight = 0.0;
-        for (int m = 0; m < particles.size(); m++)
-        {
-            weight_sum += particles[m].weight;
-
-            if (particles[m].weight > most_likely_position.weight)
-            {
-                most_likely_position = particles[m];
-                //ROS_INFO("New most likely position!: -  [%f], [%f], [%f], [%f]\n", most_likely_position.xPos, most_likely_position.yPos, most_likely_position.thetaPos, most_likely_position.weight);
-            }
-        }
-
-        // Normalize weights here
-        for (int i = 0; i < particles.size(); i++)
-        {
-            particles[i].weight = particles[i].weight / weight_sum;
-            ROS_INFO("Position of particle [%d], x:[%f] y:[%f]", i, particles[i].xPos, particles[i].yPos);
-            ROS_INFO("Orientation of particle [%d], theta:[%f]", i, particles[i].thetaPos / pi);
-            ROS_INFO("Weight of particle [%d] is [%f]", i, particles[i].weight);
-        }
-        weight_sum = 1;
-
-        int nrRandomParticles = particles.size() / 10;
-
-        //int nrRandomParticles = 0;
-
         if (linear_v != 0 || angular_w != 0)
         {
-            //resampleParticles(weight_sum, nrRandomParticles);
+            //update according to odom
+            for (int m = 0; m < particles.size(); m++)
+            {
+                sample_motion_model(particles[m]);
+            }
+            //update weights according to measurements
+
+            measurement_model(map);
+
+            float weight_sum = 0.0;
+            for (int m = 0; m < particles.size(); m++)
+            {
+                weight_sum += particles[m].weight;
+            }
+
+            // Normalize weights here
+            for (int i = 0; i < particles.size(); i++)
+            {
+                particles[i].weight = particles[i].weight / weight_sum;
+            }
+
+            resampleParticles();
         }
-        return most_likely_position;
+
+
+        return getPositionEstimation();
     }
 
-    void resampleParticles(float weightSum, int nrRandomParticles)
+    Particle getPositionEstimation(){
+        float x_estimate = 0;
+        float y_estimate = 0;
+        float theta_estimate = 0;
+        float sinPos;
+        float cosPos;
+        for (int m = 0; m < particles.size() - _nr_random_particles; m++)
+        {
+            x_estimate += particles[m].xPos;
+            y_estimate += particles[m].yPos;
+            sinPos +=  sin(particles[m].thetaPos);
+            cosPos +=  cos(particles[m].thetaPos);
+
+        }
+        Particle p;
+        p.xPos = x_estimate/(particles.size() - _nr_random_particles);
+        p.yPos = y_estimate/(particles.size() - _nr_random_particles);
+        p.thetaPos = atan2(sinPos, cosPos);
+
+        return p;
+
+    }
+
+    void resampleParticles()
     {
         float rand_num;
         float cumulativeProb;
         int j;
         std::vector<Particle> temp_vec;
-        for (int i = 0; i < (particles.size() - nrRandomParticles); i++)
+        for (int i = 0; i < (particles.size() - _nr_random_particles); i++)
         {
             j = 0;
-            cumulativeProb = 0.0;
-            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / weightSum));
+            cumulativeProb = particles[0].weight;
+            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX));
 
-            while (cumulativeProb < rand_num)
+            while ((cumulativeProb < rand_num) && j<particles.size()-1)
             {
-                cumulativeProb += particles[j].weight;
                 j++;
+                cumulativeProb += particles[j].weight;
             }
 
             temp_vec.push_back(particles[j]);
@@ -207,17 +262,47 @@ class FilterPublisher
 
         //add random particle
         int v1;
-        for (int i = 0; i < nrRandomParticles; i++)
+        particle_randomness(generator);
+        for (int i = 0; i < _nr_random_particles; i++)
         {
             v1 = rand() % temp_vec.size();
             Particle p = temp_vec[v1];
-            p.xPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
-            p.yPos += -0.05 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.10)));
-            p.thetaPos += -0.1 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (0.2)));
+            p.xPos += particle_randomness(generator);;
+            p.yPos += particle_randomness(generator);;
+            p.thetaPos += particle_randomness(generator);;
             temp_vec.push_back(p);
         }
 
-        particles = temp_vec;
+        particles.swap(temp_vec);
+    }
+
+    // WORKS VERY BAD, WHY?
+    void resampleParticles2()
+    {
+        float rand_num;
+        float cumulativeProb;
+        int j;
+        std::vector<Particle> temp_vec;
+        for (int i = 0; i < (particles.size()); i++)
+        {
+            j = 0;
+            cumulativeProb = particles[0].weight;
+            rand_num = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX));
+
+            while ((cumulativeProb < rand_num) && j<particles.size()-1)
+            {
+                j++;
+                cumulativeProb += particles[j].weight;
+            }
+
+            particles[j].xPos += particle_randomness(generator)*0.2;
+            particles[j].yPos += particle_randomness(generator)*0.2;
+            particles[j].thetaPos += particle_randomness(generator)*0.1;
+
+            temp_vec.push_back(particles[j]);
+        }
+        
+        particles.swap(temp_vec);
     }
 
     void calculateVelocityAndNoise()
@@ -239,12 +324,12 @@ class FilterPublisher
         dphi_dt[0] = ((encoding_delta[0]) / (tick_per_rotation)*2 * pi) / dt;
         dphi_dt[1] = ((encoding_delta[1]) / (tick_per_rotation)*2 * pi) / dt;
 
-        linear_v = (wheel_r / 2) * (dphi_dt[1] + dphi_dt[0]);
-        angular_w = (wheel_r / base_d) * (dphi_dt[1] - dphi_dt[0]);
+        linear_v = (_wheel_r / 2) * (dphi_dt[1] + dphi_dt[0]);
+        angular_w = (_wheel_r / _base_d) * (dphi_dt[1] - dphi_dt[0]);
 
-        dist_D = std::normal_distribution<float>(0.0, pow((linear_v * dt * k_D), 2));
-        dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt * k_V), 2));
-        dist_W = std::normal_distribution<float>(0.0, pow((angular_w * dt * k_W), 2));
+        dist_D = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_D), 2));
+        dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_V), 2));
+        dist_W = std::normal_distribution<float>(0.0, pow((angular_w * dt*_k_W), 2));
     }
 
     void sample_motion_model(Particle &p)
@@ -272,35 +357,35 @@ class FilterPublisher
     void measurement_model(LocalizationGlobalMap map)
     {
         //Sample the measurements
-        int nr_measurements_used = 4;
-        int step_size = (ranges.size() / nr_measurements_used);
+        float lidar_x = -0.03;
+        float lidar_y = 0.0;
+        int step_size = (ranges.size() / _nr_measurements);
         std::vector<pair<float, float>> sampled_measurements;
-        float angle = 0.0;
+        float start_angle = -pi/2;
         float max_distance = 3.0;
         float range;
+        float angle = 0;
 
         int i = 0;
 
         while (i < ranges.size())
         {
-            angle = (i * angle_increment);
+            angle = (i * angle_increment) + start_angle;
             range = ranges[i];
+
+            int j = 1;
+            while(std::isinf(range)) {
+                range = ranges[i + j];
+                angle += angle_increment;
+                j++;
+            }
             
             if (range > max_distance)
             {
                 range = max_distance;
             }
 
-            int j = 1;
-            while(std::isinf(range)) {
-                range = ranges[i + j];
-                angle += angle_increment * j;
-                j++;
-            }
-
-            ROS_INFO("Range: [%f]", range);
-            ROS_INFO("Angle: [%f]", angle);
-
+            
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -308,25 +393,27 @@ class FilterPublisher
 
         if (ranges.size() > 0)
         {
-            ROS_INFO("Readings have come");
 
-            getParticlesWeight(particles, map, sampled_measurements, max_distance);
+            getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
         }
-        //update particle weights
     }
 
-    void publishPosition(Particle ml_pos)
+    void publishPosition(Particle ml_pos, Particle ml_pos_prev)
     {
         ros::Time current_time = ros::Time::now();
+        float theta = atan2(sin(ml_pos.thetaPos)+sin(ml_pos_prev.thetaPos), cos(ml_pos_prev.thetaPos) +cos(ml_pos.thetaPos));
+        float x = (ml_pos.xPos + ml_pos_prev.xPos)/2;
+        float y = (ml_pos.yPos + ml_pos_prev.yPos)/2;
 
-        geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(ml_pos.thetaPos);
+
+        geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
         odom_trans.header.stamp = current_time;
         odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
-        odom_trans.transform.translation.x = ml_pos.xPos;
-        odom_trans.transform.translation.y = ml_pos.yPos;
+        odom_trans.transform.translation.x = x;
+        odom_trans.transform.translation.y = y;
         odom_trans.transform.translation.z = 0.0;
         odom_trans.transform.rotation = odom_quat;
 
@@ -337,15 +424,15 @@ class FilterPublisher
         odom_msg.header.stamp = current_time;
         odom_msg.header.frame_id = "odom";
 
-        odom_msg.pose.pose.position.x = ml_pos.xPos;
-        odom_msg.pose.pose.position.y = ml_pos.yPos;
+        odom_msg.pose.pose.position.x = x;
+        odom_msg.pose.pose.position.y = y;
         odom_msg.pose.pose.position.z = 0.0;
         odom_msg.pose.pose.orientation = odom_quat;
 
         //set the velocity
 
-        float vx = linear_v * cos(ml_pos.thetaPos);
-        float vy = linear_v * sin(ml_pos.thetaPos);
+        float vx = linear_v * cos(theta);
+        float vy = linear_v * sin(theta);
         odom_msg.child_frame_id = "base_link";
         odom_msg.twist.twist.linear.x = vx;
         odom_msg.twist.twist.linear.y = vy;
@@ -353,28 +440,39 @@ class FilterPublisher
 
         filter_publisher.publish(odom_msg);
 
-        ROS_INFO("new Position x:[%f] y:[%f] theta:[%f] ", ml_pos.xPos, ml_pos.yPos, ml_pos.thetaPos);
     }
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
     {
-        int nr_measurements_used = 16;
+        int nr_measurements_used = 8;
         int step_size = (ranges.size() / nr_measurements_used);
-        float angle = 0;
+        float start_angle = -pi/2;
         float max_distance = 3.0;
         float range;
+        float angle = 0;
 
         int i = 0;
+
         while (i < ranges.size())
         {
-            angle = -(i * angle_increment);
+            angle = (i * angle_increment) + start_angle;
             range = ranges[i];
 
-            if (std::isinf(range) || range > max_distance)
+            int j = 1;
+            while(std::isinf(range)) {
+                range = ranges[i + j];
+                angle += angle_increment;
+                j++;
+            }
+            
+            if (range > max_distance)
             {
                 range = max_distance;
             }
 
+            
+            ROS_INFO("Range: [%f]", range);
+            ROS_INFO("Angle: [%f]", angle);
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -382,7 +480,7 @@ class FilterPublisher
 
         ROS_INFO("sampled measurements  [%lu]", sampled_measurements.size());
 
-        if (sampled_measurements.size() > 10000)
+        if (sampled_measurements.size() > 3000)
         {
             run_calibrations(map, sampled_measurements);
         }
@@ -391,12 +489,12 @@ class FilterPublisher
     void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements)
     {
         float max_distance = 3.0;
-        float pos_x = 0.23;
-        float pos_y = 0.2;
+        float pos_x = 0.205;
+        float pos_y = 0.335;
         float theta = pi / 2;
 
-        std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, 0.095, 0.0);
-        float lidar_orientation = pi / 2;
+        std::pair<float, float> xy = particleToLidarConversion(pos_x, pos_y, theta, -0.03, 0.0);
+
         float z_hit = 0.25;
         float z_short = 0.25;
         float z_max = 0.25;
@@ -406,7 +504,7 @@ class FilterPublisher
         while (true)
         {
             ROS_INFO("Before calculate");
-            calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, lidar_orientation, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
+            calculateIntrinsicParameters(map, sampled_measurements, max_distance, xy.first, xy.second, theta, z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
             ROS_INFO("Parameters found zhit:[%f] zshort:[%f] zmax:[%f], zradom:[%f], sigmahit[%f], lambdashort:[%f] ", z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
         }
     }
@@ -433,7 +531,7 @@ class FilterPublisher
         particle.color.b = 1.0f;
         particle.color.a = 1.0;
 
-        float weight = 0;
+        float weight = 0.01;
 
         int id = 0;
         for (int i = 0; i < particles.size(); i++)
@@ -441,8 +539,6 @@ class FilterPublisher
 
             particle.pose.position.x = particles[i].xPos;
             particle.pose.position.y = particles[i].yPos;
-
-            weight = particles[i].weight;
 
             // Set the scale of the marker -- 1x1x1 here means 1m on a side
             particle.scale.y = weight;
@@ -458,6 +554,7 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
+
   private:
     std::vector<int> encoding_abs_prev;
     std::vector<int> encoding_abs_new;
@@ -466,10 +563,11 @@ class FilterPublisher
     std::normal_distribution<float> dist_D;
     std::normal_distribution<float> dist_V;
     std::normal_distribution<float> dist_W;
+    std::normal_distribution<float> particle_randomness;
     std::vector<Particle> particles;
 
-    float wheel_r = 0.04;
-    float base_d = 0.25;
+    float _wheel_r;
+    float _base_d;
     int tick_per_rotation = 900;
     float control_frequenzy = 10; //10 hz
     float dt = 1 / control_frequenzy;
@@ -478,21 +576,25 @@ class FilterPublisher
     float linear_v;
     float angular_w;
 
-    float k_D;
-    float k_V;
-    float k_W;
+    float _k_D;
+    float _k_V;
+    float _k_W;
 };
 
 int main(int argc, char **argv)
 {
+
     ROS_INFO("Spin!");
 
     float frequency = 10;
+    struct passwd *pw = getpwuid(getuid());
+    std::string homePath(pw->pw_dir);
 
-    std::string _filename_map = "/home/rikko/catkin_ws/src/ras_maze/ras_maze_map/maps/lab_maze_2017.txt";
+    std::string _filename_map = homePath+"/catkin_ws/src/automated_travel_entity/filter/maps/lab_maze_2017.txt";
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
+
 
     FilterPublisher filter(frequency);
 
@@ -501,17 +603,24 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(frequency);
 
     Particle most_likely_position;
+    Particle most_likely_position_prev;
+    most_likely_position_prev.xPos = 0.0;
+    most_likely_position_prev.yPos = 0.0;
+    most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
+
+
 
     int count = 0;
     while (filter.n.ok())
     {
 
+
         most_likely_position = filter.localize(map);
-        filter.publishPosition(most_likely_position);
+        filter.publishPosition(most_likely_position, most_likely_position_prev);
         filter.publish_rviz_particles();
         //filter.collect_measurements(sampled_measurements, map);
-        ROS_INFO("Are we there");
+        most_likely_position_prev = most_likely_position;
         ros::spinOnce();
 
         loop_rate.sleep();

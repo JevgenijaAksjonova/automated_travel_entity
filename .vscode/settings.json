@@ -1,0 +1,10 @@
+{
+    "python.pythonPath": "python",
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": true,
+    "python.linting.flake8Path": "/usr/bin/flake8",
+    "python.formatting.provider": "yapf",
+    "python.linting.flake8Args": [
+        "--ignore=E"
+    ]
+}

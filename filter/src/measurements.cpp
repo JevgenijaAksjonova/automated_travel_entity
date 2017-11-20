@@ -11,19 +11,6 @@
 
 #include <measurements.h>
 
-pair<float, float> localToWorldCoordinates(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y, float lidar_orientation, float range_laser, float angle_laser)
-{
-
-    float x_world = x_particle +
-                    cos(theta_particle) * lidar_x - sin(theta_particle) * lidar_y +
-                    range_laser * cos(theta_particle + (angle_laser + lidar_orientation));
-    float y_world = y_particle +
-                    sin(theta_particle) * lidar_x + cos(theta_particle) * lidar_y +
-                    range_laser * sin(theta_particle + (angle_laser + lidar_orientation));
-
-    return pair<float, float>(x_world, y_world);
-}
-
 pair<float, float> particleToLidarConversion(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y)
 {
 
@@ -35,85 +22,38 @@ pair<float, float> particleToLidarConversion(float x_particle, float y_particle,
     return pair<float, float>(x_world, y_world);
 }
 
-float distancesToRange(pair<float, float> wall_distances, pair<float, float> base_distances)
+
+vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float particle_theta)
 {
-
-    float x1 = wall_distances.first;
-    float y1 = wall_distances.second;
-
-    float x0 = base_distances.first;
-    float y0 = base_distances.second;
-
-    float distance = sqrt(pow(x1 - x0, 2) + pow(y0 - y1, 2));
-
-    return distance;
-}
-
-pair<int, int> getClosestWallCoordinates(vector<vector<unsigned char>> global_map, float cellSize, float angle, pair<int, int> base_coordinates)
-{
-    int x = base_coordinates.first;
-    int y = base_coordinates.second;
-    bool wallFound = false;
-
-    float x_cont = (float)x;
-    float y_cont = (float)y;
-
-    float maxDistance = 8.0 / cellSize;
-
-    int count = 0;
-
-    //ROS_INFO("Angle: [%f]", angle/M_PI);
-    
-    while (!wallFound && count < maxDistance)
-    {
-        //ROS_INFO("X: [%d], Y: [%d]", x, y);
-
-        x = round(x_cont);
-        y = round(y_cont);
-        if (global_map[x][y] == 1)
-        {
-            wallFound = true;
-        }
-        else
-        {
-            x_cont = x_cont + cos(angle);
-            y_cont = y_cont + sin(angle);
-            count++;
-        }
-    }
-
-    return pair<int, int>(x, y);
-}
-
-//MIGHT HAVE TO LOOK FOR INFINITES HERE IN CLOSESTWALLCOORDINATES
-vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float lidar_orientation)
-{
-    pair<int, int> particle_coordinates = map.getCell(translated_particle_x, translated_particle_y);
-
-    pair<float, float> particle_real_coordinates = map.getDistance(particle_coordinates.first, particle_coordinates.second);
 
     float currentAngle = 0;
 
     vector<pair<float, float>> ranges;
+    
+    // laser_data[0].first = -3.14/2;
+    // laser_data[1].first = 0;
+    // laser_data[2].first = 3.14/2;
+    // laser_data[3].first = 3*3.14/2;
+
+    // translated_particle_x = 0.205;
+    // translated_particle_y = 0.305;
+    // particle_theta = 3.14/2;
+    //ROS_INFO("------------");
 
     for (int i = 0; i < laser_data.size(); i++)
     {
 
-        float distance_map = 0;
+        currentAngle = laser_data[i].first + particle_theta;
+        float rangeFromMap = map.getLineIntersection(translated_particle_x, translated_particle_y, currentAngle);
 
-        currentAngle = laser_data[i].first + lidar_orientation;
+        pair<float, float> range = make_pair(rangeFromMap, laser_data[i].second);
 
-        pair<int, int> closestWall_coordinates = getClosestWallCoordinates(map.global_map, map.cellSize, currentAngle, particle_coordinates);
-
-        pair<float, float> wall_real_coordinates = map.getDistance(closestWall_coordinates.first, closestWall_coordinates.second);
-
-        distance_map = distancesToRange(wall_real_coordinates, particle_real_coordinates);
-
-        pair<float, float> range = make_pair(distance_map, laser_data[i].second);
+        //ROS_INFO("RANGE ON MAP: %f", rangeFromMap);
 
         ranges.push_back(range);
-
     }
+
+    //exit(EXIT_SUCCESS);    
 
     return ranges;
 }
@@ -124,31 +64,25 @@ float get_dist_value(float mean, float sigma2, float number){
     return base*exponent;
 }
 
-float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float lidar_orientation)
+float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta)
 {
+    if(translated_particle_x <0 || translated_particle_x > 2.4 || translated_particle_y < 0 || translated_particle_y > 2.409){
+        return 0;
+    }
     float weight = 0;
-    
-    
-    float z_hit = 0.728624;
-    float z_short = 0.009079;
-    float z_max = 0.254491;
-    float z_random = 0.007809;
 
-    float sigma_hit = 0.051875;
-    float lambda_short = 4.172416;
-    
-    
-    /*
-    float z_hit = 0.367695;
-    float z_short = 0.174866;
-    float z_max = 0.243883;
-    float z_random = 0.213559;
+    float z_hit = 0.719204;
+    float z_short = 0.080313;
+    float z_max = 0.000000;
+    float z_random = 0.200482;
 
-    float sigma_hit = 0.027382;
-    float lambda_short = 3.905742;
-    */
+    //float sigma_hit = 0.012170;
+    float sigma_hit = 0.03;
 
-    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, lidar_orientation);
+    float lambda_short = 4.776181;
+    
+
+    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, particle_theta);
 
     float q = 1;
 
@@ -162,76 +96,68 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
         float p = 0;
 
-        // REAL RANGE == THE RANGE FROM THE SENSOR
-        // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
-        float measuredRange = rangeWithTrueRange[r].first;
-        float realRange = rangeWithTrueRange[r].second;
+        float mapRange = rangeWithTrueRange[r].first;
+        float laserRange = rangeWithTrueRange[r].second;
+        if(mapRange > 3){
+            return 0;
+        }
 
-        ROS_INFO("M: %f, R: %f", measuredRange, realRange);
+        //ROS_INFO("mapRange [%f] laserRange [%f]", mapRange, laserRange);
+
 
         // Calculate the hit probability
-        if (0 <= realRange && realRange <= max_distance)
+        if (0 <= laserRange && laserRange <= max_distance)
         {
-            //normal_distribution<float> distribution(realRange, sigma_hit);
             
-            float prob = get_dist_value(measuredRange, pow(sigma_hit,2), realRange);
+            float prob = get_dist_value(mapRange, pow(sigma_hit,2), laserRange);
             float eta_hit = 0.0;
             for(float i = 0; i < max_distance; i += 0.1){
-                eta_hit += get_dist_value(measuredRange, pow(sigma_hit,2), i);
+                eta_hit += get_dist_value(mapRange, pow(sigma_hit,2), i);
             }
-
-            // CALCULATE ETA, FIND SOLUTION LATER
 
             prob_hit = prob / eta_hit;
         }
 
         // Calculate the short (unexpected objects) probability
-        if (0 <= realRange && realRange <= measuredRange)
+        if (0 <= laserRange && laserRange <= mapRange)
         {
-            float eta_short = 1 / (1 - exp(-lambda_short * measuredRange));
+            float eta_short = 1 / (1 - exp(-lambda_short * mapRange));
 
-            prob_short = eta_short * lambda_short * exp(-lambda_short * measuredRange);
+            prob_short = eta_short * lambda_short * exp(-lambda_short * mapRange);
         }
 
         // Calculate the max probability
-        if (realRange >= max_distance)
+        if (laserRange >= max_distance)
         {
             prob_max = 1;
         }
 
         // Calculate the random readings probability
-        if (0 <= realRange && realRange < max_distance)
+        if (0 <= laserRange && laserRange < max_distance)
         {
             prob_random = 1 / max_distance;
         }
 
 
         p = z_hit * prob_hit + z_short * prob_short + z_max * prob_max + z_random * prob_random;
+        //ROS_INFO("p [%f]", p);
 
         q *= p;
 
     }
 
     weight = q;
+    
 
     return weight;
 }
 
-void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance)
+void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y)
 {
     float weight = 0;
 
-    float lidar_x = 0.095;
-    float lidar_y = 0.0;
-    float lidar_orientation = M_PI / 2;
-
-    int x_map_max = map.global_map.size();
-    int y_map_max = map.global_map[0].size();
-
-    pair<float, float> max_distances = map.getDistance(x_map_max, y_map_max);
-
-    float x_map_max_distance = max_distances.first;
-    float y_map_max_distance = max_distances.second;
+    float x_map_max_distance = 2.4;
+    float y_map_max_distance = 2.4;
 
     for (int p = 0; p < particles.size(); p++)
     {
@@ -239,7 +165,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 
 
         if(new_particle_center.first < x_map_max_distance && new_particle_center.first > 0 && new_particle_center.second < y_map_max_distance && new_particle_center.second > 0) {
-            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, lidar_orientation); 
+            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, particles[p].thetaPos); 
             
             
         } else {
@@ -251,7 +177,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
     }
 }
 
-void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
+void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>> measurements, float max_distance, float pos_x, float pos_y, float theta, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short)
 {
 
     float e_hit = 0;
@@ -262,13 +188,11 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
     float sigma_parameter = 0;
     float lambda_parameter = 0;
 
-    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, lidar_orientation);
+    vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, theta);
 
 
     for (int r = 0; r < rangeWithTrueRange.size(); r++)
     {
-
-        //ROS_INFO("Loop nr: %d", r);
 
 
         float prob_hit = 0;
@@ -282,8 +206,6 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
         // MEASURED RANGE == THE CALCULATED RANGE FROM THE POSITION AND MAP
         float measuredRange = rangeWithTrueRange[r].first;
         float realRange = rangeWithTrueRange[r].second;
-
-        //ROS_INFO("M: %f, R: %f, MAX: %f", measuredRange, realRange, max_distance);
 
         // Calculate the hit probability
         if (0 <= realRange && realRange <= max_distance)
