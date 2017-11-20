@@ -37,7 +37,7 @@ float T = 1 / freq;
 //Control Var
 
 float error1 = 0;
-float error2 = 0;
+float error2 = 0; 
 float int_error1 = 0;
 float int_error2 = 0;
 float kp1 = 0.0; // Need tuning //Read from YAML file
@@ -47,6 +47,8 @@ float ki2 = 0.0; // Need tuning //Read from YAML file
 float pwm1 = 0;  //Output is Float32 (float 32, double 64 bits)
 float pwm2 = 0;
 float pwm_delta_t = 0;
+float kd1 = 0.0;
+float kd2 = 0.0;
 ros::Time last_encoder_time_left; //For Encoder
 int32_t last_count_left;
 ros::Time last_encoder_time_right;
@@ -58,26 +60,31 @@ ros::Time last_slow_time1, last_slow_time2;
 //Guards agains using to high pwm which will cause the system to shut down
 
 const float PWM_MAX = 50;
-const float TARGET_CUTTOFF = 5.5;
-const float PWM_CUTTOFF = 3;
-const float MAX_INT_ERR = 20;
+const float REF_CUTTOFF = 0.5;
+const float PWM_CUTTOFF = 0;
+const float MAX_INT_ERR = 100;
+const double WHEEL_RADIUS = 0.037;
 
-float calculate_pwm(float target, float ref, float kp, float ki, float dt, float *int_error_ptr, float *error_ptr)
+
+
+float calculate_pwm(float ref, float actual, float kp, float ki, float kd, float dt, float *int_error_ptr, float *error_ptr)
 {
 	float error = *error_ptr;
 	float int_error = *int_error_ptr;
-	if (std::abs(target) < TARGET_CUTTOFF)
-		target = 0;
-	error = target - ref;
-	int_error = std::min(int_error + error * dt, MAX_INT_ERR);
-	int_error = std::max(int_error + error * dt, -MAX_INT_ERR);
-	float pwm = kp * error + ki * int_error;
+	if (std::abs(ref) < REF_CUTTOFF)
+		return 0;
+	float new_error = ref - actual;
+	float derror = (new_error - error) / dt;
+	int_error = int_error + new_error * dt;
+	//int_error = std::min(int_error, MAX_INT_ERR);
+	//int_error = std::max(int_error, -MAX_INT_ERR);
+	float pwm = kp * new_error + ki * int_error + kd * derror;
 	pwm = std::min(pwm, PWM_MAX);
 	pwm = std::max(pwm, -PWM_MAX);
-	if (std::abs(pwm) < PWM_CUTTOFF)
-		pwm = 0;
+	//if (std::abs(pwm) < PWM_CUTTOFF)
+	//	pwm = 0;
 	*int_error_ptr = int_error;
-	*error_ptr = error;
+	*error_ptr = new_error;
 	return pwm;
 }
 
@@ -88,19 +95,24 @@ void pwmCalc()
 	pwm_delta_t = ros::Time::now().toSec() - last_pwm_time.toSec();
 	last_pwm_time = ros::Time::now();
 
+
 	pwm1 = calculate_pwm(
 		reference.angular_velocity_left,
 		motor.angular_velocity_left,
-		kp1, ki1, pwm_delta_t,
+		kp1, ki1, kd1, pwm_delta_t,
 		&int_error1, &error1);
 
 	pwm2 = calculate_pwm(
 		reference.angular_velocity_right,
 		motor.angular_velocity_right,
-		kp2, ki2, pwm_delta_t,
+		kp2, ki2, kd2, pwm_delta_t,
 		&int_error2, &error2);
 	ROS_INFO_STREAM("int_error_1 = " << int_error1 << ", int_error_2 = " << int_error2);
-
+	ROS_INFO_STREAM("ref left = " << reference.angular_velocity_left << ", ref right = " << reference.angular_velocity_right);
+	ROS_INFO_STREAM("actual left = " << motor.angular_velocity_left << ", actual right = " << motor.angular_velocity_right);
+	
+	ROS_INFO_STREAM("error_1 = " << error1 << ", error_2 = " << error2);
+	ROS_INFO_STREAM("pwm1 = " << pwm1 << ", pwm2 = " << pwm2);
 	//Left
 	/*error1 = reference.angular_velocity_left - motor.angular_velocity_left;
 	int_error1 = int_error1 + error1 * pwm_delta_t; //
@@ -112,7 +124,6 @@ void pwmCalc()
 	pwm2 = (kp2 * error2 + ki2 * int_error2);
 	pwm2 = adjust_pwm(pwm2);*/
 
-	ROS_INFO_STREAM("pwm1 = " << pwm1 << ", pwm2 = " << pwm2);
 	/*
     //Debug
       ROS_INFO_STREAM( "left Error"<<error1<<"left Int Error:"<<(int)int_error1<<"pwm1:"<<(int)pwm1 );
@@ -138,12 +149,17 @@ void pwmCalc()
 */
 }
 
+float ticsToAngularVelocity(int tics)
+{
+	const float ticsPerRev = 900;
+	return (float(tics)/ticsPerRev) * (2 * M_PI);
+}
 //Callback function 1: encoder left
 void motorMessageReceiverLeft(const phidgets::motor_encoder &msgRecEncoderLeft)
 {
 	//ROS_INFO_STREAM("Left Encoder Message Receive!");
-
-	motor.angular_velocity_left = float(msgRecEncoderLeft.count - last_count_left) * 2.0 * 3.1415 / 3591.84 / (ros::Time::now().toSec() - last_encoder_time_left.toSec()); // rad/s
+	double dt = ros::Time::now().toSec() - last_encoder_time_left.toSec();
+	motor.angular_velocity_left = ticsToAngularVelocity(msgRecEncoderLeft.count - last_count_left) / dt; // rad/s
 
 	last_encoder_time_left = ros::Time::now();
 	last_count_left = msgRecEncoderLeft.count;
@@ -154,8 +170,9 @@ void motorMessageReceiverLeft(const phidgets::motor_encoder &msgRecEncoderLeft)
 void motorMessageReceiverRight(const phidgets::motor_encoder &msgRecEncoderRight)
 {
 	//ROS_INFO_STREAM("Right Encoder Message Receive!");
-	//msgRecEncoderRight.count-last_count_right  Right Wheel Rotate in oppsite direction
-	motor.angular_velocity_right = float(last_count_right - msgRecEncoderRight.count) * 2.0 * 3.1415 / 3591.84 / (ros::Time::now().toSec() - last_encoder_time_right.toSec()); // rad/s
+	//msgRecEncoderRight.countki-last_count_right  Right Wheel Rotate in oppsite direction
+	double dt = ros::Time::now().toSec() - last_encoder_time_right.toSec();
+	motor.angular_velocity_right = ticsToAngularVelocity(last_count_right - msgRecEncoderRight.count) / dt; // rad/s
 
 	last_encoder_time_right = ros::Time::now();
 	last_count_right = msgRecEncoderRight.count;
@@ -168,8 +185,11 @@ void refMessageReceiver(const geometry_msgs::Twist &msgRecTwist)
 {
 
 	//ROS_INFO_STREAM("Twist Message Receive!");
-	reference.angular_velocity_left = float(msgRecTwist.linear.x * 2.0 - msgRecTwist.angular.z * 0.255) / (2.0 * 0.0309);  // rad/s   //Adjust robot param
-	reference.angular_velocity_right = float(msgRecTwist.linear.x * 2.0 + msgRecTwist.angular.z * 0.255) / (2.0 * 0.0309); // rad/s
+	double linear = msgRecTwist.linear.x; // m/s
+	double angular = msgRecTwist.angular.z; // rad/s
+
+	reference.angular_velocity_left = 	float(linear * WHEEL_RADIUS - angular);  // rad/s   //Adjust robot param
+	reference.angular_velocity_right = 	float(linear * WHEEL_RADIUS + angular); // rad/s
 
 	//ROS_INFO_STREAM("Vref:"<<msgRec2.linear.x<<"  OmegaRef="<<msgRec2.angular.z );
 	//ROS_INFO_STREAM("leftREF=" << reference.angular_velocity_left << "  rightREF=" << reference.angular_velocity_right);
@@ -207,6 +227,17 @@ int main(int argc, char **argv)
 		ROS_ERROR("failed to detect parameter right");
 		return 1;
 	}
+	if (!nh.getParam("/motor/pid/left/kd", kd1))
+	{
+		ROS_ERROR("failed to detect parameter left");
+		return 1;
+	}	
+	if (!nh.getParam("/motor/pid/right/kd", kd2))
+	{
+		ROS_ERROR("failed to detect parameter right");
+		return 1;
+	}
+
 	ros::Publisher pub_pwm_left = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel/left", 1);
 	ros::Publisher pub_pwm_right = nh.advertise<std_msgs::Float32>("/motorcontrol/cmd_vel/right", 1);
 	//Create publisher: pub_pwm	// msg_type(use :: for /) //topic_name //buffer_size
@@ -216,7 +247,8 @@ int main(int argc, char **argv)
 	ros::Publisher pub_dbg_int_right = nh.advertise<std_msgs::Float32>("/motorcontrol/dbg/right/i", 1);
 	ros::Publisher pub_dbg_ref_left = nh.advertise<std_msgs::Float32>("/motorcontrol/dbg/left/ref", 1);
 	ros::Publisher pub_dbg_ref_right = nh.advertise<std_msgs::Float32>("/motorcontrol/dbg/right/ref", 1);
-
+	ros::Publisher pub_dbg_actual_left = nh.advertise<std_msgs::Float32>("/motorcontrol/dbg/left/actual", 1);
+	ros::Publisher pub_dbg_actual_right = nh.advertise<std_msgs::Float32>("/motorcontrol/dbg/right/actual", 1);
 	ros::Subscriber sub_encoder_left = nh.subscribe("/motorcontrol/encoder/left", 1, &motorMessageReceiverLeft);
 	ros::Subscriber sub_encoder_right = nh.subscribe("/motorcontrol/encoder/right", 1, &motorMessageReceiverRight);
 	//ros::Subscriber sub_reference = nh.subscribe("/cmd_vel",1, &refMessageReceiver); // Rickard Teleop
@@ -235,7 +267,7 @@ int main(int argc, char **argv)
 	while (ros::ok())
 	{
 
-		std_msgs::Float32 msg_left, msg_right, msg_left_err, msg_right_err, msg_left_int, msg_right_int, msg_left_ref, msg_right_ref; //create the message
+		std_msgs::Float32 msg_left, msg_right, msg_left_err, msg_right_err, msg_left_int, msg_right_int, msg_left_ref, msg_right_ref,msg_left_actual,msg_right_actual; //create the message
 
 		//Calculate PWM
 		pwmCalc();
@@ -249,6 +281,8 @@ int main(int argc, char **argv)
 		msg_right_int.data = int_error2;
 		msg_left_ref.data = reference.angular_velocity_left;
 		msg_right_ref.data = reference.angular_velocity_right;
+		msg_left_actual.data = motor.angular_velocity_left;
+		msg_right_actual.data = motor.angular_velocity_right;
 
 		//Publish the msg
 		pub_pwm_left.publish(msg_left);
@@ -259,7 +293,10 @@ int main(int argc, char **argv)
 		pub_dbg_int_right.publish(msg_right_int);
 		pub_dbg_ref_left.publish(msg_left_ref);
 		pub_dbg_ref_right.publish(msg_right_ref);
-
+		pub_dbg_actual_left.publish(msg_left_actual);
+		pub_dbg_actual_right.publish(msg_right_actual);
+		
+		
 		//Send date to rosout
 		//ROS_INFO_STREAM("Sending PWM:"	<< "Left=" << msg_left.data <<"Right" << msg_right.data	);
 
