@@ -180,7 +180,7 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
-    double minLinVel = 0.10;
+    double minLinVel = 0.20;
     if (path->linVel > 0) {
         path->linVel = max(minLinVel, path->linVel);
     }
