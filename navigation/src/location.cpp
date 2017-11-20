@@ -22,7 +22,7 @@ void Location::callback(const nav_msgs::Odometry::ConstPtr& msg)
   y = msg->pose.pose.position.y;//yStart + msg->pose.pose.position.x;
 
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
-  theta = thetaStart + tf::getYaw(odom_quat);
+  theta = tf::getYaw(odom_quat);
 
   stringstream s;
   s << "Received position: " << x << " " << y << " "<< theta;
