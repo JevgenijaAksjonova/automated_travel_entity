@@ -324,8 +324,8 @@ class FilterPublisher
         dphi_dt[0] = ((encoding_delta[0]) / (tick_per_rotation)*2 * pi) / dt;
         dphi_dt[1] = ((encoding_delta[1]) / (tick_per_rotation)*2 * pi) / dt;
 
-        linear_v = (wheel_r / 2) * (dphi_dt[1] + dphi_dt[0]);
-        angular_w = (wheel_r / base_d) * (dphi_dt[1] - dphi_dt[0]);
+        linear_v = (_wheel_r / 2) * (dphi_dt[1] + dphi_dt[0]);
+        angular_w = (_wheel_r / _base_d) * (dphi_dt[1] - dphi_dt[0]);
 
         dist_D = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_D), 2));
         dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_V), 2));
