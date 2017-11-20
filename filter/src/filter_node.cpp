@@ -46,7 +46,7 @@ class FilterPublisher
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(int frequency, int nr_particles, int nr_measure, int nr_random_particles, float random_particle_spread)
+    FilterPublisher(int frequency, int nr_particles, int nr_measure, int nr_random_particles, float random_particle_spread, float k_D, float k_V, float k_W)
     {
         control_frequency = frequency;
         n = ros::NodeHandle("~");
@@ -75,9 +75,9 @@ class FilterPublisher
         control_frequenzy = 10; //10 hz
         dt = 1 / control_frequenzy;
 
-        k_D = 0.5;
-        k_V = 0.5;
-        k_W = 0.5;
+        _k_D = k_D;
+        _k_V = k_V;
+        _k_W = k_W;
 
         float start_xy = 0.2;
         float spread_xy = 0.05;
@@ -279,9 +279,9 @@ class FilterPublisher
         linear_v = (wheel_r / 2) * (dphi_dt[1] + dphi_dt[0]);
         angular_w = (wheel_r / base_d) * (dphi_dt[1] - dphi_dt[0]);
 
-        dist_D = std::normal_distribution<float>(0.0, pow((linear_v * dt * k_D), 2));
-        dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt * k_V), 2));
-        dist_W = std::normal_distribution<float>(0.0, pow((angular_w * dt * k_W), 2));
+        dist_D = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_D), 2));
+        dist_V = std::normal_distribution<float>(0.0, pow((linear_v * dt*_k_V), 2));
+        dist_W = std::normal_distribution<float>(0.0, pow((angular_w * dt*_k_W), 2));
     }
 
     void sample_motion_model(Particle &p)
@@ -530,9 +530,9 @@ class FilterPublisher
     float linear_v;
     float angular_w;
 
-    float k_D;
-    float k_V;
-    float k_W;
+    float _k_D;
+    float _k_V;
+    float _k_W;
 };
 
 int main(int argc, char **argv)
@@ -542,6 +542,10 @@ int main(int argc, char **argv)
     int nr_measurements = 8;
     int nr_random_particles = 100;
     float random_particle_spread = 0.1;
+    //Odometry noise parameters
+    float k_D = 0.5;
+    float k_V = 0.5;
+    float k_W = 0.5;
 
     //----------
 
@@ -557,7 +561,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "filter_publisher");
 
 
-    FilterPublisher filter(frequency, nr_particles, nr_measurements, nr_random_particles, random_particle_spread);
+    FilterPublisher filter(frequency, nr_particles, nr_measurements, nr_random_particles, random_particle_spread, k_D, k_V, k_W);
 
     LocalizationGlobalMap map(_filename_map, cellSize);
 
