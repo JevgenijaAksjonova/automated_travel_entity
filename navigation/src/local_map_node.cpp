@@ -74,14 +74,17 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
     for (int i = 0; i < localMap.size(); i++) {
         if (localMap[i] > 0) {
 
-            int angAdd = round(asin((robotRad)/max(distance[i],robotRad-0.3))/2.0/M_PI*360);
-            for (int j = i-angAdd; j < i+angAdd; j++) {
-                localMapNew[mod(j,360)] = 0.5;
-            }
-            angAdd = round(asin((robotRad-0.03)/max(distance[i],robotRad))/2.0/M_PI*360);
-            //cout<< i << ":" <<angAdd << " ";
-            for (int j = i-angAdd; j < i+angAdd; j++) {
-                localMapNew[mod(j,360)] = 1.0;
+            int angAddMax = round(asin((robotRad)/max(distance[i],robotRad-0.05))/2.0/M_PI*360);
+            int angAddMin = round(asin((robotRad-0.03)/max(distance[i],robotRad-0.05))/2.0/M_PI*360);
+            for (int di = -angAddMax; di < angAddMax+1; di++) {
+                int j = i + di;
+                double value;
+                if (abs(di) <= angAddMin) {
+                    value = 1;
+                } else {
+                    value = (angAddMax + 1 - abs(di))/(float)(angAddMax+1-angAddMin);
+                }
+                localMapNew[mod(j,360)] = max(localMapNew[mod(j,360)],value);
             }
         }
     }
@@ -216,19 +219,23 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
     int angleIndRight = angleInd;
-    while (localMapProcessed[mod(angleIndLeft,360)] > 0 && abs(angleIndLeft - angleInd) <= 180) {
+    while (localMapProcessed[mod(angleIndLeft,360)] > 0 &&
+           localMapProcessed[mod(angleIndLeft,360)] >= localMapProcessed[mod(angleIndLeft-1,360)] &&
+           abs(angleIndLeft - angleInd) <= 180) {
         angleIndLeft--;
     }
-    while (localMapProcessed[mod(angleIndRight,360)] > 0 && abs(angleIndRight - angleInd) <= 180) {
+    while (localMapProcessed[mod(angleIndRight,360)] > 0 &&
+           localMapProcessed[mod(angleIndLeft,360)] >= localMapProcessed[mod(angleIndLeft+1,360)] &&
+           abs(angleIndRight - angleInd) <= 180) {
         angleIndRight++;
     }
     if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
         angleIndLeft = angleInd;
         angleIndRight = angleInd;
-        while (localMapProcessed[mod(angleIndLeft,360)] > 0.5 && abs(angleIndLeft - angleInd) <= 180) {
+        while (localMapProcessed[mod(angleIndLeft,360)] > 0.9 && abs(angleIndLeft - angleInd) <= 180) {
             angleIndLeft--;
         }
-        while (localMapProcessed[mod(angleIndRight,360)] > 0.5 && abs(angleIndRight - angleInd) <= 180) {
+        while (localMapProcessed[mod(angleIndRight,360)] > 0.9 && abs(angleIndRight - angleInd) <= 180) {
             angleIndRight++;
         }
         if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
