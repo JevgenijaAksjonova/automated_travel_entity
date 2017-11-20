@@ -76,7 +76,9 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
     float z_max = 0.000000;
     float z_random = 0.200482;
 
-    float sigma_hit = 0.012170;
+    //float sigma_hit = 0.012170;
+    float sigma_hit = 0.03;
+
     float lambda_short = 4.776181;
     
 
@@ -97,7 +99,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         float mapRange = rangeWithTrueRange[r].first;
         float laserRange = rangeWithTrueRange[r].second;
         if(mapRange > 3){
-            ROS_INFO("Invalid map range!");
             return 0;
         }
 

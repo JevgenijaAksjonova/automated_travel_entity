@@ -54,7 +54,7 @@ float LocalizationGlobalMap::getLineIntersection(float x1, float y1, float theta
         y4 = walls[i][3];
 
         //ROS_INFO("Wall: x3 [%f] y3 [%f] x4 [%f] y4 [%f]", x3,y3,x4,y4);
-
+        /*
         //Start of line check algorithm
         d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
         // If d is zero, there is no intersection
@@ -66,10 +66,40 @@ float LocalizationGlobalMap::getLineIntersection(float x1, float y1, float theta
         float x = ( pre * (x3 - x4) - (x1 - x2) * post ) / d;
         float y = ( pre * (y3 - y4) - (y1 - y2) * post ) / d;
 
-        //ROS_INFO("Calculated x [%f] y [%f]",x,y);
+        ROS_INFO("Calculated x [%f] y [%f]",x,y);
+        */
+        float a1, a2, b1, b2;
+        float x, y;
+        if (x1 == x2 && x4 == x3){
+            //ROS_INFO("cont 1");
+            continue;
+        } else if (x1 == x2) {
+            x = x1;
+            a2 = (y4-y3)/(x4-x3);
+            b2 = (y3+y4)/2 - a2*(x3+x4)/2;
+            y = a2*x + b2;
+        } else if (x4 == x3) {
+            x = x3;
+            a1 = (y2-y1)/(x2-x1);
+            b1 = (y1+y2)/2 - a1*(x1+x2)/2;
+            y = a1*x+b1;
+        } else {
+            a1 = (y2-y1)/(x2-x1);
+            a2 = (y4-y3)/(x4-x3);
+            b1 = (y1+y2)/2 - a1*(x1+x2)/2;
+            b2 = (y3+y4)/2 - a2*(x3+x4)/2;
+            if(a2 == a1){
+                //ROS_INFO("cont 2");
+                continue;
+            }
+            x = (b2-b1)/(a1-a2);
+            y = (a1*x) + b1;
+        }
+        //ROS_INFO("X = [%f], Y = [%f]", x, y);
 
+    
         // Check if the x and y coordinates are within both lines
-        float epsilon = 0.001;
+        float epsilon = 0.02;
         if ( x+epsilon < min(x1,x2) || x-epsilon > max(x1,x2)){
             //ROS_INFO("break1");
             continue;
@@ -91,16 +121,16 @@ float LocalizationGlobalMap::getLineIntersection(float x1, float y1, float theta
         }
 
 
-        float temp_dist = sqrt((pow((x-x1), 2) + pow((y-y1),2)));
+        float temp_dist = sqrt((pow((x-x1), 2) + pow((y-y1),2))) - 0.009;
         //ROS_INFO("temp_dist = [%f]",temp_dist);
         if(temp_dist < distance){
             distance = temp_dist;
         }
     }
-    if(distance >3){
-        // ROS_INFO("Got 4!!");
-        // exit (EXIT_FAILURE);
-    }
+    // if(distance >3){
+    //     ROS_INFO("Got 4!!");
+    //     exit (EXIT_FAILURE);
+    // }
     return distance;
 
 }

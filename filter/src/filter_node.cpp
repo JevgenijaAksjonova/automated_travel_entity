@@ -50,9 +50,9 @@ class FilterPublisher
     {
         control_frequency = frequency;
         n = ros::NodeHandle("~");
-        int nr_particles = 1000;
-        int nr_measurements = 4;
-        int nr_random_particles = 100;
+        int nr_particles = 500;
+        int nr_measurements = 8;
+        int nr_random_particles = 10;
         float random_particle_spread = 0.1;
         float k_D = 0.5;
         float k_V = 0.5;
@@ -158,7 +158,7 @@ class FilterPublisher
         range_max = msg->range_max;
     }
 
-    void initializeParticles(float start_x, start_y, float spread_xy, float start_theta, float spread_theta, int nr_particles)
+    void initializeParticles(float start_x, float start_y, float spread_xy, float start_theta, float spread_theta, int nr_particles)
     {
 
         std::normal_distribution<float> dist_start_x = std::normal_distribution<float>(start_x, spread_xy);
@@ -377,7 +377,7 @@ class FilterPublisher
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle += angle_increment * j;
+                angle += angle_increment;
                 j++;
             }
             
@@ -458,7 +458,7 @@ class FilterPublisher
             int j = 1;
             while(std::isinf(range)) {
                 range = ranges[i + j];
-                angle += angle_increment * j;
+                angle += angle_increment;
                 j++;
             }
             
@@ -610,7 +610,7 @@ int main(int argc, char **argv)
 
         most_likely_position = filter.localize(map);
         filter.publishPosition(most_likely_position);
-        //filter.publish_rviz_particles();
+        filter.publish_rviz_particles();
         //filter.collect_measurements(sampled_measurements, map);
         ros::spinOnce();
 
