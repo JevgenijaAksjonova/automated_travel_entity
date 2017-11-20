@@ -58,7 +58,7 @@ class FilterPublisher
         float k_V = 0.5;
         float k_W = 0.5;
 
-        /**
+        
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
             ROS_ERROR("failed to detect parameter 1");
             exit(EXIT_FAILURE);
@@ -87,7 +87,6 @@ class FilterPublisher
             ROS_ERROR("failed to detect parameter 7");
             exit(EXIT_FAILURE);
         }
-        **/
 
         ROS_INFO("Running filter with parameters:");
         ROS_INFO("Number of particles: [%d]", nr_particles);
