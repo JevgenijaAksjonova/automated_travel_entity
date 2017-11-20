@@ -190,7 +190,7 @@ int main(int argc, char **argv)
     msg.linear.z = 0.0;
     msg.angular.x = 0.0;
     msg.angular.y = 0.0;
-    msg.angular.z = 0.5*path->angVel;
+    msg.angular.z = path->angVel;
 
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);
