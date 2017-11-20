@@ -26,6 +26,7 @@ MapVisualization::MapVisualization(shared_ptr<GlobalPathPlanner> _gpp):
     grid_pub = n.advertise<nav_msgs::OccupancyGrid>("/visualize_grid", 1);
     path_pub = n.advertise<nav_msgs::Path>("/visualize_path", 1);
     direction_pub = n.advertise<visualization_msgs::Marker>("/visualize_direction", 1);
+    nodes_pub = n.advertise<visualization_msgs::MarkerArray>("/visualize_nodes_to_visit", 1);
     loadMap();
 
 }
@@ -70,6 +71,8 @@ void MapVisualization::loadMap() {
 void MapVisualization::publishMap() {
 
     grid_pub.publish(grid);
+    publishNodes();
+    publishPath(gpp->explorationPath);
 }
 
 void MapVisualization::publishPath(vector<pair<double, double> >& globalPath) {
@@ -118,4 +121,34 @@ void MapVisualization::publishDirection(double linVel, double angVel) {
     marker.color.g = 1.0;
     marker.color.b = 0.0;
     direction_pub.publish(marker);
+}
+
+void MapVisualization::publishNodes() {
+
+    visualization_msgs::MarkerArray markers;
+    for (int i = 0; i < gpp->nodes.size(); i++) {
+        visualization_msgs::Marker marker;
+        marker.header.frame_id = "/world_map";
+        marker.header.stamp = ros::Time::now();
+        marker.id = i;
+        marker.ns = "nodesToVisit";
+        marker.type = visualization_msgs::Marker::CYLINDER;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = gpp->mapOffset.first + (gpp->nodes[i].x+0.5)*gpp->cellSize;
+        marker.pose.position.y = gpp->mapOffset.second + (gpp->nodes[i].y+0.5)*gpp->cellSize;
+        marker.pose.position.z = 0;
+        marker.pose.orientation.x = 0.0;
+        marker.pose.orientation.y = 0.0;
+        marker.pose.orientation.z = 0.0;
+        marker.pose.orientation.w = 1.0;
+        marker.scale.x = 0.05;
+        marker.scale.y = 0.05;
+        marker.scale.z = 0.1;
+        marker.color.a = 1.0;
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+        markers.markers.push_back(marker);
+    }
+    nodes_pub.publish(markers);
 }

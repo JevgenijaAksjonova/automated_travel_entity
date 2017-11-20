@@ -17,6 +17,7 @@
 #include <limits>
 #include <math.h>
 #include <ros/ros.h>
+#include <chrono>
 
 #include <global_path_planner.h>
 
@@ -38,6 +39,7 @@ GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, fl
     cellSize = p_cellSize;
     robotRad = p_robotRad;
     setMap(mapFile);
+    getExplorationPath();
 
 }
 
@@ -211,9 +213,8 @@ double GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
 
 
 // return distance to the closest free cell
-double GlobalPathPlanner::findClosestFreeCell(const Node& goal,double maxDistance){
+double GlobalPathPlanner::findClosestFreeCell(Node& goal,int maxD){
     priority_queue<Node> cells;
-    int maxD = ceil(maxDistance/cellSize);
     //cout << "Cell values " << endl;
     for (int dx = -maxD; dx < maxD+1; dx++) {
         for (int dy = -maxD; dy < maxD+1; dy++) {
@@ -229,6 +230,7 @@ double GlobalPathPlanner::findClosestFreeCell(const Node& goal,double maxDistanc
     }
     if (!cells.empty()) {
         Node top = cells.top();
+        goal = top;
         //cout << "There are free cells! Top " << top.x << " " << top.y << " "<< top.val<<endl;
         return top.val;
     } else {
@@ -262,7 +264,9 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     if (map[goal.x][goal.y] == 1) {
        //cout <<"Cell is not empty! " << robotRad <<endl;
        // cell is not empty, find the closest, which is within robotRad
-       distanceTol = findClosestFreeCell(goal, robotRad);
+       int maxD = ceil(robotRad/cellSize);
+       Node newGoal = goal;
+       distanceTol = findClosestFreeCell(newGoal, maxD);
        if (distanceTol*cellSize > robotRad) {
            return vector<pair<int,int> >();
        } else {
@@ -322,6 +326,78 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     return path;
 }
 
+
+void GlobalPathPlanner::getExplorationPath() {
+    double cellSizeL = 0.35;
+    pair<int, int> gridSizeL(ceil(mapScale.first/cellSizeL), ceil(mapScale.second/cellSizeL));
+    for (int i = 0; i < gridSizeL.first; i++) {
+        for(int j = 0; j < gridSizeL.second; j++) {
+            pair<int, int> coord = getCell((i+0.5)*cellSizeL,(j+0.5)*cellSizeL);
+            Node cell(coord.first,coord.second,0);
+            int maxD = round(cellSizeL/cellSize);
+            int distance = findClosestFreeCell(cell,maxD);
+            if (distance <= maxD) {
+                nodes.push_back(cell);
+            }
+        }
+    }
+    auto start = chrono::high_resolution_clock::now();
+    vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
+    for (int i = 0; i < nodes.size(); i++) {
+        for (int j = i; j < nodes.size(); j++) {
+            if (nodes[i].x == nodes[j].x && nodes[i].y == nodes[j].y ) {
+                edges[i][j] = 0;
+                edges[j][i] = 0;
+            } else /*if (abs(nodes[i].x-nodes[j].x) < 2*cellSize && abs(nodes[i].y - nodes[j].y) < 2*cellSize) */{
+                vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
+                if (path.size() > 0) {
+                    edges[i][j] = path.size();
+                    edges[j][i] = path.size();
+                }
+            }
+        }
+    }
+    auto end= chrono::high_resolution_clock::now();
+    chrono::duration<double> elapsed = end-start;
+    cout << "Time to compute the distance matrix = " << elapsed.count()<< endl;
+
+    vector<int> visited(nodes.size(),0);
+    vector<int> path;
+    int count = 1;
+    int i = 0;
+    path.push_back(i);
+    visited[i] = 1;
+    while (count < nodes.size()) {
+        int jMin = -1;
+        for (int j = 0; j < nodes.size(); j++) {
+            if (visited[j] ==0 && edges[i][j] != -1) {
+                if (jMin == -1 || edges[i][j] < edges[i][jMin]) {
+                    jMin = j;
+                }
+            }
+        }
+        count++;
+        i = jMin;
+        path.push_back(i);
+        visited[i] = 1;
+    }
+    end= chrono::high_resolution_clock::now();
+    elapsed = end-start;
+    cout << "Time to find greedy path = " << elapsed.count()<< endl;
+    vector<pair<int,int> > pathGrid;
+    cout << "Path : "<< endl;
+    for (int i = 0; i < path.size()-1; i++) {
+        cout << path[i+1] << " ";
+        vector<pair<int, int> > part = getPathGrid(pair<int,int>(nodes[path[i]].x,nodes[path[i]].y), pair<int,int>(nodes[path[i+1]].x,nodes[path[i+1]].y));
+        pathGrid.insert(pathGrid.end(), part.begin(), part.end());
+    }
+
+    for (size_t i = 0; i < pathGrid.size(); i++) {
+        double x = mapOffset.first+(pathGrid[i].first+0.5)*cellSize;
+        double y = mapOffset.second+(pathGrid[i].second+0.5)*cellSize;
+        explorationPath.push_back(pair<double,double>(x,y));
+    }
+}
 
 //vectorexplorationPath(alreadyexplored path)
 
