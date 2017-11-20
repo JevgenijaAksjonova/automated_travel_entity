@@ -126,7 +126,8 @@ class FilterPublisher
         _k_V = k_V;
         _k_W = k_W;
 
-        float start_xy = 0.2;
+        float start_x = 0.215;
+        float start_y = 0.26;
         float spread_xy = 0.05;
         float start_theta = pi / 2;
         float spread_theta = pi / 40;
@@ -135,7 +136,7 @@ class FilterPublisher
         _nr_measurements = nr_measurements;
         _nr_random_particles = nr_random_particles;
 
-        initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
+        initializeParticles(start_x, start_y, spread_xy, start_theta, spread_theta, nr_particles);
     }
 
     void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr &msg)
@@ -157,18 +158,19 @@ class FilterPublisher
         range_max = msg->range_max;
     }
 
-    void initializeParticles(float start_xy, float spread_xy, float start_theta, float spread_theta, int nr_particles)
+    void initializeParticles(float start_x, start_y, float spread_xy, float start_theta, float spread_theta, int nr_particles)
     {
 
-        std::normal_distribution<float> dist_start_xy = std::normal_distribution<float>(start_xy, spread_xy);
+        std::normal_distribution<float> dist_start_x = std::normal_distribution<float>(start_x, spread_xy);
+        std::normal_distribution<float> dist_start_y = std::normal_distribution<float>(start_y, spread_xy);
         std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(start_theta, spread_theta);
 
         particles.resize(nr_particles);
         for (int i = 0; i < nr_particles; i++)
         {
 
-            particles[i].xPos = dist_start_xy(generator);
-            particles[i].yPos = dist_start_xy(generator);
+            particles[i].xPos = dist_start_x(generator);
+            particles[i].yPos = dist_start_y(generator);
             particles[i].thetaPos = dist_start_theta(generator);
             particles[i].weight = (float)1.0 / nr_particles;
         }
