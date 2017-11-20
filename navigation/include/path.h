@@ -35,7 +35,7 @@ class Path {
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
-    void setPath(double x, double y, double theta, vector<pair<double,double> > path);
+    void setPath(double x, double y, double theta, double p_distancetol, vector<pair<double,double> > path);
   private:
     double pathRad;
     double distanceTol;

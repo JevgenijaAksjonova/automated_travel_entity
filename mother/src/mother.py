@@ -184,7 +184,7 @@ class Mother:
         pose.orientation = Quaternion(*quaternion_from_euler)
         return pose
 
-    def go_to_pose(self, pose):
+    def go_to_pose(self, pose, distanceTol):
         #print("go pose = ", type(pose))
         if USING_PATH_PLANNING:
             self.nav_goal_acchieved = False
@@ -203,6 +203,7 @@ class Mother:
             request.linear.x = pose.pose.position.x
             request.linear.y = pose.pose.position.y
             request.angular.x = 1.57
+            request.distanceTol = distanceTol
             response = self.global_path_service(request)
             return response.path_found
         else:
@@ -226,7 +227,7 @@ class Mother:
             return False
 
     def set_following_path_to_main_goal(self):
-        if self.go_to_pose(self.goal_pose):
+        if self.go_to_pose(self.goal_pose, 0.05):
             self.mode = "following_path_to_main_goal"
             rospy.loginfo("Following path to main goal")
         else:
@@ -241,7 +242,7 @@ class Mother:
     def set_following_path_to_object_classification(self, classifying_obj):
 
         classification_pose = classifying_obj.pose_stamped
-        if self.go_to_pose(classification_pose):
+        if self.go_to_pose(classification_pose,0.20):
             self.mode = "following_path_to_object_classification"
             self.classifying_obj = classifying_obj
         else:

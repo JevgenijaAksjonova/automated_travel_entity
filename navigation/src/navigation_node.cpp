@@ -35,6 +35,7 @@ class GoalPosition {
     double x;
     double y;
     double theta;
+    double distanceTol;
     bool changedPosition;
     bool path_found;
 
@@ -50,7 +51,7 @@ class GoalPosition {
 };
 
 GoalPosition::GoalPosition(shared_ptr<GlobalPathPlanner> _gpp, shared_ptr<Location> _loc, shared_ptr<Path> _path):
-             x(0), y(0), theta(0), gpp(_gpp), loc(_loc), path(_path),
+             x(0), y(0), theta(0), distanceTol(0.05), gpp(_gpp), loc(_loc), path(_path),
              changedPosition(false) {
 }
 
@@ -70,6 +71,7 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
   double x_new = request.pose.linear.x;
   double y_new = request.pose.linear.y;
   double theta_new = request.pose.angular.x;
+  distanceTol = request.distanceTol;
 
   callback(x_new, y_new, theta_new);
   response.path_found = path_found;
@@ -109,7 +111,7 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
             stringstream s;
             s << "Path is found, size" << globalPath.size();
             ROS_INFO("%s/n", s.str().c_str());
-            path->setPath(x, y, theta, globalPath);
+            path->setPath(x, y, theta, distanceTol, globalPath);
             changedPosition = false;
             path_found = true;
         }
