@@ -46,10 +46,57 @@ class FilterPublisher
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(int frequency, int nr_particles, int nr_measure, int nr_random_particles, float random_particle_spread, float k_D, float k_V, float k_W)
+    FilterPublisher(int frequency)
     {
         control_frequency = frequency;
         n = ros::NodeHandle("~");
+        int nr_particles = 1000;
+        int nr_measurements = 4;
+        int nr_random_particles = 100;
+        float random_particle_spread = 0.1;
+        float k_D = 0.5;
+        float k_V = 0.5;
+        float k_W = 0.5;
+
+        /**
+        if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
+            ROS_ERROR("failed to detect parameter 1");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/nr_measurements",nr_measurements)){
+            ROS_ERROR("failed to detect parameter 2");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/nr_random_particles",nr_random_particles)){
+            ROS_ERROR("failed to detect parameter 3");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/random_particle_spread",random_particle_spread)){
+            ROS_ERROR("failed to detect parameter 4");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_D",k_D)){
+            ROS_ERROR("failed to detect parameter 5");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_V",k_V)){
+            ROS_ERROR("failed to detect parameter 6");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/odom_noise/k_W",k_W)){
+            ROS_ERROR("failed to detect parameter 7");
+            exit(EXIT_FAILURE);
+        }
+        **/
+
+        ROS_INFO("Running filter with parameters:");
+        ROS_INFO("Number of particles: [%d]", nr_particles);
+        ROS_INFO("Number of measurements: [%d]", nr_measurements);
+        ROS_INFO("Number of random particles: [%d]", nr_random_particles);
+        ROS_INFO("Random particle spread: [%f]", random_particle_spread);
+        ROS_INFO("Odom k_V: [%f]", k_V);
+        ROS_INFO("Odom k_D: [%f]", k_D);
+        ROS_INFO("Odom k_W: [%f]", k_W);
         pi = 3.1416;
 
         encoding_abs_prev = std::vector<int>(2, 0);
@@ -85,7 +132,7 @@ class FilterPublisher
         float spread_theta = pi / 40;
         srand(static_cast<unsigned>(time(0)));
         particle_randomness = std::normal_distribution<float>(0.0, random_particle_spread);
-        _nr_measurements = nr_measure;
+        _nr_measurements = nr_measurements;
         _nr_random_particles = nr_random_particles;
 
         initializeParticles(start_xy, spread_xy, start_theta, spread_theta, nr_particles);
@@ -338,9 +385,6 @@ class FilterPublisher
             }
 
             
-            ROS_INFO("Range: [%f]", range);
-            ROS_INFO("Angle: [%f] pi", angle/pi);
-            ROS_INFO("-----------");
             std::pair<float, float> angle_measurement(angle, range);
             sampled_measurements.push_back(angle_measurement);
             i = i + step_size;
@@ -348,10 +392,8 @@ class FilterPublisher
 
         if (ranges.size() > 0)
         {
-            ROS_INFO("Readings have come");
 
             getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
-            ROS_INFO("after getweights");
         }
     }
 
@@ -393,7 +435,6 @@ class FilterPublisher
 
         filter_publisher.publish(odom_msg);
 
-        ROS_INFO("new Position x:[%f] y:[%f] theta:[%f] ", ml_pos.xPos, ml_pos.yPos, ml_pos.thetaPos);
     }
 
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
@@ -537,17 +578,6 @@ class FilterPublisher
 
 int main(int argc, char **argv)
 {
-    //PARAMETERS:
-    int nr_particles = 1000;
-    int nr_measurements = 8;
-    int nr_random_particles = 100;
-    float random_particle_spread = 0.1;
-    //Odometry noise parameters
-    float k_D = 0.5;
-    float k_V = 0.5;
-    float k_W = 0.5;
-
-    //----------
 
     ROS_INFO("Spin!");
 
@@ -561,7 +591,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "filter_publisher");
 
 
-    FilterPublisher filter(frequency, nr_particles, nr_measurements, nr_random_particles, random_particle_spread, k_D, k_V, k_W);
+    FilterPublisher filter(frequency);
 
     LocalizationGlobalMap map(_filename_map, cellSize);
 
@@ -578,9 +608,8 @@ int main(int argc, char **argv)
 
         most_likely_position = filter.localize(map);
         filter.publishPosition(most_likely_position);
-        filter.publish_rviz_particles();
+        //filter.publish_rviz_particles();
         //filter.collect_measurements(sampled_measurements, map);
-        ROS_INFO("Are we there");
         ros::spinOnce();
 
         loop_rate.sleep();

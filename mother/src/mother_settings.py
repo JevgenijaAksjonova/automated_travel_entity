@@ -16,9 +16,9 @@ ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
 ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 ODOMETRY_TOPIC = "/odometry_node/odom"
 
-USING_PATH_PLANNING = False
+USING_PATH_PLANNING = True
 USING_ARM = False
-USING_VISION = True
+USING_VISION = False
 
 color_2_rgb = {
     "green": (0, 255, 0),
