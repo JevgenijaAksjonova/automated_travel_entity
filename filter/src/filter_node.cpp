@@ -115,8 +115,8 @@ class FilterPublisher
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
 
-        wheel_r = 0.04;
-        base_d = 0.25;
+        _wheel_r = 0.04;
+        _base_d = 0.2;
         tick_per_rotation = 900;
         control_frequenzy = 10; //10 hz
         dt = 1 / control_frequenzy;
@@ -222,7 +222,7 @@ class FilterPublisher
         float theta_estimate = 0;
         float sinPos;
         float cosPos;
-        for (int m = 0; m < particles.size(); m++)
+        for (int m = 0; m < particles.size() - _nr_random_particles; m++)
         {
             x_estimate += particles[m].xPos;
             y_estimate += particles[m].yPos;
@@ -231,8 +231,8 @@ class FilterPublisher
 
         }
         Particle p;
-        p.xPos = x_estimate/particles.size();
-        p.yPos = y_estimate/particles.size();
+        p.xPos = x_estimate/(particles.size() - _nr_random_particles);
+        p.yPos = y_estimate/(particles.size() - _nr_random_particles);
         p.thetaPos = atan2(sinPos, cosPos);
 
         return p;
@@ -566,8 +566,8 @@ class FilterPublisher
     std::normal_distribution<float> particle_randomness;
     std::vector<Particle> particles;
 
-    float wheel_r = 0.04;
-    float base_d = 0.25;
+    float _wheel_r;
+    float _base_d;
     int tick_per_rotation = 900;
     float control_frequenzy = 10; //10 hz
     float dt = 1 / control_frequenzy;
