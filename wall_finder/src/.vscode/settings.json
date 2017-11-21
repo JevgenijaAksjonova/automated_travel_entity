@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "cmath": "cpp",
+        "cstdlib": "cpp",
+        "ctime": "cpp",
+        "chrono": "cpp",
+        "cstdint": "cpp",
+        "limits": "cpp",
+        "ratio": "cpp",
+        "type_traits": "cpp"
+    }
+}

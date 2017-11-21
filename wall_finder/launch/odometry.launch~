@@ -1,0 +1,4 @@
+<launch>
+	<node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="1 1 1 0 0 0 0 frame camera" />
+	<node pkg="camera" name="object_candidate_spotter" type="spotter.py" />
+</launch>

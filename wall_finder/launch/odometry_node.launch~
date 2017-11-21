@@ -1,0 +1,3 @@
+<launch>
+	<node pkg="odometry" name="odometry" type="odometry" />
+</launch>
