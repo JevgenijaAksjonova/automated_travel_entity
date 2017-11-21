@@ -130,7 +130,7 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
         stringstream s;
         s << "Exploration path callback! ";
         ROS_INFO("%s/n", s.str().c_str());
-        gpp->explorationCallback(req);
+        gpp->explorationCallback(req, loc->x, loc->y);
         path->setPath(x, y, theta, distanceTol, gpp->explorationPath);
     }
 

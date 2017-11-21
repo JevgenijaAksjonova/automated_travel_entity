@@ -329,10 +329,12 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
 }
 
 // generates nodes and finds an exploration path through them
-void GlobalPathPlanner::getExplorationPath() {
+void GlobalPathPlanner::getExplorationPath(Node start_node) {
 
     string msg = "Generating an exploration path ...... ";
     ROS_INFO("%s/n", msg.c_str());
+
+    nodes.push_back(start_node);
 
     double cellSizeL = 0.35;
     pair<int, int> gridSizeL(ceil(mapScale.first/cellSizeL), ceil(mapScale.second/cellSizeL));
@@ -410,10 +412,10 @@ void GlobalPathPlanner::getExplorationPath() {
     }
 }
 
-void GlobalPathPlanner::explorationCallback(bool start_exploration){
+void GlobalPathPlanner::explorationCallback(bool start_exploration, double x, double y){
     if (start_exploration) {
         if (explorationStatus == 0) {
-            getExplorationPath();
+            getExplorationPath(Node(x,y,0));
             explorationStatus = 1;
         }
     } else {
