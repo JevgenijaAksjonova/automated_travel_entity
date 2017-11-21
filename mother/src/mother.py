@@ -291,7 +291,7 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if self.ROUND == 1:
+                if self.RAUND == 1:
                     rospy.loginfo("Following an exploration path")
                     self.set_following_an_exploration_path()
                 if self.goal_pose is not None:
