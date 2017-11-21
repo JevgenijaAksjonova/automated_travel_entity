@@ -306,6 +306,8 @@ class Mother:
                     self.set_following_path_to_object_classification(
                         classifying_obj)
 
+            elif self.mode == "following_an_exploration_path":
+
             elif self.mode == "following_path_to_object_classification":
 
                 if self.nav_goal_acchieved:
