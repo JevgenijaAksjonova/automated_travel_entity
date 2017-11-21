@@ -18,6 +18,7 @@
 #include <math.h>
 #include <ros/ros.h>
 #include <chrono>
+#include <std_msgs/Bool.h>
 
 #include <global_path_planner.h>
 
@@ -396,6 +397,13 @@ void GlobalPathPlanner::getExplorationPath() {
         double x = mapOffset.first+(pathGrid[i].first+0.5)*cellSize;
         double y = mapOffset.second+(pathGrid[i].second+0.5)*cellSize;
         explorationPath.push_back(pair<double,double>(x,y));
+    }
+}
+
+void GlobalPathPlanner::explorationCallback(const std_msgs::Bool::ConstPtr &msg){
+    bool start_exploration = msg->data;
+    if (start_exploration) {
+
     }
 }
 

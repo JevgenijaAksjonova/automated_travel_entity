@@ -92,6 +92,11 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
+            self.exploration_path_publisher = rospy.Publisher
+                ("naviagation/exploration_path", 
+                Bool, 
+                queue_size=1)
+            
 
         if USING_ARM:
             rospy.loginfo(
@@ -234,6 +239,15 @@ class Mother:
             rospy.loginfo("Could not find path to given main goal")
             self.set_waiting_for_main_goal()
 
+    def set_following_an_exploration_path(self):
+        self.mode = "following_an_exploration_path"
+        if USING_PATH_PLANNING:
+            # send a command to generate and follow an exploration path
+            msg = Bool()
+            msg.data = True
+            self.exploration_path_publisher.publish(msg)
+        
+
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
         self.mode = "waiting_for_main_goal"
@@ -277,6 +291,9 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
+                if self.ROUND == 1:
+                    rospy.loginfo("Following an exploration path")
+                    self.set_following_an_exploration_path()
                 if self.goal_pose is not None:
                     rospy.loginfo("Main goal received")
                     self.set_following_path_to_main_goal()
