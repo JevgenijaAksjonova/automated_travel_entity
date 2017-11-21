@@ -734,6 +734,9 @@ int main(int argc, char **argv)
         if(filter._intitialPoseReceived){
             filter.initializeParticles();
             filter._intitialPoseReceived = false;
+            most_likely_position_prev.xPos = filter._start_x;
+            most_likely_position_prev.yPos = filter._start_y;
+            most_likely_position_prev.thetaPos = filter._start_theta;
             ready_to_run = true;
             ROS_INFO("Ready to run!");
 
