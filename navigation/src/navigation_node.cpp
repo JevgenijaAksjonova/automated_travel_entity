@@ -135,6 +135,9 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
     }
 
     response.resp = true;
+    stringstream s;
+    s << "Exploration path is set!!!! ";
+    ROS_INFO("%s/n", s.str().c_str());
     return true;
 }
 
