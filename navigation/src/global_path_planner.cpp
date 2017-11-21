@@ -336,7 +336,7 @@ void GlobalPathPlanner::getExplorationPath(Node start_node) {
 
     nodes.push_back(start_node);
 
-    double cellSizeL = 0.35;
+    double cellSizeL = 0.5;
     pair<int, int> gridSizeL(ceil(mapScale.first/cellSizeL), ceil(mapScale.second/cellSizeL));
     for (int i = 0; i < gridSizeL.first; i++) {
         for(int j = 0; j < gridSizeL.second; j++) {
@@ -415,7 +415,8 @@ void GlobalPathPlanner::getExplorationPath(Node start_node) {
 void GlobalPathPlanner::explorationCallback(bool start_exploration, double x, double y){
     if (start_exploration) {
         if (explorationStatus == 0) {
-            getExplorationPath(Node(x,y,0));
+            pair<int, int> cell = getCell(x,y);
+            getExplorationPath(Node(cell.first,cell.second,0));
             explorationStatus = 1;
         }
     } else {
