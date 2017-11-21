@@ -20,7 +20,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 
 from maze import MazeMap, MazeObject
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, RAUND
 
 
 class Mother:
@@ -291,7 +291,7 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if self.RAUND == 1:
+                if RAUND == 1:
                     rospy.loginfo("Following an exploration path")
                     self.set_following_an_exploration_path()
                 if self.goal_pose is not None:
