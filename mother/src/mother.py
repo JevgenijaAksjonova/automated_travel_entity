@@ -307,6 +307,7 @@ class Mother:
                         classifying_obj)
 
             elif self.mode == "following_an_exploration_path":
+                rospy.loginfo("Following an exploration path")
 
             elif self.mode == "following_path_to_object_classification":
 
