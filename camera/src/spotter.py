@@ -37,7 +37,7 @@ class ObjectDetector:
             "/camera/object_candidates", PosAndImage, queue_size=10)
 
         self.image_sub = rospy.Subscriber("/camera/rgb/image_rect_color",
-                                          CompressedImage, self.image_callback)
+                                          Image, self.image_callback)
 
         #self.depth_sub = rospy.Subscriber("/camera/depth_registered/points",PointCloud2,self.depth_callback)
         self.depth_sub = rospy.Subscriber(
@@ -58,7 +58,7 @@ class ObjectDetector:
             self.dbg_object_image = rospy.Publisher(
                 "camera/debug/object_candidate/image", Image, queue_size=1)
             self.dbg_img_pub = rospy.Publisher(
-                "/camera/debug/img", Image, queue_size=1)
+                "/camera/debug/img", CompressedImage, queue_size=1)
 
     def image_callback(self, ros_image):
         try:
