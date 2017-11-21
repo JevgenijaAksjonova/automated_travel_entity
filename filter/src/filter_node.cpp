@@ -424,7 +424,9 @@ class FilterPublisher
         
 
             // LOOKING FOR OUTLIERS FOR WALL DETECTION
-            outliers.clear();
+            //outliers.clear();
+
+            std::vector<float> temp_outliers;
 
             stringstream ss;
             ss << "Probability of measurements: ";
@@ -434,13 +436,22 @@ class FilterPublisher
 
                 if(prob_meas[i] < OUTLIER_THRESHOLD) {
                     std::pair<float, float> angles = sampled_measurements[i];
+                    temp_outliers.push_back(prob_meas[i]);
                     addOutlierMeasurement(angles.first, angles.second);
                 }
             }
             if(outliers.size() > 0) {
                 publish_rviz_outliers();
+                stringstream ss2;
+                ss2 << "Oulier positions: \n";
+                for(int i = 0; i < outliers.size(); i++) {
+                    std::pair<float, float> pos = outliers[i];
+                    ss2 << "[x: " << pos.first << " y: " << pos.second << "], ";
+                    //ss2 << "prob: " << temp_outliers[i] << "\n";
+                }
+                ROS_INFO("%s", ss2.str().c_str());
             }
-            ROS_INFO("%s", ss.str().c_str());
+            //ROS_INFO("%s", ss.str().c_str());
         }
 
         
@@ -451,10 +462,13 @@ class FilterPublisher
         float pos_y = winner_position.yPos;
         float theta = M_PI / 2;
 
+        float x_dist = 0.05;
+        float y_dist = 0.05;
+
         std::pair<float, float> winner_new_pos = particleToLidarConversion(pos_x, pos_y, theta, -0.03, 0.0);
 
-        float outlier_xpos = winner_new_pos.first + cos(angle) * range;
-        float outlier_ypos = winner_new_pos.second + sin(angle) * range;
+        float outlier_xpos = winner_new_pos.first + cos(winner_position.thetaPos + angle) * range;
+        float outlier_ypos = winner_new_pos.second + sin(winner_position.thetaPos + angle) * range;
 
         std::pair<float, float> outlier_position(outlier_xpos, outlier_ypos);
 
@@ -627,6 +641,9 @@ class FilterPublisher
         outlier.header.stamp = current_time;
         outlier.header.frame_id = "/odom";
 
+        ros::Duration second(1, 0);
+
+        outlier.lifetime = second;
         outlier.ns = "all_outliers";
         outlier.type = visualization_msgs::Marker::CUBE;
         outlier.action = visualization_msgs::Marker::ADD;
@@ -660,6 +677,8 @@ class FilterPublisher
         }
 
         outlier_publisher.publish(all_outliers);
+
+        all_outliers.markers.clear();
     }
 
 
