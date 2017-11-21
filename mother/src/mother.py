@@ -20,7 +20,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 
 from maze import MazeMap, MazeObject
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, RAUND
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, RAUND
 
 
 class Mother:
@@ -92,10 +92,11 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
-            self.exploration_path_publisher = rospy.Publisher(
-                "navigation/exploration_path", 
-                Bool, 
-                queue_size=1)
+            if RAUND == 1:
+                self.exploration_path_publisher = rospy.Publisher(
+                    NAVIGATION_EXPLORATION_TOPIC, 
+                    Bool, 
+                    queue_size=1)
             
 
         if USING_ARM:
