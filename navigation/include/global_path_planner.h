@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <std_msgs/Bool.h>
 
 using namespace std;
 
@@ -47,6 +48,7 @@ public:
 
     pair<int, int> getCell(double x, double y);
     int getDistance(pair<double,double> startCoord, pair<double,double> goalCoord);
+    void explorationCallback(const std_msgs::Bool::ConstPtr &msg);
 
 private:
     float robotRad;
