@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     pub.publish(msg);
 
     mapViz.publishMap();
-    mapViz.publishPath(path->globalPath);
+    //mapViz.publishPath(path->globalPath);
     mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();
     loop_rate.sleep();
