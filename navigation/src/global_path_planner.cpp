@@ -40,6 +40,7 @@ GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, fl
     cellSize = p_cellSize;
     robotRad = p_robotRad;
     setMap(mapFile);
+    explorationStatus = 0;
     //getExplorationPath();
 
 }
@@ -327,8 +328,12 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     return path;
 }
 
-
+// generates nodes and finds an exploration path through them
 void GlobalPathPlanner::getExplorationPath() {
+
+    string msg = "Generating an exploration path ...... ";
+    ROS_INFO("%s/n", msg.c_str());
+
     double cellSizeL = 0.35;
     pair<int, int> gridSizeL(ceil(mapScale.first/cellSizeL), ceil(mapScale.second/cellSizeL));
     for (int i = 0; i < gridSizeL.first; i++) {
@@ -360,7 +365,9 @@ void GlobalPathPlanner::getExplorationPath() {
     }
     auto end= chrono::high_resolution_clock::now();
     chrono::duration<double> elapsed = end-start;
-    cout << "Time to compute the distance matrix = " << elapsed.count()<< endl;
+    stringstream s;
+    s << "Time to compute the distance matrix = " << elapsed.count()<< endl;
+    ROS_INFO("%s/n", s.str().c_str());
 
     vector<int> visited(nodes.size(),0);
     vector<int> path;
@@ -384,7 +391,10 @@ void GlobalPathPlanner::getExplorationPath() {
     }
     end= chrono::high_resolution_clock::now();
     elapsed = end-start;
-    cout << "Time to find greedy path = " << elapsed.count()<< endl;
+    s.str("") ;
+    s << "Time to find greedy path = " << elapsed.count()<< endl;
+    ROS_INFO("%s/n", s.str().c_str());
+
     vector<pair<int,int> > pathGrid;
     cout << "Path : "<< endl;
     for (int i = 0; i < path.size()-1; i++) {
@@ -403,7 +413,13 @@ void GlobalPathPlanner::getExplorationPath() {
 void GlobalPathPlanner::explorationCallback(const std_msgs::Bool::ConstPtr &msg){
     bool start_exploration = msg->data;
     if (start_exploration) {
-
+        if (explorationStatus == 0) {
+            getExplorationPath();
+            explorationStatus = 1;
+        }
+    } else {
+        // stop exploration
+        explorationStatus = 2;
     }
 }
 

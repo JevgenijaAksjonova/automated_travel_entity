@@ -43,11 +43,14 @@ public:
     pair<double,double> mapScale;
     pair<size_t,size_t> gridSize;
     float cellSize;
-    vector<Node> nodes;
-    vector<pair<double, double> > explorationPath;
 
     pair<int, int> getCell(double x, double y);
     int getDistance(pair<double,double> startCoord, pair<double,double> goalCoord);
+
+    // exploration
+    int explorationStatus; // 0 - initial; 1 - follow path; 2 - do not follow a path
+    vector<Node> nodes;
+    vector<pair<double, double> > explorationPath;
     void explorationCallback(const std_msgs::Bool::ConstPtr &msg);
 
 private:
