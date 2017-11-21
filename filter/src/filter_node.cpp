@@ -131,7 +131,7 @@ class FilterPublisher
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
-        initalPose_subscriber = n.subscribe("/initialPose", 1 ,&FilterPublisher::initialPoseCallback, this);
+        initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
 
         _wheel_r = 0.04;
         _base_d = 0.2;
@@ -147,6 +147,7 @@ class FilterPublisher
         particle_randomness = std::normal_distribution<float>(0.0, random_particle_spread);
         _nr_measurements = nr_measurements;
         _nr_random_particles = nr_random_particles;
+        _nr_particles = nr_particles;
     }
 
     void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr &msg)
@@ -171,16 +172,17 @@ class FilterPublisher
     void initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg){
         _start_x = msg->pose.pose.position.x;
         _start_y = msg->pose.pose.position.y;
+        ROS_INFO("Initial pose recieved start_x [%f], start_y [%f] ", _start_x, _start_y);
         tf::Pose pose;
         tf::poseMsgToTF(msg->pose.pose, pose);
         _start_theta = tf::getYaw(pose.getRotation());
         _intitialPoseReceived = true;
-           
-        
+        ROS_INFO("Initial pose theta [%f] ", _start_theta);
     }
 
     void initializeParticles()
     {
+        ROS_INFO("intitializing particles!");
         float spread_xy = 0.05;
         float spread_theta = pi / 40;
 
@@ -189,6 +191,7 @@ class FilterPublisher
         std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(_start_theta, spread_theta);
 
         particles.resize(_nr_particles);
+
         for (int i = 0; i < _nr_particles; i++)
         {
 
@@ -207,7 +210,6 @@ class FilterPublisher
         {
             particles[m].weight = (float)1.0 / particles.size();
         }
-
         calculateVelocityAndNoise();
 
         if (linear_v != 0 || angular_w != 0)
@@ -718,6 +720,9 @@ int main(int argc, char **argv)
     most_likely_position_prev.yPos = 0.0;
     most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
+    bool ready_to_run = false;
+    ROS_INFO("Filter waiting for initial position");
+
 
 
 
@@ -727,6 +732,13 @@ int main(int argc, char **argv)
 
         
         if(filter._intitialPoseReceived){
+            filter.initializeParticles();
+            filter._intitialPoseReceived = false;
+            ready_to_run = true;
+            ROS_INFO("Ready to run!");
+
+        }
+        if(ready_to_run){
             most_likely_position = filter.localize(map);
             filter.winner_position = most_likely_position;
             filter.publishPosition(most_likely_position, most_likely_position_prev);
@@ -738,8 +750,6 @@ int main(int argc, char **argv)
 
             //filter.collect_measurements(sampled_measurements, map);
             most_likely_position_prev = most_likely_position;
-        }else{
-            ROS_INFO("Waiting for initial position");
         }
         ros::spinOnce();
 
