@@ -167,9 +167,8 @@ int main(int argc, char **argv)
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal_test", 1, &GoalPosition::publisherCallback, &goal);
-  ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
   ros::Subscriber explorationSub = n.subscribe("navigation/exploration_path", 1, &GoalPosition::explorationCallback, &goal);
-
+  ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
