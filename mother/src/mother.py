@@ -92,8 +92,8 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
-            self.exploration_path_publisher = rospy.Publisher
-                ("naviagation/exploration_path", 
+            self.exploration_path_publisher = rospy.Publisher(
+                "navigation/exploration_path", 
                 Bool, 
                 queue_size=1)
             
