@@ -58,7 +58,7 @@ class ObjectDetector:
             self.dbg_object_image = rospy.Publisher(
                 "camera/debug/object_candidate/image", Image, queue_size=1)
             self.dbg_img_pub = rospy.Publisher(
-                "/camera/debug/img", CompressedImage, queue_size=1)
+                "/camera/debug/img/compressed", CompressedImage, queue_size=1)
 
     def image_callback(self, ros_image):
         try:
@@ -102,7 +102,7 @@ class ObjectDetector:
                 dbg_msg.header.stamp = rospy.Time.now()
                 dbg_msg.format = "jpeg"
                 dbg_msg.data = np.array(cv2.imencode(".jpg",debug_img)[1]).tostring()
-                self.dbg_img_pub.publish(bridge.cv2_to_imgmsg(debug_img))
+                self.dbg_img_pub.publish(dbg_msg)
                 if len(object_candidates) > 0:
                     self.dbg_object_image.publish(
                         bridge.cv2_to_imgmsg(object_candidates[0].img, "rgb8"))

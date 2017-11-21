@@ -11,14 +11,14 @@ OBJECT_CANDIDATES_TOPIC = "/camera/object_candidates"
 GOAL_POSE_TOPIC = "/move_base_simple/goal"
 NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
 GOAL_ACHIEVED_TOPIC = "navigation/status"
-MOTHER_WORKING_FRAME = "world_map"
+MOTHER_WORKING_FRAME = "odom"
 ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
 ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 ODOMETRY_TOPIC = "/odometry_node/odom"
 
 USING_PATH_PLANNING = True
 USING_ARM = False
-USING_VISION = False
+USING_VISION = True
 
 color_2_rgb = {
     "green": (0, 255, 0),
@@ -32,5 +32,5 @@ color_2_rgb = {
 
 #Define verboseness of different parts
 
-VISION_VERBOSE = False
-DETECTION_VERBOSE = False
+VISION_VERBOSE = True
+DETECTION_VERBOSE = True

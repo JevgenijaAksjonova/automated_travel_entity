@@ -120,10 +120,12 @@ class Mother:
         self.goal_pose = goal_pose_msg
 
     def _navigation_status_callback(self, status_msg):
-        rospy.loinfo("navigation status callback")
+        rospy.loginfo("navigation status callback")
         status = status_msg.data
         if status:
             self.nav_goal_acchieved = True
+        else:
+            rospy.loginfo("navigation status = false")
 
     @property
     def pos(self):
@@ -264,7 +266,7 @@ class Mother:
             self.set_following_path_to_main_goal()
 
     # Main mother loop  
-    def mother_forever(self, rate=1):
+    def mother_forever(self, rate=5):
         rate = rospy.Rate(rate)
         rate.sleep()
 
@@ -332,10 +334,10 @@ class Mother:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
             #rospy.loginfo("mother iter {i}\n".format(i = self.i))
-            #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
-            #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            #rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
-            #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
+            rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
+            rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
+            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1

@@ -143,7 +143,7 @@ class MazeObject(object):
         ros_sucks = True
         obj_cand_msg_new = None
         i = 0
-        while ros_sucks and i < 100:
+        while ros_sucks and i < 3000:
             try:
                 obj_cand_msg_new = trans.transformPoint(
                     MOTHER_WORKING_FRAME, obj_cand_point_msg)
