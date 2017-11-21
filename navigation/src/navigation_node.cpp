@@ -128,16 +128,13 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
     bool req = request.req;
     if (req) {
         stringstream s;
-        s << "Exploration path callback! ";
+        s << "Exploration path callback! "<< loc->x << " " <<loc->y;
         ROS_INFO("%s/n", s.str().c_str());
         gpp->explorationCallback(req, loc->x, loc->y);
         path->setPath(x, y, theta, distanceTol, gpp->explorationPath);
     }
 
     response.resp = true;
-    stringstream s;
-    s << "Exploration path is set!!!! ";
-    ROS_INFO("%s/n", s.str().c_str());
     return true;
 }
 
