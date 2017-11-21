@@ -27,6 +27,7 @@
 #include <project_msgs/stop.h>
 #include "project_msgs/direction.h"
 #include "project_msgs/global_path.h"
+#include "project_msgs/exploration.h"
 
 using namespace std;
 
@@ -45,7 +46,8 @@ class GoalPosition {
     bool serviceCallback(project_msgs::global_path::Request &request,
                          project_msgs::global_path::Response &response);
 
-    void explorationCallback(const std_msgs::Bool::ConstPtr &msg);
+    bool explorationCallback(project_msgs::exploration::Request &request,
+                             project_msgs::exploration::Response &response);
   private:
     shared_ptr<GlobalPathPlanner> gpp;
     shared_ptr<Location> loc;
@@ -120,13 +122,22 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
     }
 }
 
-void GoalPosition::explorationCallback(const std_msgs::Bool::ConstPtr &msg) {
-    stringstream s;
-    s << "Exploration path callback! ";
-    ROS_INFO("%s/n", s.str().c_str());
-    gpp->explorationCallback(msg);
-    path->setPath(x, y, theta, distanceTol, gpp->explorationPath);
+bool GoalPosition::explorationCallback(project_msgs::exploration::Request &request,
+                                       project_msgs::exploration::Response &response) {
+
+    bool req = request.req;
+    if (req) {
+        stringstream s;
+        s << "Exploration path callback! ";
+        ROS_INFO("%s/n", s.str().c_str());
+        gpp->explorationCallback(req);
+        path->setPath(x, y, theta, distanceTol, gpp->explorationPath);
+    }
+
+    response.resp = true;
+    return true;
 }
+
 
 string getHomeDir() {
     passwd* pw = getpwuid(getuid());
@@ -167,7 +178,7 @@ int main(int argc, char **argv)
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal_test", 1, &GoalPosition::publisherCallback, &goal);
-  ros::Subscriber explorationSub = n.subscribe("navigation/exploration_path", 1, &GoalPosition::explorationCallback, &goal);
+  ros::ServiceServer explorationService = n.advertiseService("navigation/exploration_path", &GoalPosition::explorationCallback, &goal);
   ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);

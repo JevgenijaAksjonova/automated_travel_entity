@@ -51,7 +51,7 @@ public:
     int explorationStatus; // 0 - initial; 1 - follow path; 2 - do not follow a path
     vector<Node> nodes;
     vector<pair<double, double> > explorationPath;
-    void explorationCallback(const std_msgs::Bool::ConstPtr &msg);
+    void explorationCallback(bool start_exploration);
 
 private:
     float robotRad;

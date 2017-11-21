@@ -410,8 +410,7 @@ void GlobalPathPlanner::getExplorationPath() {
     }
 }
 
-void GlobalPathPlanner::explorationCallback(const std_msgs::Bool::ConstPtr &msg){
-    bool start_exploration = msg->data;
+void GlobalPathPlanner::explorationCallback(bool start_exploration){
     if (start_exploration) {
         if (explorationStatus == 0) {
             getExplorationPath();
