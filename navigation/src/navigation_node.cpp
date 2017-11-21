@@ -131,9 +131,8 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
         s << "Exploration path callback! "<< loc->x << " " <<loc->y;
         ROS_INFO("%s/n", s.str().c_str());
         gpp->explorationCallback(req, loc->x, loc->y);
-        vector<pair<double, double> > path = gpp->explorationPath;
-        pair<double, double> goal = path.back();
-        path->setPath(goal.first, goal.second, theta, distanceTol, path);
+        pair<double, double> goal = gpp->explorationPath.back();
+        path->setPath(goal.first, goal.second, theta, distanceTol, gpp->explorationPath);
     }
 
     response.resp = true;
