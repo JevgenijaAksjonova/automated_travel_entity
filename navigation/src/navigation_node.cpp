@@ -121,6 +121,9 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
 }
 
 void GoalPosition::explorationCallback(const std_msgs::Bool::ConstPtr &msg) {
+    stringstream s;
+    s << "Exploration path callback! ";
+    ROS_INFO("%s/n", s.str().c_str());
     gpp->explorationCallback(msg);
     path->setPath(x, y, theta, distanceTol, gpp->explorationPath);
 }
