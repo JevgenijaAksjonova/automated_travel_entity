@@ -11,6 +11,7 @@
 #include <ctime>
 #include <stdlib.h>
 #include <pwd.h>
+#include <sstream>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -29,6 +30,7 @@ class FilterPublisher
 
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
+    ros::Publisher outlier_publisher;
 
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
@@ -43,6 +45,11 @@ class FilterPublisher
     float range_max;
     int _nr_measurements;
     int _nr_random_particles;
+    int _nr_particles = 500;
+
+    std::vector<pair<float, float>> outliers;
+
+    Particle winner_position;
 
     //LocalizationGlobalMap map;
 
@@ -57,6 +64,7 @@ class FilterPublisher
         float k_D = 0.5;
         float k_V = 0.5;
         float k_W = 0.5;
+
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
@@ -111,6 +119,7 @@ class FilterPublisher
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
+        outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
@@ -393,9 +402,46 @@ class FilterPublisher
 
         if (ranges.size() > 0)
         {
+            prob_meas = std::vector<float>(_nr_measurements, 0.0);
+            getParticlesWeight(particles, prob_meas, map, sampled_measurements, max_distance, lidar_x, lidar_y);
+        
 
-            getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
+            // LOOKING FOR OUTLIERS FOR WALL DETECTION
+            outliers.clear();
+
+            stringstream ss;
+            ss << "Probability of measurements: ";
+            for(int i = 0; i < prob_meas.size(); i++) {
+                prob_meas[i] = prob_meas[i] / _nr_particles;
+                ss << prob_meas[i] << ", ";
+
+                if(prob_meas[i] < OUTLIER_THRESHOLD) {
+                    std::pair<float, float> angles = sampled_measurements[i];
+                    addOutlierMeasurement(angles.first, angles.second);
+                }
+            }
+            if(outliers.size() > 0) {
+                publish_rviz_outliers();
+            }
+            ROS_INFO("%s", ss.str().c_str());
         }
+
+        
+    }
+
+    void addOutlierMeasurement(float angle, float range) {
+        float pos_x = winner_position.xPos;
+        float pos_y = winner_position.yPos;
+        float theta = M_PI / 2;
+
+        std::pair<float, float> winner_new_pos = particleToLidarConversion(pos_x, pos_y, theta, -0.03, 0.0);
+
+        float outlier_xpos = winner_new_pos.first + cos(angle) * range;
+        float outlier_ypos = winner_new_pos.second + sin(angle) * range;
+
+        std::pair<float, float> outlier_position(outlier_xpos, outlier_ypos);
+
+        outliers.push_back(outlier_position);
     }
 
     void publishPosition(Particle ml_pos, Particle ml_pos_prev)
@@ -554,6 +600,51 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
+    void publish_rviz_outliers()
+    {
+        ros::Time current_time = ros::Time::now();
+        
+        visualization_msgs::MarkerArray all_outliers;
+        visualization_msgs::Marker outlier;
+
+        outlier.header.stamp = current_time;
+        outlier.header.frame_id = "/odom";
+
+        outlier.ns = "all_outliers";
+        outlier.type = visualization_msgs::Marker::CUBE;
+        outlier.action = visualization_msgs::Marker::ADD;
+
+        outlier.pose.position.z = 0.05;
+
+        // Set the color -- be sure to set alpha to something non-zero!
+        outlier.color.r = 1.0f;
+        outlier.color.g = 0.0f;
+        outlier.color.b = 0.0f;
+        outlier.color.a = 1.0;
+
+        float weight = 0.1;
+
+        int id = 0;
+        for (int i = 0; i < particles.size(); i++)
+        {
+
+            outlier.pose.position.x = outliers[i].first;
+            outlier.pose.position.y = outliers[i].second;
+
+            // Set the scale of the marker -- 1x1x1 here means 1m on a side
+            outlier.scale.y = weight;
+            outlier.scale.x = weight;
+            outlier.scale.z = weight;
+
+            outlier.id = id;
+            id++;
+
+            all_outliers.markers.push_back(outlier);
+        }
+
+        outlier_publisher.publish(all_outliers);
+    }
+
 
   private:
     std::vector<int> encoding_abs_prev;
@@ -566,6 +657,8 @@ class FilterPublisher
     std::normal_distribution<float> particle_randomness;
     std::vector<Particle> particles;
 
+    std::vector<float> prob_meas;
+
     float _wheel_r;
     float _base_d;
     int tick_per_rotation = 900;
@@ -575,6 +668,8 @@ class FilterPublisher
     bool first_loop;
     float linear_v;
     float angular_w;
+
+    float OUTLIER_THRESHOLD = 0.2;
 
     float _k_D;
     float _k_V;
@@ -617,8 +712,16 @@ int main(int argc, char **argv)
 
 
         most_likely_position = filter.localize(map);
+
+        filter.winner_position = most_likely_position;
+
         filter.publishPosition(most_likely_position, most_likely_position_prev);
         filter.publish_rviz_particles();
+
+        // if(filter.outliers.size() > 0) {
+        //     filter.publish_rviz_outliers();
+        // }
+
         //filter.collect_measurements(sampled_measurements, map);
         most_likely_position_prev = most_likely_position;
         ros::spinOnce();

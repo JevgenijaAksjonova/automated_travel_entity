@@ -64,7 +64,7 @@ float get_dist_value(float mean, float sigma2, float number){
     return base*exponent;
 }
 
-float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta)
+float calculateWeight(vector<float> &prob_meas, LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta)
 {
     if(translated_particle_x <0 || translated_particle_x > 2.4 || translated_particle_y < 0 || translated_particle_y > 2.409){
         return 0;
@@ -81,6 +81,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
     float lambda_short = 4.776181;
     
+    int num_short = 0;
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, particle_theta);
 
@@ -124,6 +125,9 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
             float eta_short = 1 / (1 - exp(-lambda_short * mapRange));
 
             prob_short = eta_short * lambda_short * exp(-lambda_short * mapRange);
+
+            num_short++;
+            //ROS_INFO("Prob_short: %f", prob_short);
         }
 
         // Calculate the max probability
@@ -142,17 +146,21 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
         p = z_hit * prob_hit + z_short * prob_short + z_max * prob_max + z_random * prob_random;
         //ROS_INFO("p [%f]", p);
 
+        prob_meas[r] += p;
+
         q *= p;
 
     }
 
     weight = q;
+
+    //ROS_INFO("Number of short: %d", num_short);
     
 
     return weight;
 }
 
-void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y)
+void getParticlesWeight(vector<Particle> &particles, vector<float> &prob_meas, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y)
 {
     float weight = 0;
 
@@ -165,7 +173,7 @@ void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, 
 
 
         if(new_particle_center.first < x_map_max_distance && new_particle_center.first > 0 && new_particle_center.second < y_map_max_distance && new_particle_center.second > 0) {
-            weight = calculateWeight(map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, particles[p].thetaPos); 
+            weight = calculateWeight(prob_meas, map, new_particle_center.first, new_particle_center.second, laser_data, max_distance, particles[p].thetaPos); 
             
             
         } else {
@@ -187,6 +195,7 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
     float sigma_parameter = 0;
     float lambda_parameter = 0;
+    
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, theta);
 
