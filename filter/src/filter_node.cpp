@@ -127,7 +127,6 @@ class FilterPublisher
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
-        outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
@@ -419,61 +418,11 @@ class FilterPublisher
 
         if (ranges.size() > 0)
         {
-            prob_meas = std::vector<float>(_nr_measurements, 0.0);
-            getParticlesWeight(particles, prob_meas, map, sampled_measurements, max_distance, lidar_x, lidar_y);
-        
-
-            // LOOKING FOR OUTLIERS FOR WALL DETECTION
-            //outliers.clear();
-
-            std::vector<float> temp_outliers;
-
-            stringstream ss;
-            ss << "Probability of measurements: ";
-            for(int i = 0; i < prob_meas.size(); i++) {
-                prob_meas[i] = prob_meas[i] / _nr_particles;
-                ss << prob_meas[i] << ", ";
-
-                if(prob_meas[i] < OUTLIER_THRESHOLD) {
-                    std::pair<float, float> angles = sampled_measurements[i];
-                    temp_outliers.push_back(prob_meas[i]);
-                    addOutlierMeasurement(angles.first, angles.second);
-                }
-            }
-            if(outliers.size() > 0) {
-                publish_rviz_outliers();
-                stringstream ss2;
-                ss2 << "Oulier positions: \n";
-                for(int i = 0; i < outliers.size(); i++) {
-                    std::pair<float, float> pos = outliers[i];
-                    ss2 << "[x: " << pos.first << " y: " << pos.second << "], ";
-                    //ss2 << "prob: " << temp_outliers[i] << "\n";
-                }
-                ROS_INFO("%s", ss2.str().c_str());
-            }
-            //ROS_INFO("%s", ss.str().c_str());
+            getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
         }
-
         
     }
 
-    void addOutlierMeasurement(float angle, float range) {
-        float pos_x = winner_position.xPos;
-        float pos_y = winner_position.yPos;
-        float theta = M_PI / 2;
-
-        float x_dist = 0.05;
-        float y_dist = 0.05;
-
-        std::pair<float, float> winner_new_pos = particleToLidarConversion(pos_x, pos_y, theta, -0.03, 0.0);
-
-        float outlier_xpos = winner_new_pos.first + cos(winner_position.thetaPos + angle) * range;
-        float outlier_ypos = winner_new_pos.second + sin(winner_position.thetaPos + angle) * range;
-
-        std::pair<float, float> outlier_position(outlier_xpos, outlier_ypos);
-
-        outliers.push_back(outlier_position);
-    }
 
     void publishPosition(Particle ml_pos, Particle ml_pos_prev)
     {
@@ -631,55 +580,6 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
-    void publish_rviz_outliers()
-    {
-        ros::Time current_time = ros::Time::now();
-        
-        visualization_msgs::MarkerArray all_outliers;
-        visualization_msgs::Marker outlier;
-
-        outlier.header.stamp = current_time;
-        outlier.header.frame_id = "/odom";
-
-        ros::Duration second(1, 0);
-
-        outlier.lifetime = second;
-        outlier.ns = "all_outliers";
-        outlier.type = visualization_msgs::Marker::CUBE;
-        outlier.action = visualization_msgs::Marker::ADD;
-
-        outlier.pose.position.z = 0.05;
-
-        // Set the color -- be sure to set alpha to something non-zero!
-        outlier.color.r = 1.0f;
-        outlier.color.g = 0.0f;
-        outlier.color.b = 0.0f;
-        outlier.color.a = 1.0;
-
-        float weight = 0.1;
-
-        int id = 0;
-        for (int i = 0; i < particles.size(); i++)
-        {
-
-            outlier.pose.position.x = outliers[i].first;
-            outlier.pose.position.y = outliers[i].second;
-
-            // Set the scale of the marker -- 1x1x1 here means 1m on a side
-            outlier.scale.y = weight;
-            outlier.scale.x = weight;
-            outlier.scale.z = weight;
-
-            outlier.id = id;
-            id++;
-
-            all_outliers.markers.push_back(outlier);
-        }
-
-        outlier_publisher.publish(all_outliers);
-
-        all_outliers.markers.clear();
-    }
 
 
   private:
@@ -704,9 +604,6 @@ class FilterPublisher
     bool first_loop;
     float linear_v;
     float angular_w;
-
-    float OUTLIER_THRESHOLD = 0.2;
-
     float _k_D;
     float _k_V;
     float _k_W;

@@ -1,3 +1,0 @@
-<launch>
-	<node name="filter_node" pkg="particle_filter" type="particle_filter" />
-</launch>
