@@ -720,8 +720,11 @@ int main(int argc, char **argv)
     most_likely_position_prev.yPos = 0.0;
     most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
-    bool ready_to_run = false;
-    ROS_INFO("Filter waiting for initial position");
+
+    filter._start_x = 0.215;
+    filter._start_y = 0.230;
+    filter._start_theta = M_PI/2;
+    filter.initializeParticles();
 
 
 
@@ -737,23 +740,20 @@ int main(int argc, char **argv)
             most_likely_position_prev.xPos = filter._start_x;
             most_likely_position_prev.yPos = filter._start_y;
             most_likely_position_prev.thetaPos = filter._start_theta;
-            ready_to_run = true;
             ROS_INFO("Ready to run!");
 
         }
-        if(ready_to_run){
-            most_likely_position = filter.localize(map);
-            filter.winner_position = most_likely_position;
-            filter.publishPosition(most_likely_position, most_likely_position_prev);
-            filter.publish_rviz_particles();
+        most_likely_position = filter.localize(map);
+        filter.winner_position = most_likely_position;
+        filter.publishPosition(most_likely_position, most_likely_position_prev);
+        filter.publish_rviz_particles();
 
-            // if(filter.outliers.size() > 0) {
-            //     filter.publish_rviz_outliers();
-            // }
+        // if(filter.outliers.size() > 0) {
+        //     filter.publish_rviz_outliers();
+        // }
 
-            //filter.collect_measurements(sampled_measurements, map);
-            most_likely_position_prev = most_likely_position;
-        }
+        //filter.collect_measurements(sampled_measurements, map);
+        most_likely_position_prev = most_likely_position;
         ros::spinOnce();
 
         loop_rate.sleep();
