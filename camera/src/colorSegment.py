@@ -4,12 +4,15 @@ from __future__ import print_function
 import pprint
 from os import listdir, makedirs, path
 from shutil import copy2
-
+import zbar
 import numpy as np
 
 import cv2
 import math
 import yaml
+import Image as PilImage
+
+
 
 import random
 pp = pprint.PrettyPrinter(indent=4)
@@ -149,7 +152,6 @@ def color_segment_image(bgr_image,
                         return_debug_image=False,
                         apply_checks=True,
                         hsv_thresholds = default_hsv_thresh):
-    #IDEA! Remove lense glare detections by removing blue objects detected on top
     hsv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
     #hsv_image = cv2.medianBlur(hsv_image,11)
 
@@ -157,7 +159,20 @@ def color_segment_image(bgr_image,
     #to_many_object_candidates = False
     if return_debug_image:
         bgr_dbg = bgr_image.copy()
-
+    #Try to detect qr cod
+    scanner = zbar.ImageScanner()
+    scanner.parse_config("enable")
+    gray_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY, dstCn=0)
+    gray_pil_image = PilImage.fromarray(gray_image)
+    width,height = gray_pil_image.size
+    raw_gray_image = gray_pil_image.tostring()
+    zbar_image = zbar.Image(width,height,"Y800",raw_gray_image)
+    scanner.scan(zbar_image)
+    
+    # extract results
+    for symbol in zbar_image:
+        # do something useful with results
+        print('decoded', symbol.type, 'symbol', '"%s"' % symbol.data,"location =",symbol.location)
     for color in ["red","green","blue","purple"]:
         #if to_many_object_candidates:
             #break
@@ -217,7 +232,7 @@ def color_segment_image(bgr_image,
 
             #to_many_object_candidates = len(
                 #object_candidates) > 8 if apply_checks else False         
-
+            
     object_candidates, bgr_dbg = (
         object_candidates, bgr_dbg) if True else (#not to_many_object_candidates else (
             [], bgr_image)
