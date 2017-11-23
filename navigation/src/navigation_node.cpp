@@ -321,7 +321,9 @@ int main(int argc, char **argv)
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);
 
-    mapViz.publishMap();
+    if (count % 100 = 0) {
+        mapViz.publishMap();
+    }
     //mapViz.publishPath(path->globalPath);
     mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();
