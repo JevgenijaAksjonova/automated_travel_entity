@@ -227,9 +227,10 @@ int main(int argc, char **argv)
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
 
-        if (fabs(path->directionChange) > 0.1) {
-            path->onlyTurn = true;
-        } else if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
+        //if (fabs(path->directionChange) > 0.1) {
+        //    path->onlyTurn = true;
+        //} else
+        if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
             // make sure that the robot turned enough (if sign differ, this is the case)
             path->onlyTurn = false;
         }
