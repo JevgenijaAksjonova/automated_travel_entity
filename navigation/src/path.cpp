@@ -67,11 +67,24 @@ double Path::diffAngles(double a, double b) {
     return normalizeAngle(diff);
 }
 
+void Path::goalIsReached() {
+    string msg = "Goal is reached!";
+    ROS_INFO("%s/n", msg.c_str());
+    std_msgs::Bool status_msg;
+    status_msg.data = 1;
+    statusPub.publish(status_msg);
+    move = false;
+    linVel = 0;
+    angVel = 0;
+}
+
+
 void Path::followPath(double x, double y, double theta) {
     pair<double, double> loc(x,y);
     pair<double,double> goal(goalX,goalY);
     double dist = distance(goal,loc);
     directionChange = 0;
+
     if (globalPath.size() > 0 ) {
         if (distance(globalPath[0],loc) > 1.4*pathRad) {
             move = false;
@@ -84,17 +97,23 @@ void Path::followPath(double x, double y, double theta) {
             globalPath.erase(globalPath.begin());
         }
         linVel = distance(globalPath[0], loc);
-        double targetAng = getAngle(globalPath[0],loc);
-        angVel = diffAngles(targetAng, theta);
-        amendDirection();
-        if (linVel < distanceTol) {
+        double targetAng = goalAng;
+        if (linVel > distanceTol) {
+            targetAng = getAngle(globalPath[0],loc);
+            angVel = diffAngles(targetAng, theta);
+            amendDirection();
+        } else {
             globalPath.erase(globalPath.begin());
             linVel = 0;
             angVel = diffAngles(goalAng,theta);
+            if ( fabs(angVel) <= angleTol) {
+                goalIsReached();
+            }
         }
         stringstream s;
         s << "Angles " << targetAng <<" "<< theta << " " << angVel;
         ROS_INFO("%s/n", s.str().c_str());
+
     } else if (dist > distanceTol) {
         linVel = distance(goal, loc);
         angVel = getAngle(goal, loc);
@@ -102,14 +121,7 @@ void Path::followPath(double x, double y, double theta) {
         linVel = 0;
         angVel = diffAngles(goalAng, theta);
     } else {
-        string msg = "Goal is reached!";
-        ROS_INFO("%s/n", msg.c_str());
-        std_msgs::Bool status_msg;
-        status_msg.data = 1;
-        statusPub.publish(status_msg);
-        move = false;
-        linVel = 0;
-        angVel = 0;
+        goalIsReached();
     }
     // avoid turns with big radius, turn first, then move
     //if (fabs(angVel) > M_PI/3.0 && linVel > 0) {
