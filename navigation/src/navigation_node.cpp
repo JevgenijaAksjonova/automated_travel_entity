@@ -76,10 +76,10 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
   double x_new = request.pose.linear.x;
   double y_new = request.pose.linear.y;
   double theta_new = request.pose.angular.x;
-  distanceTol = request.distanceTol;
-  angleTol = request.angleTol;
+  double distanceTol_new = request.distanceTol;
+  double angleTol_new = request.angleTol;
 
-  callback(x_new, y_new, theta_new);
+  callback(x_new, y_new, theta_new,distanceTol_new, angleTol_new);
   response.path_found = path_found;
 
   return true;
@@ -92,14 +92,21 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
     s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
     ROS_INFO("%s/n", s.str().c_str());
 
-    if ((x_new != x)||(y_new != y)||(theta_new != theta)) {
+    if ((x_new != x)||(y_new != y)||(theta_new != theta)||(distanceTol_new!=distanceTol)||(angleTol_new!=angleTol)) {
         x = x_new;
         y = y_new;
         theta = theta_new;
+        distanceTol = distanceTol_new;
+        angleTol = angleTol_new;
         stringstream s;
         s << "New goal position: " << x << " " << y << " " << theta;
         ROS_INFO("%s/n", s.str().c_str());
         changedPosition = true;
+    }
+
+    if (distanceTol > 10) {
+        x = loc->x;
+        y = loc->y;
     }
 
     if (changedPosition) {
