@@ -64,7 +64,7 @@ void GoalPosition::publisherCallback(const geometry_msgs::Twist::ConstPtr& msg)
 {
   double x_new = msg->linear.x;
   double y_new = msg->linear.y;
-  double theta_new = msg->angular.x;
+  double theta_new = msg->angular.z;
 
   callback(x_new,y_new,theta_new, distanceTol, angleTol);
 
@@ -75,7 +75,7 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
 {
   double x_new = request.pose.linear.x;
   double y_new = request.pose.linear.y;
-  double theta_new = request.pose.angular.x;
+  double theta_new = request.pose.angular.z;
   double distanceTol_new = request.distanceTol;
   double angleTol_new = request.angleTol;
 
