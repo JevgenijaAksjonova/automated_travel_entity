@@ -228,7 +228,7 @@ int main(int argc, char **argv)
         ROS_INFO("%s/n", s.str().c_str());
 
         if (fabs(path->directionChanged) > 0.1) {
-            path->onlyTurn == True;
+            path->onlyTurn = true;
         } else if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
             // make sure that the robot turned enough (if sign differ, this is the case)
             path->onlyTurn = false;
