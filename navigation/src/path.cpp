@@ -14,13 +14,14 @@
 
 using namespace std;
 
-void Path::setPath(double x, double y, double theta, double p_distanceTol, vector<pair<double,double> > path) {
+void Path::setPath(double x, double y, double theta, double p_distanceTol, double p_angleTol, vector<pair<double,double> > path) {
     globalPath = path;
     setGoal(x, y, theta);
     pair<double,double> pathEnd = path.back();
     pair<double,double> goal = pair<double, double>(x,y);
     double minTol = distance(goal,pathEnd);
     distanceTol = max(p_distanceTol,minTol);
+    angleTol = p_angleTol;
     move = true;
 }
 

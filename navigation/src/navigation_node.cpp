@@ -37,6 +37,7 @@ class GoalPosition {
     double y;
     double theta;
     double distanceTol;
+    double angleTol;
     bool changedPosition;
     bool path_found;
 
@@ -55,7 +56,7 @@ class GoalPosition {
 };
 
 GoalPosition::GoalPosition(shared_ptr<GlobalPathPlanner> _gpp, shared_ptr<Location> _loc, shared_ptr<Path> _path):
-             x(0), y(0), theta(0), distanceTol(0.05), gpp(_gpp), loc(_loc), path(_path),
+             x(0), y(0), theta(0), distanceTol(0.10), angleTol(2*M_PI), gpp(_gpp), loc(_loc), path(_path),
              changedPosition(false) {
 }
 
@@ -76,6 +77,7 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
   double y_new = request.pose.linear.y;
   double theta_new = request.pose.angular.x;
   distanceTol = request.distanceTol;
+  angleTol = request.angleTol;
 
   callback(x_new, y_new, theta_new);
   response.path_found = path_found;
@@ -115,7 +117,7 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
             stringstream s;
             s << "Path is found, size" << globalPath.size();
             ROS_INFO("%s/n", s.str().c_str());
-            path->setPath(x, y, theta, distanceTol, globalPath);
+            path->setPath(x, y, theta, distanceTol, angleTol, globalPath);
             changedPosition = false;
             path_found = true;
         }
@@ -136,7 +138,7 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
         ROS_INFO("%s/n", s.str().c_str());
         gpp->explorationCallback(req, loc->x, loc->y);
         pair<double, double> goal = gpp->explorationPath.back();
-        path->setPath(goal.first, goal.second, theta, distanceTol, gpp->explorationPath);
+        path->setPath(goal.first, goal.second, theta, 0.10, 2*M_PI, gpp->explorationPath);
     }
 
     response.resp = true;
@@ -172,7 +174,7 @@ int main(int argc, char **argv)
 
   // Path
   double pathRad = 0.25;
-  double distanceTol = 0.05;
+  double distanceTol = 0.10;
   double angleTol = 2*M_PI;
   shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);
   path->lppService = n.serviceClient<project_msgs::direction>("local_path");
@@ -254,7 +256,7 @@ int main(int argc, char **argv)
         if (gpp->explorationStatus == 1) {
             gpp->explorationCallback(true, loc->x, loc->y);
             pair<double, double> g = gpp->explorationPath.back();
-            path->setPath(g.first, g.second, goal.theta, distanceTol, gpp->explorationPath);
+            path->setPath(g.first, g.second, goal.theta, distanceTol, angleTol, gpp->explorationPath);
         } else {
             string msg = "Recalculate path";
             ROS_INFO("%s/n", msg.c_str());
@@ -272,7 +274,7 @@ int main(int argc, char **argv)
                 stringstream s;
                 s << "Path is found, size" << globalPath.size();
                 ROS_INFO("%s/n", s.str().c_str());
-                path->setPath(goal.x, goal.y, goal.theta, distanceTol, globalPath);
+                path->setPath(goal.x, goal.y, goal.theta, goal.distanceTol, goal.angleTol, globalPath);
             }
         }
     }

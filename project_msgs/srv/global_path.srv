@@ -1,4 +1,5 @@
 geometry_msgs/Twist pose
 float64 distanceTol
+float64 angleTol
 ---
 bool path_found
