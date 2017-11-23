@@ -185,23 +185,53 @@ int main(int argc, char **argv)
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
 
+  vector<pair<double, double> > history;
+  maxHistorySize = 10;
 
   int count = 0;
   while (ros::ok())
   {
+
+    path->linVel = 0;
+    path->angVel = 0;
+
+    if (path->move && path->replan) {
+        string msg = "Recalculate path";
+        ROS_INFO("%s/n", msg.c_str());
+        pair<double, double> startCoord(loc->x,loc->y);
+        pair<double, double> goalCoord(goal->x,goal->y);
+        vector<pair<double,double> >  globalPath = gpp->getPath(startCoord, goalCoord);
+        if (globalPath.size() == 0) {
+            stringstream s;
+            s << "Cant find a global path! Location " << loc->x <<" "<< loc->y;
+            ROS_INFO("%s/n", s.str().c_str());
+            path->move = false;
+            std_msgs::Bool status_msg;
+            status_msg.data = 0;
+            path->statusPub.publish(status_msg);
+        } else {
+            stringstream s;
+            s << "Path is found, size" << globalPath.size();
+            ROS_INFO("%s/n", s.str().c_str());
+            path->setPath(goal->x, goal->y, goal->theta, distanceTol, globalPath);
+        }
+    }
+
     if (path->move) {
         path->followPath(loc->x,loc->y,loc->theta);
         stringstream s;
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
-    } else {
-      path->linVel = 0;
-      path->angVel = 0;
-    }
-
-    if (!path->move) {
-        path->linVel = 0;
-        path->angVel = 0;
+    } else if (path->rollback){
+        if (history.size() > 0 ) {
+            pair<double, double> vel = history.back();
+            history.pop_back();
+            path->linVel = -vel.first;
+            path->angVel = -vel.second;
+        } else {
+            path->rollback = false;
+            path-> move = true;
+        }
     }
 
     double c = 0.13; // total velocity
@@ -217,6 +247,13 @@ int main(int argc, char **argv)
     } else if (path->angVel > 0) {
         path->angVel = c/r;
     }
+
+    // precaution (if emergency stop appeared while doing computations)
+    if (!path->move) {
+        path->linVel = 0;
+        path->angVel = 0;
+    }
+
     geometry_msgs::Twist msg;
     msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
@@ -224,6 +261,13 @@ int main(int argc, char **argv)
     msg.angular.x = 0.0;
     msg.angular.y = 0.0;
     msg.angular.z = path->angVel;
+
+    if ( move && (path->linVel != 0 || path->angVel !=0) ) {
+        history.push_back(pair<double,double>(path->linVel, path->angVel));
+    }
+    if (history.size() > maxHistorySize) {
+        history.erase(history.begin());
+    }
 
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);

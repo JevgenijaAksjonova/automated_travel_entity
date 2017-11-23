@@ -9,6 +9,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
+from project_msgs.msg import stop
 from nav_msgs.msg import Odometry
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler
@@ -20,7 +21,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 
 from maze import MazeMap, MazeObject
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
 
 class Mother:
@@ -33,6 +34,7 @@ class Mother:
     object_classification_queue = []
     problem_with_path_following = False
     nav_goal_acchieved = True
+    stop_info = stop()
     mode = "waiting_for_main_goal"
 
     def __init__(self):
@@ -93,15 +95,14 @@ class Mother:
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
             if ROUND == 1:
-                #self.exploration_path_publisher = rospy.Publisher(
-                #    NAVIGATION_EXPLORATION_TOPIC, 
-                #    Bool, 
-                #    queue_size=1)
                 rospy.loginfo(
                     "Waiting for service {0}".format(NAVIGATION_EXPLORATION_TOPIC))
                 rospy.wait_for_service(NAVIGATION_EXPLORATION_TOPIC)
                 self.exploration_path_service = rospy.ServiceProxy(
                     NAVIGATION_EXPLORATION_TOPIC, exploration, persistent=True)
+            rospy.Subscriber(
+                NAVIGATION_STOP_TOPIC, stop, callback=self._navigation_stop_callback, queue_size=10)
+            self.stop_pub = rospy.Publisher(NAVIGATION_STOP_TOPIC, stop)
             
 
         if USING_ARM:
@@ -137,6 +138,29 @@ class Mother:
             self.nav_goal_acchieved = True
         else:
             rospy.loginfo("navigation status = false")
+
+    def _navigation_stop_callback(self, stop_msg):
+        if (self.mode != "handling_emergency_stop"):
+            rospy.loginfo("navigation stop callback")
+            self.stop_info = stop_msg
+            self.mode = "handling_emergency_stop"
+            if stop_info.stop:
+                if stop_info.reason == 1:
+                    rospy.loginfo("EMERGENCY STOP, LIDAR")
+                elif stop_info.reason == 2:
+                    rospy.loginfo("EMERGENCY STOP, DEPTH")
+                elif stop_info.reason == 3:
+                    rospy.loginfo("EMERGENCY STOP, LPP: NO WAY")
+                elif stop_info.reason == 4:
+                    rospy.loginfo("EMERGENCY STOP, DEVIATION FROM A PATH")
+                else:
+                    rospy.loginfo("EMERGENCY STOP, REASON NOT SPECIFIED")
+            # response
+            msg = stop()
+            msg.stop = False
+            msg.replan = False
+            msg.rollback = True
+            self.stop_pub.publish(msg) 
 
     @property
     def pos(self):
@@ -378,6 +402,11 @@ class Mother:
                         rospy.loginfo("Arm movement success")
                     else:
                         rospy.loginfo("Arm movement failed")
+
+            elif self.mode = "handling_emergency_stop":
+
+
+
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
