@@ -27,6 +27,7 @@ class Path {
 
     ros::ServiceClient lppService;
     ros::Publisher statusPub;
+    ros::Publisher stopPub;
 
     Path(double _pathRad, double _distanceTol, double _angleTol): 
         linVel(0), angVel(0), 
@@ -52,6 +53,7 @@ class Path {
     double diffAngles(double a, double b) ;
     double normalizeAngle(double angle);
     void amendDirection();
+    void stop();
 };
 
 #endif // NAVIGATION_PATH_H

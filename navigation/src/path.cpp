@@ -73,8 +73,7 @@ void Path::followPath(double x, double y, double theta) {
     if (globalPath.size() > 0 ) {
         if (distance(globalPath[0],loc) > 1.4*pathRad) {
             move = false;
-            string msg = "STOP! DEVIATION FROM THE PATH!";
-            ROS_INFO("%s/n", msg.c_str());
+            stop();
         }
         while (globalPath.size() > 1 &&
                    (distance(globalPath[0],loc) < pathRad ||
@@ -130,6 +129,16 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
             replan = true;
         }
     }
+}
+
+void Path::stop() {
+    project_msgs::stop msg;
+    msg.stamp = ros::Time::now();
+    msg.stop = true;
+    msg.reason = 4;
+    stopPub.publish(msg);
+    string s = "STOP! DEVIATION FROM THE PATH!";
+    ROS_INFO("%s/n", s.c_str());
 }
 
 void Path::amendDirection() {

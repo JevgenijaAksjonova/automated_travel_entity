@@ -173,6 +173,7 @@ int main(int argc, char **argv)
   shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);
   path->lppService = n.serviceClient<project_msgs::direction>("local_path");
   path->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  path->stopPub = n.advertise<project_msgs::stop>("navigation/obstacles", 1);
   // emergency stop
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, path.get());
 

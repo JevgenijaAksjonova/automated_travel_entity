@@ -64,14 +64,15 @@ class LocalPathPlanner {
     void filterNoise(vector<double>& localMap);
     void addDepth(vector<double>& localMap);
 
-    void stop();
+    void stop(int reason);
     void emergencyStopLidar();
 };
 
-void LocalPathPlanner::stop() {
+void LocalPathPlanner::stop(int reason) {
     project_msgs::stop msg;
     msg.stamp = ros::Time::now();
     msg.stop = true;
+    msg.reason = reason;
     stopPub.publish(msg);
 }
 
@@ -212,7 +213,7 @@ void LocalPathPlanner::emergencyStopLidar() {
     //cout << endl;
     //cout << count << endl;
     if (count > 2) {
-        stop();
+        stop(1);
         stringstream s;
         s << "EMERGENCY STOP, LIDAR! ";
         for (int i=60; i < 121; i++) {
@@ -277,7 +278,7 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
         }
         if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
             res.angVel = 0;
-            stop();
+            stop(3);
         }
     }
     if (localMapProcessed[mod(angleInd,360)] < 1.0) {
