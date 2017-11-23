@@ -39,7 +39,7 @@ GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, fl
     cellSize = p_cellSize;
     robotRad = p_robotRad;
     setMap(mapFile);
-    getExplorationPath();
+    //getExplorationPath();
 
 }
 
