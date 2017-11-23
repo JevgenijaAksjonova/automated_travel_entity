@@ -301,9 +301,8 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     while (diff <= - M_PI) {
         diff += 2*M_PI;
     }
-    return angle;
     if (diff < M_PI/3.0) {
-        double dr = pow(dx*dx+dy*dy,0.5);
+        float dr = pow(dx*dx+dy*dy,0.5);
         for (int i = 0; i < rangesDepth.size(); i++) {
             anglesDepth[i] -= dtheta;
             transform(rangesDepth[i], anglesDepth[i], dr);
