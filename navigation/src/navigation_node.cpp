@@ -186,7 +186,7 @@ int main(int argc, char **argv)
   ros::Rate loop_rate(10);
 
   vector<pair<double, double> > history;
-  maxHistorySize = 10;
+  int maxHistorySize = 10;
 
   bool onlyTurn = false;
   double prevAngVel = 0.0;
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
         string msg = "Recalculate path";
         ROS_INFO("%s/n", msg.c_str());
         pair<double, double> startCoord(loc->x,loc->y);
-        pair<double, double> goalCoord(goal->x,goal->y);
+        pair<double, double> goalCoord(goal.x,goal.y);
         vector<pair<double,double> >  globalPath = gpp->getPath(startCoord, goalCoord);
         if (globalPath.size() == 0) {
             stringstream s;
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
             stringstream s;
             s << "Path is found, size" << globalPath.size();
             ROS_INFO("%s/n", s.str().c_str());
-            path->setPath(goal->x, goal->y, goal->theta, distanceTol, globalPath);
+            path->setPath(goal.x, goal.y, goal.theta, distanceTol, globalPath);
         }
     }
 
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
     msg.angular.y = 0.0;
     msg.angular.z = path->angVel;
 
-    if ( move && (path->linVel != 0 || path->angVel !=0) ) {
+    if ( (path->move==true) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
         history.push_back(pair<double,double>(path->linVel, path->angVel));
     }
     if (history.size() > maxHistorySize) {

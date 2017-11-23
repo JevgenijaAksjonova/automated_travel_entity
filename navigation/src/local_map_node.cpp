@@ -127,11 +127,12 @@ void LocalPathPlanner::addDepth(vector<double>& localMap){
     vector<double> localMapNew(localMap);
     int l = anglesDepth.size();
     for (int i = 0; i < l; i++) {
+        double r = rangesDepth[i];
         int ind = mod(round(anglesDepth[i]/2.0/M_PI*360),360);
-        if (rangesDepth[i] <= mapRad) {
-            localMapNew[ind] = max(localMapNew[ind], 1);
+        if (r <= mapRad) {
+            localMapNew[ind] = max(localMapNew[ind], 1.0);
         }
-        distance[ind] = min(distnace[ind], rangesDepth[i]);
+        distance[ind] = min(distance[ind], r);
     }
     localMap = localMapNew;
 }
