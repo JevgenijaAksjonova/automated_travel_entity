@@ -13,6 +13,7 @@
 #include "math.h"
 #include "project_msgs/direction.h"
 #include "project_msgs/stop.h"
+#include "project_msgs/depth.h"
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sstream>
@@ -36,6 +37,7 @@ class LocalPathPlanner {
                                     distance(360,0) {};
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    void depthCallback(const project_msgs::depth::ConstPtr& msg);
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
     void showLocalMap();
@@ -49,12 +51,17 @@ class LocalPathPlanner {
     float range_min;
     float range_max;
 
+    // depth data
+    vector<float> rangesDepth;
+    vector<float> anglesDepth;
+
     vector<double> localMap;
     vector<double> localMapProcessed;
     vector<double> distance;
     void updateLocalMapLidar();
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
+    void addDepth(vector<double>& localMap);
 
     void stop();
     void emergencyStopLidar();
@@ -113,6 +120,17 @@ void LocalPathPlanner::filterNoise(vector<double>& localMap){
     localMap = localMapNew;
 }
 
+void LocalPathPlanner::addDepth(vector<double>& localMap){
+
+    vector<double> localMapNew(localMap);
+    int l = anglesDepth.size();
+    for (int i = 0; i < l; i++) {
+        int ind = mod(round(anglesDepth[i]/2.0/M_PI*360),360);
+        localMapNew[ind] = max(localMapNew[ind], rangesDepth[ind]);
+    }
+    localMap = localMapNew;
+}
+
 
 void LocalPathPlanner::updateLocalMapLidar() {
 
@@ -155,6 +173,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //    cout << localMapNew[i] << " ";
     //}
     //cout << endl;
+    addDepth(localMapNew);
     addRobotRadius(localMapNew);
     //cout << "LOCAL MAP RADIUS" << endl;
     //for (int i = 0; i < localMapNew.size(); i++) {
@@ -203,6 +222,11 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 
     emergencyStopLidar();
     updateLocalMapLidar();
+}
+
+void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
+    rangesDepth = msg->ranges;
+    anglesDepth = msg->angles;
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
@@ -306,7 +330,8 @@ int main(int argc, char **argv) {
 
     LocalPathPlanner lpp(0.18, 0.25);
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
-    ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
+    ros::Subscriber lidarSub = nh.subscribe("/scan", 1, &LocalPathPlanner::lidarCallback, &lpp);
+    ros::Subscriber depthSub = nh.subscribe("/depth", 1, &LocalPathPlanner::depthCallback, &lpp);
 
     // Visualize
     lpp.lppViz = nh.advertise<visualization_msgs::MarkerArray>("navigation/visualize_lpp", 360);
