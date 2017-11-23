@@ -19,7 +19,7 @@ struct Particle{
 
 };
 
-void getParticlesWeight(vector<Particle> &particles, vector<float> &prob_meas, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y);
+void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y);
 
 void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>>, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short);
   

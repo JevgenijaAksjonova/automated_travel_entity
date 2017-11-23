@@ -27,9 +27,9 @@ OdometryPublisher(int frequency){
     control_frequency = frequency;
     n = ros::NodeHandle("~");
     pi = 3.1416;
-    xpos = 0;
-    ypos = 0;
-    theta = 0;
+    xpos = 0.215;
+    ypos = 0.230;
+    theta = pi/2;
 
 
     encoding_abs_prev = std::vector<int>(2,0);
@@ -40,8 +40,6 @@ OdometryPublisher(int frequency){
     odom_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
     encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
     encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
-
-
 
 }
 
@@ -59,8 +57,8 @@ void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
 
 
 void calculateNewPosition(){
-    double wheel_r = 0.04;
-    double base_d = 0.25;
+    double wheel_r = 0.037;
+    double base_d = 0.21;
     double tick_per_rotation = 900;
     double control_frequenzy = 100; //10 hz
     double dt = 1/control_frequenzy;
@@ -104,19 +102,9 @@ void calculateNewPosition(){
     }
 
 
-
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = current_time;
-    odom_trans.header.frame_id = "odom";
-    odom_trans.child_frame_id = "base_link";
 
-    odom_trans.transform.translation.x = xpos;
-    odom_trans.transform.translation.y = ypos;
-    odom_trans.transform.translation.z = 0.0;
-    odom_trans.transform.rotation = odom_quat;
-
-    odom_broadcaster.sendTransform(odom_trans);
+    //odom_broadcaster.sendTransform(odom_trans);
 
     // Publish odometry message
     nav_msgs::Odometry odom_msg;
