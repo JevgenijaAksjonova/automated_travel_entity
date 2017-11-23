@@ -125,7 +125,7 @@ class FilterPublisher
 
         first_loop = true;
 
-        filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
+        filter_publisher = n.advertise<nav_msgs::Odometry>("/filter", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
@@ -442,26 +442,26 @@ class FilterPublisher
 
         odom_broadcaster.sendTransform(odom_trans);
 
-        // // Publish odometry message
-        // nav_msgs::Odometry odom_msg;
-        // odom_msg.header.stamp = current_time;
-        // odom_msg.header.frame_id = "odom";
+        // Publish odometry message
+        nav_msgs::Odometry odom_msg;
+        odom_msg.header.stamp = current_time;
+        odom_msg.header.frame_id = "odom";
 
-        // odom_msg.pose.pose.position.x = x;
-        // odom_msg.pose.pose.position.y = y;
-        // odom_msg.pose.pose.position.z = 0.0;
-        // odom_msg.pose.pose.orientation = odom_quat;
+        odom_msg.pose.pose.position.x = x;
+        odom_msg.pose.pose.position.y = y;
+        odom_msg.pose.pose.position.z = 0.0;
+        odom_msg.pose.pose.orientation = odom_quat;
 
-        // //set the velocity
+        //set the velocity
 
-        // float vx = linear_v * cos(theta);
-        // float vy = linear_v * sin(theta);
-        // odom_msg.child_frame_id = "base_link";
-        // odom_msg.twist.twist.linear.x = vx;
-        // odom_msg.twist.twist.linear.y = vy;
-        // odom_msg.twist.twist.angular.z = angular_w;
+        float vx = linear_v * cos(theta);
+        float vy = linear_v * sin(theta);
+        odom_msg.child_frame_id = "base_link";
+        odom_msg.twist.twist.linear.x = vx;
+        odom_msg.twist.twist.linear.y = vy;
+        odom_msg.twist.twist.angular.z = angular_w;
 
-        // filter_publisher.publish(odom_msg);
+        filter_publisher.publish(odom_msg);
 
     }
 

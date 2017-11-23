@@ -3,6 +3,8 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <math.h>
+#include <std_msgs/Bool.h>
+
 
 
 /**
@@ -15,12 +17,17 @@ public:
     ros::Publisher odom_publisher;
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
+    ros::Subscriber filter_subscriber;
+    ros::Subscriber position_update_subscriber;
+
     double xpos;
     double ypos;
     double theta;
     double pi;
-    tf::TransformBroadcaster odom_broadcaster;
-
+    double _filterX;
+    double _filterY;
+    double _filterTheta;
+    bool _update_position;
 
 
 OdometryPublisher(int frequency){
@@ -30,6 +37,7 @@ OdometryPublisher(int frequency){
     xpos = 0.215;
     ypos = 0.230;
     theta = pi/2;
+    _update_position = false;
 
 
     encoding_abs_prev = std::vector<int>(2,0);
@@ -40,6 +48,9 @@ OdometryPublisher(int frequency){
     odom_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
     encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &OdometryPublisher::encoderCallbackLeft, this);
     encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &OdometryPublisher::encoderCallbackRight, this);
+    filter_subscriber = n.subscribe("/filter", 1, &OdometryPublisher::filterCallback, this);
+    position_update_subscriber = n.subscribe("/odom/update", 1, &OdometryPublisher::positionUpdateCallback, this);
+
 
 }
 
@@ -55,6 +66,21 @@ void encoderCallbackRight(const phidgets::motor_encoder::ConstPtr& msg){
 
 }
 
+void filterCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+
+  _filterX = msg->pose.pose.position.x;//xStart - msg->pose.pose.position.y;
+  _filterY = msg->pose.pose.position.y;//yStart + msg->pose.pose.position.x;
+
+  geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
+  _filterTheta = tf::getYaw(odom_quat);
+
+}
+
+void positionUpdateCallback(const std_msgs::Bool::ConstPtr& update)
+{
+  _update_position = update->data;
+}
 
 void calculateNewPosition(){
     double wheel_r = 0.037;
@@ -150,6 +176,12 @@ int main(int argc, char **argv)
 
   int count = 0;
   while (odom.n.ok()){
+      if(odom._update_position){
+          odom.xpos = odom._filterX;
+          odom.ypos = odom._filterY;
+          odom.theta = odom._filterTheta;
+          odom._update_position = false;
+      }
 
     odom.calculateNewPosition();
     ros::spinOnce();
