@@ -226,6 +226,7 @@ int main(int argc, char **argv)
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
     } else if (path->rollback){
+        onlyTurn = false;
         if (history.size() > 0 ) {
             pair<double, double> vel = history.back();
             history.pop_back();
@@ -235,6 +236,9 @@ int main(int argc, char **argv)
             path->rollback = false;
             path->move = true;
             onlyTurn = true;
+            std_msgs::Bool status_msg;
+            status_msg.data = 1;
+            path->statusPub.publish(status_msg);
         }
     }
 
