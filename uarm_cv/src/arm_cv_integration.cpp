@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include<math.h>   // For math calculation: sin cos asin acos, etc.
 //------------------Need Change-------------------------------
-#include<geometry_msgs/PointStamped.h>  //For the message subscribed: object coordinate
+//#include<geometry_msgs/PointStamped.h>  //For the message subscribed: object coordinate
 //------------------Need Change-------------------------------
 
 #include<camera/PosAndImage.h>
@@ -32,7 +32,7 @@ float freq = 1.0;  // 1Hz
 float T = 1.0/(float)freq;  // 1s
 // position m from camera
 float x=12,y,z;
-float camera_rotation=60; //degree
+float camera_rotation=40; //degree
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -140,9 +140,9 @@ int main(int argc, char** argv)
         {
             geometry_msgs::Point msg;
             //Fill in the message
-            msg.x = x*100.0+15.5;  //Add offset 13.5+2cm, arm center 2 camera center
+            msg.x = x*100.0+15.5-6.0;  //Add offset 13.5+2cm, arm center 2 camera center
             msg.y = y*100.0+0.0;  //Add offset 0
-            msg.z = z*100.0-3.0;  //Add offset 3 cm : push hard!
+            msg.z = z*100.0-5.0;  //Add offset 3 cm : push hard!
             puts("Send Arm Command");
             obj_pub.publish(msg);
             dirty=false;

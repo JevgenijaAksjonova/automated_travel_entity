@@ -20,7 +20,7 @@
 float joint0_half,joint1_half,joint2_half; //joint3 is not connected.
 float joint0_dest,joint1_dest,joint2_dest; //joint3 is not connected.
 float x,y,z;
-float joint0_offset = -18.0;
+float joint0_offset = -7.0;
 float joint2_offset = -30.0;
 //Declear STRUCT Var for reference
 int arm_state = 0;  // 0 for no task to move
@@ -83,7 +83,7 @@ End of debugging part*/
     alpha = acos( (pow(c,2)+pow(16,2)-pow(15,2))/(2*16*c) );
     beta =  acos( (pow(c,2)+pow(15,2)-pow(16,2))/(2*15*c) );
     //    ROS_INFO_STREAM("sub destinations");
-    joint0_half = atan(y/x)*360/(2*M_PI)+45;//arctan, degree, robot frame
+    joint0_half = atan(y/x)*360/(2*M_PI);//arctan, degree, robot frame
     joint1_half = (beta - theta)*360/(2*M_PI);
     joint2_half = (alpha+ theta)*360/(2*M_PI);
     //joint3 = 0;
@@ -96,7 +96,7 @@ End of debugging part*/
     alpha = acos( (pow(c,2)+pow(16,2)-pow(15,2))/(2*16*c) );
     beta =  acos( (pow(c,2)+pow(15,2)-pow(16,2))/(2*15*c) );
     //    ROS_INFO_STREAM("sub destinations");
-    joint0_dest = atan(y/x)*360/(2*M_PI)+45;//arctan, degree, robot frame
+    joint0_dest = atan(y/x)*360/(2*M_PI);//arctan, degree, robot frame
     joint1_dest = (beta - theta)*360/(2*M_PI);
     joint2_dest = (alpha+ theta)*360/(2*M_PI);
     //joint3 = 0;
@@ -147,9 +147,9 @@ int main (int argc, char **argv){
 
 
     // Initial
-    move_srv.request.j0 = 45.0 + joint0_offset; //Correction for bad  45
-    move_srv.request.j1 = 30.0;       // 30
-    move_srv.request.j2 = 60.0 + joint2_offset; //Correction for bad 60-30
+    move_srv.request.j0 = 26.56+joint0_offset; //Correction for bad  45
+    move_srv.request.j1 = 89.35;       // 30
+    move_srv.request.j2 = 61.03 + joint2_offset; //Correction for bad 60-30
     move_srv.request.j3 = joint3;
     move_srv.request.move_mode = 0; //  absolute in the robot frame
     move_srv.request.movement_duration = ros::Duration(2.0);
@@ -222,9 +222,9 @@ int main (int argc, char **argv){
                     ROS_ERROR("Fail to call Pump on");
                 break;
             case 4:
-                move_srv.request.j0 = 45.0 +joint0_offset; //Correction for calibration
-                move_srv.request.j1 = 30.0;
-                move_srv.request.j2 = 60.0 + joint2_offset; //Correction for calibration
+                move_srv.request.j0 = 26.56+joint0_offset; //Correction for bad  45
+                move_srv.request.j1 = 89.35;       // 30
+                move_srv.request.j2 = 61.03 + joint2_offset; //Correction for bad 60-30
                 move_srv.request.j3 = joint3;
                 move_srv.request.move_mode = 0; //  absolute in the robot frame
                 move_srv.request.movement_duration = ros::Duration(2.0);
