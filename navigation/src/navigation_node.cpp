@@ -42,7 +42,7 @@ class GoalPosition {
     bool path_found;
 
     GoalPosition(shared_ptr<GlobalPathPlanner> _gpp, shared_ptr<Location> _loc, shared_ptr<Path> _path);
-    void callback(double x_new, double y_new, double theta_new);
+    void callback(double x_new, double y_new, double theta_new, double distanceTol_new, double angleTol_new);
     void publisherCallback(const geometry_msgs::Twist::ConstPtr& msg);
     bool serviceCallback(project_msgs::global_path::Request &request,
                          project_msgs::global_path::Response &response);
@@ -66,7 +66,7 @@ void GoalPosition::publisherCallback(const geometry_msgs::Twist::ConstPtr& msg)
   double y_new = msg->linear.y;
   double theta_new = msg->angular.x;
 
-  callback(x_new,y_new,theta_new);
+  callback(x_new,y_new,theta_new, distanceTol, angleTol);
 
 }
 
@@ -86,7 +86,7 @@ bool GoalPosition::serviceCallback(project_msgs::global_path::Request &request,
 
 }
 
-void GoalPosition::callback(double x_new, double y_new, double theta_new) {
+void GoalPosition::callback(double x_new, double y_new, double theta_new, double distanceTol_new, double angleTol_new) {
 
     stringstream s;
     s << "Received the goal position: " << x_new << " " << y_new << " " << theta_new;
