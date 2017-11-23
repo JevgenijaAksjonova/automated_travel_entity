@@ -7,6 +7,7 @@ add_message_files(
   DIRECTORY msg
   FILES
     stop.msg
+    depth.msg
 )
 
 add_service_files(
