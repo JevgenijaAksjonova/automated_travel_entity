@@ -26,7 +26,12 @@ class Path {
     ros::ServiceClient lppService;
     ros::Publisher statusPub;
 
-    Path(): linVel(0), angVel(0), pathRad(0.20), distanceTol(0.05), angleTol(2*M_PI), move(false) {};
+    Path(double _pathRad, double _distanceTol, double _angleTol): 
+        linVel(0), angVel(0), 
+        pathRad(_pathRad), 
+        distanceTol(_distanceTol), 
+        angleTol(_angleTol), 
+        move(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);
@@ -41,6 +46,7 @@ class Path {
     double distance(pair<double,double>& a, pair<double, double>& b);
     double getAngle(pair<double,double> &g, pair<double, double> &p);
     double diffAngles(double a, double b) ;
+    double normalizeAngle(double angle);
     void amendDirection();
 };
 
