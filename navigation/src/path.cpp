@@ -122,12 +122,12 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
         move = false;
         string msg = "STOP!";
         ROS_INFO("%s/n", msg.c_str());
-    } else {
+    } else if (stop == false) {
         if (msg->rollback) {
             rollback = true;
         }
         if (msg->replan) {
-            rollback = true;
+            replan = true;
         }
     }
 }

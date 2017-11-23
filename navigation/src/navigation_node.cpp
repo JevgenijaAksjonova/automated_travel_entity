@@ -236,9 +236,9 @@ int main(int argc, char **argv)
             path->rollback = false;
             path->move = true;
             onlyTurn = true;
-            std_msgs::Bool status_msg;
-            status_msg.data = 1;
-            path->statusPub.publish(status_msg);
+            //std_msgs::Bool status_msg;
+            //status_msg.data = 1;
+            //path->statusPub.publish(status_msg);
         }
     }
 
