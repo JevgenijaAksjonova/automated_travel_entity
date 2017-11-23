@@ -71,6 +71,7 @@ void Path::followPath(double x, double y, double theta) {
     pair<double, double> loc(x,y);
     pair<double,double> goal(goalX,goalY);
     double dist = distance(goal,loc);
+    directionChange = 0;
     if (globalPath.size() > 0 ) {
         if (distance(globalPath[0],loc) > 1.4*pathRad) {
             move = false;
@@ -150,6 +151,7 @@ void Path::amendDirection() {
         cout << "Direction changed from " << angVel;
         angVel = srv.response.angVel;
         cout << "  to " << angVel << endl;
+        directionChange = srv.request.angVel - srv.response.angVel;
     }
 }
 

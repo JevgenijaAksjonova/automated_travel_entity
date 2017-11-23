@@ -22,6 +22,7 @@ class Path {
     bool move;
     bool replan;
     bool rollback;
+    double directionChange;
 
     vector<pair<double,double> > globalPath;
 
