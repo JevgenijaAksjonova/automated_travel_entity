@@ -168,7 +168,7 @@ int main(int argc, char **argv)
     if (path->move) {
         path->followPath(loc->x,loc->y,loc->theta);
         stringstream s;
-        s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y;
+        s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
     } else {
       path->linVel = 0;
@@ -185,7 +185,7 @@ int main(int argc, char **argv)
         path->linVel = max(minLinVel, path->linVel);
         path->angVel *= 1.2;
     } else {
-        path->angVel *=0.8;
+        path->angVel *=0.5;
     }
     geometry_msgs::Twist msg;
     msg.linear.x = 0.4*path->linVel;
