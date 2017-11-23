@@ -188,6 +188,9 @@ int main(int argc, char **argv)
   vector<pair<double, double> > history;
   maxHistorySize = 10;
 
+  bool onlyTurn = false;
+  double prevAngVel = 0.0;
+
   int count = 0;
   while (ros::ok())
   {
@@ -230,14 +233,22 @@ int main(int argc, char **argv)
             path->angVel = -vel.second;
         } else {
             path->rollback = false;
-            path-> move = true;
+            path->move = true;
+            onlyTurn = true;
         }
     }
+
+    // make sure that the robot turned enough (if sign differ, this is the case)
+    if (onlyTurn && path->angVel*prevAngVel <=0 ) {
+        onlyTurn = false;
+    }
+    prevAngVel = path->angVel;
+
 
     double c = 0.13; // total velocity
     double r = 0.12; // approximate radius of wheel base
     double k = max(1.0, 25*pow(fabs(path->angVel),2));
-    if (path->angVel > M_PI/2.0) {
+    if (path->angVel > M_PI/2.0 || onlyTurn) {
         path->linVel = 0; // sharp turn
     }
     if (path->linVel > 0) {
