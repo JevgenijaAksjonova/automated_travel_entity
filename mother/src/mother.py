@@ -6,7 +6,7 @@ rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
 import rospy
-from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist
+from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist,PointStamped
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
 from project_msgs.msg import stop
@@ -20,7 +20,7 @@ from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
-from maze import MazeMap, MazeObject, tf_transform_pose_stamped
+from maze import MazeMap, MazeObject, tf_transform_point_stamped
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
 
@@ -55,8 +55,8 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub, 0.05, 0.0025)
-
+        self.maze_map = MazeMap(self.map_pub, 0.05, 0.00025)
+        print("hello")
         #Subscribers
         if USING_VISION:
             rospy.Subscriber(
@@ -94,6 +94,7 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
+            print("after nave goal topic")
             if ROUND == 1:
                 rospy.loginfo(
                     "Waiting for service {0}".format(NAVIGATION_EXPLORATION_TOPIC))
@@ -101,8 +102,9 @@ class Mother:
                 self.exploration_path_service = rospy.ServiceProxy(
                     NAVIGATION_EXPLORATION_TOPIC, exploration, persistent=True)
             rospy.Subscriber(
-                NAVIGATION_STOP_TOPIC, stop, callback=self._navigation_stop_callback, queue_size=10)
-            self.stop_pub = rospy.Publisher(NAVIGATION_STOP_TOPIC, stop)
+                NAVIGATION_STOP_TOPIC, stop, callback=self._navigation_stop_callback, queue_size=1)
+            print("after navigation stop topic")
+            self.stop_pub = rospy.Publisher(NAVIGATION_STOP_TOPIC, stop,queue_size=1)
             
 
         if USING_ARM:
@@ -172,15 +174,18 @@ class Mother:
 
     @property
     def pos(self):
-        msg = PoseStamped()
+        msg = PointStamped()
         msg.header.frame_id = "base_link"
         msg.header.stamp = rospy.Time.now()
-        msg_new = tf_transform_pose_stamped(msg)
-        pos = msg_new.point
-        if msg_new is not None:
-            return np.r_[pos.x, pos.y]
-        else:
-            return None
+        msg_new = tf_transform_point_stamped(msg)
+        pos = None
+        i = 0
+        while pos is None and i < 50:
+            if msg_new is not None:
+                pos = msg_new.point
+                return np.r_[pos.x, pos.y]
+            else:
+                return None
 
     def _handle_object_candidate_msg(self, obj_cand_msg):
         try:
@@ -285,14 +290,18 @@ class Mother:
             rospy.loginfo("Did not find any feasable path to the object")
 
     def set_turning_towards_object(self,classifying_obj):
-        [x,y] = classifying_obj.pos - self.pos
+        robot_pos = self.pos
+        if robot_pos is None:
+            return False
+        [x,y] = classifying_obj.pos - robot_pos
         theta = atan2(y,x)
         msg = Twist()
-        msg.pose.angular = Vector3(0,0,theta)
-        msg.pose.linear = Vector3(0,0,0)
+        msg.angular = Vector3(0,0,theta)
+        msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
         if self.go_to_twist(msg,distance_tol=100000):
             self.mode = "turning_towards_object"
             self.classifying_obj = classifying_obj
+            rospy.loginfo("We were able to find a way to turn")
             return True
         else:
             rospy.loginfo("Was not able to find way to turn to that object")
@@ -380,8 +389,11 @@ class Mother:
                     self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.3,max_classification_attempts=3))
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
-                    self.set_turning_towards_object(classifying_obj)
-                        
+                    print("setting turning towards object")
+                    if not self.set_turning_towards_object(classifying_obj):
+                        self.set_following_an_exploration_path()
+                        print("was not able to find path to turn")
+
             elif self.mode == "following_path_to_object_classification":
                 if self.nav_goal_acchieved:
                     if not self.set_turning_towards_object(self.classifying_obj):
@@ -415,7 +427,7 @@ class Mother:
             #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
             #rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
-            #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1
