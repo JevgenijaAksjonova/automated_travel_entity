@@ -43,15 +43,18 @@ public:
     pair<double,double> mapScale;
     pair<size_t,size_t> gridSize;
     float cellSize;
+    bool mapChanged;
 
     pair<int, int> getCell(double x, double y);
     int getDistance(pair<double,double> startCoord, pair<double,double> goalCoord);
 
     // exploration
-    int explorationStatus; // 0 - initial; 1 - follow path; 2 - do not follow a path
+    int explorationStatus; // 0 - initial; 1 - follow path; 2 - do not follow a path; 3 - finished
     vector<Node> nodes;
     vector<pair<double, double> > explorationPath;
+    vector<pair<int, int> > nodeMarks;
     void explorationCallback(bool start_exploration, double x, double y);
+    void explorationUpdate(double x, double y, double theta, int pathSize);
 
 private:
     float robotRad;
@@ -64,7 +67,10 @@ private:
     double distanceHeuristic(const Node &a, const Node &b);
     vector<pair<int,int> > getPathGrid(pair<int,int> startCoord, pair<int, int> goalCoord);
     double findClosestFreeCell(Node& goal,int maxD);
-    void getExplorationPath(Node start_node);
+    void sampleNodesToExplore();
+    void computeExplorationPath();
+    void getExplorationPath(double x, double y);
+    void recalculateExplorationPath(double x, double y);
 };
 
 #endif // GLOBAL_PATH_PLANNER_H

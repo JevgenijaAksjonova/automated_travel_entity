@@ -41,6 +41,7 @@ GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, fl
     robotRad = p_robotRad;
     setMap(mapFile);
     explorationStatus = 0;
+    mapChanged = false;
     //getExplorationPath();
 
 }
@@ -328,13 +329,7 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     return path;
 }
 
-// generates nodes and finds an exploration path through them
-void GlobalPathPlanner::getExplorationPath(Node start_node) {
-
-    string msg = "Generating an exploration path ...... ";
-    ROS_INFO("%s/n", msg.c_str());
-
-    nodes.push_back(start_node);
+void GlobalPathPlanner::sampleNodesToExplore() {
 
     double cellSizeL = 0.5;
     pair<int, int> gridSizeL(ceil(mapScale.first/cellSizeL), ceil(mapScale.second/cellSizeL));
@@ -349,6 +344,10 @@ void GlobalPathPlanner::getExplorationPath(Node start_node) {
             }
         }
     }
+}
+
+void GlobalPathPlanner::computeExplorationPath() {
+
     auto start = chrono::high_resolution_clock::now();
     vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
     for (int i = 0; i < nodes.size(); i++) {
@@ -397,12 +396,20 @@ void GlobalPathPlanner::getExplorationPath(Node start_node) {
     s << "Time to find greedy path = " << elapsed.count()<< endl;
     ROS_INFO("%s/n", s.str().c_str());
 
+
     vector<pair<int,int> > pathGrid;
     cout << "Path : "<< endl;
+    nodeMarks.push_back(pair<int,int>(path[0],0));
     for (int i = 0; i < path.size()-1; i++) {
         cout << path[i+1] << " ";
         vector<pair<int, int> > part = getPathGrid(pair<int,int>(nodes[path[i]].x,nodes[path[i]].y), pair<int,int>(nodes[path[i+1]].x,nodes[path[i+1]].y));
         pathGrid.insert(pathGrid.end(), part.begin(), part.end());
+        nodeMarks.push_back(pair<int,int>(path[i+1], pathGrid.size()-1));
+    }
+
+    int pathSize = pathGrid.size();
+    for (int i = 0; i < nodeMarks.size(); i++) {
+        nodeMarks[i].second = pathSize - nodeMarks[i].second;
     }
 
     for (size_t i = 0; i < pathGrid.size(); i++) {
@@ -410,13 +417,62 @@ void GlobalPathPlanner::getExplorationPath(Node start_node) {
         double y = mapOffset.second+(pathGrid[i].second+0.5)*cellSize;
         explorationPath.push_back(pair<double,double>(x,y));
     }
+
+}
+
+// generates nodes and finds an exploration path through them
+void GlobalPathPlanner::getExplorationPath(double x, double y) {
+
+    string msg = "Generating an exploration path ...... ";
+    ROS_INFO("%s/n", msg.c_str());
+
+    pair<int, int> cell = getCell(x,y);
+    Node startNode(cell.first,cell.second,0);
+
+    sampleNodesToExplore();
+    nodes.insert(nodes.begin(),startNode);
+
+    computeExplorationPath();
+
+}
+
+void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
+    if (!mapChanged) {
+        pair<double, double>  pathStart = explorationPath.front();
+        pair<double, double> location(x,y);
+        vector<pair<double, double> > path = getPath(location, pathStart);
+        explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
+    } else {
+        // delete nodes, which are already visited
+        int pathSize = explorationPath.size();
+        int i = 0;
+        while (nodeMarks[i].second > pathSize) {
+            nodes.erase(nodes.begin()+ nodeMarks[i].first);
+            i++;
+        }
+        explorationPath.clear();
+        nodeMarks.clear();
+
+        pair<int, int> cell = getCell(x,y);
+        Node startNode(cell.first,cell.second,0);
+        nodes.insert(nodes.begin(),startNode);
+        computeExplorationPath();
+
+    }
+}
+
+void GlobalPathPlanner::explorationUpdate(double x, double y, double theta, int pathSize) {
+    // erase part of the path, already explored
+    int offset = explorationPath.size() - pathSize;
+    explorationPath.erase(explorationPath.begin(),explorationPath.begin()+offset);
 }
 
 void GlobalPathPlanner::explorationCallback(bool start_exploration, double x, double y){
     if (start_exploration) {
         if (explorationStatus == 0) {
-            pair<int, int> cell = getCell(x,y);
-            getExplorationPath(Node(cell.first,cell.second,0));
+            getExplorationPath(x, y);
+        } else {
+            recalculateExplorationPath(x, y);
             explorationStatus = 1;
         }
     } else {
