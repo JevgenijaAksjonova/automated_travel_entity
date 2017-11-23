@@ -82,52 +82,55 @@ void Path::goalIsReached() {
 void Path::followPath(double x, double y, double theta) {
     pair<double, double> loc(x,y);
     pair<double,double> goal(goalX,goalY);
-    double dist = distance(goal,loc);
     directionChange = 0;
+    double targetAng = goalAng;
 
-    if (globalPath.size() > 0 ) {
-        if (distance(globalPath[0],loc) > 1.4*pathRad) {
+    while (globalPath.size() > 1 &&
+               (distance(globalPath[0],loc) < pathRad ||
+                distance(globalPath[1], loc) < distance(globalPath[0], loc))
+           ) {
+        globalPath.erase(globalPath.begin());
+    }
+    if (globalPath.size() > 1 ||
+        (globalPath.size()==1 && distance(globalPath[0],loc) >= pathRad)) {
+        linVel = distance(globalPath[0],loc);
+        if (linVel > 1.4*pathRad) {
             move = false;
             stop();
+            return;
         }
-        while (globalPath.size() > 1 &&
-                   (distance(globalPath[0],loc) < pathRad ||
-                    distance(globalPath[1], loc) < distance(globalPath[0], loc))
-               ) {
-            globalPath.erase(globalPath.begin());
+        targetAng = getAngle(globalPath[0],loc);
+        angVel = diffAngles(targetAng, theta);
+        amendDirection();
+
+    } else {
+        globalPath.clear();
+        linVel = distance(goal,loc);
+        if (linVel > 1.4*pathRad) {
+            move = false;
+            stop();
+            return;
         }
-        linVel = distance(globalPath[0], loc);
-        double targetAng = goalAng;
-        if (linVel > distanceTol) {
-            targetAng = getAngle(globalPath[0],loc);
+
+        if (linVel < distanceTol) {
+            linVel = 0;
+            angVel = diffAngles(goalAng, theta);
+            if ( fabs(angVel) < angleTol) {
+                goalIsReached();
+                return;
+            }
+        } else {
+            targetAng = getAngle(goal,loc);
             angVel = diffAngles(targetAng, theta);
             amendDirection();
-        } else {
-            globalPath.erase(globalPath.begin());
-            linVel = 0;
-            angVel = diffAngles(goalAng,theta);
-            if ( fabs(angVel) <= angleTol) {
-                goalIsReached();
-            }
         }
-        stringstream s;
-        s << "Tolerance " << distanceTol << " " << angleTol << endl;
-        s << "Angles " << targetAng <<" "<< theta << " " << angVel;
-        ROS_INFO("%s/n", s.str().c_str());
 
-    } else if (dist > distanceTol) {
-        linVel = distance(goal, loc);
-        angVel = getAngle(goal, loc);
-    } else if ( fabs(diffAngles(goalAng, theta)) > angleTol) {
-        linVel = 0;
-        angVel = diffAngles(goalAng, theta);
-    } else {
-        goalIsReached();
     }
-    // avoid turns with big radius, turn first, then move
-    //if (fabs(angVel) > M_PI/3.0 && linVel > 0) {
-    //    linVel = 0;
-    //}
+
+    stringstream s;
+    s << "Tolerance " << distanceTol << " " << angleTol << endl;
+    s << "Angles " << targetAng <<" "<< theta << " " << angVel;
+    ROS_INFO("%s/n", s.str().c_str());
 }
 
 void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
