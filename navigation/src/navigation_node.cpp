@@ -199,33 +199,33 @@ int main(int argc, char **argv)
     path->linVel = 0;
     path->angVel = 0;
 
-    if (path->move && path->replan) {
-        string msg = "Recalculate path";
-        ROS_INFO("%s/n", msg.c_str());
-        pair<double, double> startCoord(loc->x,loc->y);
-        pair<double, double> goalCoord(goal.x,goal.y);
-        vector<pair<double,double> >  globalPath = gpp->getPath(startCoord, goalCoord);
-        if (globalPath.size() == 0) {
-            stringstream s;
-            s << "Cant find a global path! Location " << loc->x <<" "<< loc->y;
-            ROS_INFO("%s/n", s.str().c_str());
-            path->move = false;
-            std_msgs::Bool status_msg;
-            status_msg.data = 0;
-            path->statusPub.publish(status_msg);
-        } else {
-            stringstream s;
-            s << "Path is found, size" << globalPath.size();
-            ROS_INFO("%s/n", s.str().c_str());
-            path->setPath(goal.x, goal.y, goal.theta, distanceTol, globalPath);
-        }
-    }
-
     if (path->move) {
         path->followPath(loc->x,loc->y,loc->theta);
         stringstream s;
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
+
+        // make sure that the robot turned enough (if sign differ, this is the case)
+        if (onlyTurn && path->angVel*prevAngVel <0 ) {
+            onlyTurn = false;
+        }
+        prevAngVel = path->angVel;
+
+        double c = 0.13; // total velocity
+        double r = 0.12; // approximate radius of wheel base
+        double k = max(1.0, 25*pow(fabs(path->angVel),2));
+        if (path->angVel > M_PI/2.0 || onlyTurn) {
+            path->linVel = 0; // sharp turn
+        }
+        if (path->linVel > 0) {
+            double a = c/(r*fabs(path->angVel)+ fabs(path->linVel)/k);
+            path->linVel = a/k*path->linVel;
+            path->angVel = a*path->angVel;
+        } else if (path->angVel > 0) {
+            path->angVel = c/r;
+        }
+
+
     } else if (path->rollback){
         onlyTurn = false;
         if (history.size() > 0 ) {
@@ -235,33 +235,31 @@ int main(int argc, char **argv)
             path->angVel = -vel.second;
         } else {
             path->rollback = false;
-            path->move = true;
             onlyTurn = true;
-            //std_msgs::Bool status_msg;
-            //status_msg.data = 1;
-            //path->statusPub.publish(status_msg);
+            prevAngVel = 0.0;
+            if (!path->replan) {
+                path->move = true;
+            }
         }
-    }
-
-    // make sure that the robot turned enough (if sign differ, this is the case)
-    if (onlyTurn && path->angVel*prevAngVel <=0 ) {
-        onlyTurn = false;
-    }
-    prevAngVel = path->angVel;
-
-
-    double c = 0.13; // total velocity
-    double r = 0.12; // approximate radius of wheel base
-    double k = max(1.0, 25*pow(fabs(path->angVel),2));
-    if (path->angVel > M_PI/2.0 || onlyTurn) {
-        path->linVel = 0; // sharp turn
-    }
-    if (path->linVel > 0) {
-        double a = c/(r*fabs(path->angVel)+ fabs(path->linVel)/k);
-        path->linVel = a/k*path->linVel;
-        path->angVel = a*path->angVel;
-    } else if (path->angVel > 0) {
-        path->angVel = c/r;
+    } else if (path->replan) {
+        string msg = "Recalculate path";
+        ROS_INFO("%s/n", msg.c_str());
+        pair<double, double> startCoord(loc->x,loc->y);
+        pair<double, double> goalCoord(goal.x,goal.y);
+        vector<pair<double,double> >  globalPath = gpp->getPath(startCoord, goalCoord);
+        if (globalPath.size() == 0) {
+            stringstream s;
+            s << "Cant find a global path! Location " << loc->x <<" "<< loc->y;
+            ROS_INFO("%s/n", s.str().c_str());
+            std_msgs::Bool status_msg;
+            status_msg.data = 0;
+            path->statusPub.publish(status_msg);
+        } else {
+            stringstream s;
+            s << "Path is found, size" << globalPath.size();
+            ROS_INFO("%s/n", s.str().c_str());
+            path->setPath(goal.x, goal.y, goal.theta, distanceTol, globalPath);
+        }
     }
 
     // precaution (if emergency stop appeared while doing computations)
