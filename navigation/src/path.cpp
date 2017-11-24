@@ -111,9 +111,9 @@ void Path::followPath(double x, double y, double theta) {
         angVel = 0;
     }
     // avoid turns with big radius, turn first, then move
-    if (fabs(angVel) > M_PI/3.0 && linVel > 0) {
-        linVel = 0;
-    }
+    //if (fabs(angVel) > M_PI/3.0 && linVel > 0) {
+    //    linVel = 0;
+    //}
 }
 
 void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {

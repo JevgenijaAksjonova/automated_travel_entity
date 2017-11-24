@@ -204,15 +204,21 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
-    double minLinVel = 0.20;
+    double c = 0.13; // total velocity
+    double r = 0.12; // approximate radius of wheel base
+    double k = max(1.0, 25*pow(fabs(path->angVel),2));
+    if (path->angVel > M_PI/2.0) {
+        path->linVel = 0; // sharp turn
+    }
     if (path->linVel > 0) {
-        path->linVel = max(minLinVel, path->linVel);
-        path->angVel *= 1.2;
-    } else {
-        path->angVel *=0.5;
+        double a = c/(r*fabs(path->angVel)+ fabs(path->linVel)/k);
+        path->linVel = a/k*path->linVel;
+        path->angVel = a*path->angVel;
+    } else if (path->angVel > 0) {
+        path->angVel = c/r;
     }
     geometry_msgs::Twist msg;
-    msg.linear.x = 0.4*path->linVel;
+    msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
     msg.linear.z = 0.0;
     msg.angular.x = 0.0;
