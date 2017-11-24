@@ -103,7 +103,7 @@ class ObjectCandidate(object):
         self.contour_area = cont_area
 
     def find_img(self, full_rgb_img):
-        self.img,self.adjusted = extract_object_image(self.mid, self.top_left,
+        self.img,self.adjusted,self.distance_from_center = extract_object_image(self.mid, self.top_left,
                                         self.bot_right, full_rgb_img)
         (x, y, z) = self.img.shape
         return x * y * z != 0
@@ -115,7 +115,8 @@ class ObjectCandidate(object):
         return self.z is None or math.isnan(self.z)
 
     def __repr__(self):
-        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}".format(contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted)
+        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}".format(
+            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center,self.distance_from_center)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
