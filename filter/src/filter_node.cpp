@@ -48,9 +48,10 @@ class FilterPublisher
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(int frequency)
+    FilterPublisher(float frequency)
     {
         control_frequency = frequency;
+        dt = 1/control_frequency;
         n = ros::NodeHandle("~");
         int nr_particles = 500;
         int nr_measurements = 8;
@@ -64,40 +65,40 @@ class FilterPublisher
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
-            ROS_ERROR("failed to detect parameter 1");
+            ROS_ERROR("Filter failed to detect parameter 1");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/nr_measurements",nr_measurements)){
-            ROS_ERROR("failed to detect parameter 2");
+            ROS_ERROR("Filter failed to detect parameter 2");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/nr_random_particles",nr_random_particles)){
-            ROS_ERROR("failed to detect parameter 3");
+            ROS_ERROR("Filter failed to detect parameter 3");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/random_particle_spread",random_particle_spread)){
-            ROS_ERROR("failed to detect parameter 4");
+            ROS_ERROR("Filter failed to detect parameter 4");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/gaussian_particle_noise_spread",gaussian_particle_noise_spread)){
-            ROS_ERROR("failed to detect parameter 4");
+            ROS_ERROR("Filter failed to detect parameter 4");
             exit(EXIT_FAILURE);
         }
 
         if(!n.getParam("/filter/particle_params/using_random_particles",using_random_particles)){
-            ROS_ERROR("failed to detect parameter 4");
+            ROS_ERROR("Filter failed to detect parameter 4");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_D",k_D)){
-            ROS_ERROR("failed to detect parameter 5");
+            ROS_ERROR("Filter failed to detect parameter 5");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_V",k_V)){
-            ROS_ERROR("failed to detect parameter 6");
+            ROS_ERROR("Filter failed to detect parameter 6");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_W",k_W)){
-            ROS_ERROR("failed to detect parameter 7");
+            ROS_ERROR("Filter failed to detect parameter 7");
             exit(EXIT_FAILURE);
         }
 
@@ -134,8 +135,6 @@ class FilterPublisher
         _wheel_r = 0.04;
         _base_d = 0.2;
         tick_per_rotation = 900;
-        control_frequenzy = 10; //10 hz
-        dt = 1 / control_frequenzy;
 
         _k_D = k_D;
         _k_V = k_V;
@@ -593,9 +592,8 @@ class FilterPublisher
     float _wheel_r;
     float _base_d;
     int tick_per_rotation = 900;
-    float control_frequenzy = 10; //10 hz
-    float dt = 1 / control_frequenzy;
-    int control_frequency;
+    float control_frequency;
+    float dt;
     bool first_loop;
     float linear_v;
     float angular_w;
