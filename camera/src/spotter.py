@@ -130,6 +130,7 @@ class ObjectDetector:
         obj_cand_msg.pos.z = -point[1]
         obj_cand_msg.image = bridge.cv2_to_imgmsg(oc.img)
         obj_cand_msg.area = oc.contour_area
+        obj_cand_msg.centered = oc.adjusted
         color_msg = String_msg()
         color_msg.data = oc.color
         obj_cand_msg.color = color_msg
