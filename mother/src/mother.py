@@ -6,7 +6,7 @@ rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
 import rospy
-from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Twist
+from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
 from nav_msgs.msg import Odometry
@@ -252,7 +252,6 @@ class Mother:
             request = explorationRequest()
             request.req = True
             response = self.exploration_path_service(request)
-        
 
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
@@ -297,12 +296,13 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if RAUND == 1:
-                    rospy.loginfo("Following an exploration path")
-                    self.set_following_an_exploration_path()
                 if self.goal_pose is not None:
-                    rospy.loginfo("Main goal received")
-                    self.set_following_path_to_main_goal()
+                    if ROUND == 1:
+                        rospy.loginfo("Following an exploration path")
+                        self.set_following_an_exploration_path()
+                    else:
+                        rospy.loginfo("Main goal received")
+                        self.set_following_path_to_main_goal()
 
             elif self.mode == "following_path_to_main_goal":
                 self.object_classification_queue = list(
