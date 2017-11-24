@@ -15,6 +15,7 @@ import random
 pp = pprint.PrettyPrinter(indent=4)
 #rec = Recognizer()p
 
+MIDDLE_PIXEL = np.r_[640//2,480//2]
 
 #Thresholds in hue for all collors
 colors = ["green", "red", "blue", "yellow", "purple", "orange"]
@@ -71,14 +72,14 @@ def extract_object_image(middle_point, top_left, bot_right, image):
         adjusted_window = True
     else:
         new_y_mid = y_mid
-
+    distance_from_center = np.linalg.norm(np.r_[new_x_mid,new_y_mid] - MIDDLE_PIXEL)
     #Create new window
     new_x_min = new_x_mid - alignment
     new_x_max = new_x_mid + alignment
     new_y_min = new_y_mid - alignment
     new_y_max = new_y_mid + alignment
 
-    return image[new_y_min:new_y_max, new_x_min:new_x_max, :], adjusted_window
+    return image[new_y_min:new_y_max, new_x_min:new_x_max, :], adjusted_window, distance_from_center
 
 #An object representic an area classified by the algorithm as a candidate area.
 class ObjectCandidate(object):
