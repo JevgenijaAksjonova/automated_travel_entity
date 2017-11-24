@@ -116,7 +116,7 @@ class ObjectCandidate(object):
 
     def __repr__(self):
         return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}".format(
-            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center,self.distance_from_center)
+            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
