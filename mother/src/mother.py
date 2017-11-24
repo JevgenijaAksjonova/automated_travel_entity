@@ -8,7 +8,7 @@ sys.path.insert(0, rospack.get_path("mother"))
 import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Twist
 from std_msgs.msg import Bool, String
-from project_msgs.srv import global_path
+from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
 from nav_msgs.msg import Odometry
 from tf import TransformListener, ExtrapolationException
 from tf.transformations import quaternion_from_euler
@@ -20,7 +20,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 
 from maze import MazeMap, MazeObject
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, RAUND
 
 
 class Mother:
@@ -92,10 +92,16 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
-            self.exploration_path_publisher = rospy.Publisher
-                ("naviagation/exploration_path", 
-                Bool, 
-                queue_size=1)
+            if RAUND == 1:
+                #self.exploration_path_publisher = rospy.Publisher(
+                #    NAVIGATION_EXPLORATION_TOPIC, 
+                #    Bool, 
+                #    queue_size=1)
+                rospy.loginfo(
+                    "Waiting for service {0}".format(NAVIGATION_EXPLORATION_TOPIC))
+                rospy.wait_for_service(NAVIGATION_EXPLORATION_TOPIC)
+                self.exploration_path_service = rospy.ServiceProxy(
+                    NAVIGATION_EXPLORATION_TOPIC, exploration, persistent=True)
             
 
         if USING_ARM:
@@ -204,10 +210,10 @@ class Mother:
 
             # If the path following fails call self.set_following_path_to_main_goal()
             # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
-            request = Twist()
-            request.linear.x = pose.pose.position.x
-            request.linear.y = pose.pose.position.y
-            request.angular.x = 1.57
+            request = global_pathRequest()
+            request.pose.linear.x = pose.pose.position.x
+            request.pose.linear.y = pose.pose.position.y
+            request.pose.angular.x = 1.57
             request.distanceTol = distanceTol
             response = self.global_path_service(request)
             return response.path_found
@@ -243,9 +249,9 @@ class Mother:
         self.mode = "following_an_exploration_path"
         if USING_PATH_PLANNING:
             # send a command to generate and follow an exploration path
-            msg = Bool()
-            msg.data = True
-            self.exploration_path_publisher.publish(msg)
+            request = explorationRequest()
+            request.req = True
+            response = self.exploration_path_service(request)
         
 
     def set_waiting_for_main_goal(self):
@@ -291,7 +297,7 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if self.ROUND == 1:
+                if RAUND == 1:
                     rospy.loginfo("Following an exploration path")
                     self.set_following_an_exploration_path()
                 if self.goal_pose is not None:
@@ -305,6 +311,9 @@ class Mother:
                     classifying_obj = self.object_classification_queue.pop()
                     self.set_following_path_to_object_classification(
                         classifying_obj)
+
+            elif self.mode == "following_an_exploration_path":
+                rospy.loginfo("Following an exploration path")
 
             elif self.mode == "following_path_to_object_classification":
 

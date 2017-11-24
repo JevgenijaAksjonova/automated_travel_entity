@@ -10,6 +10,7 @@ RECOGNIZER_SERVICE_NAME = "/camera/recognizer"
 OBJECT_CANDIDATES_TOPIC = "/camera/object_candidates"
 GOAL_POSE_TOPIC = "/move_base_simple/goal"
 NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
+NAVIGATION_EXPLORATION_TOPIC = "navigation/exploration_path"
 GOAL_ACHIEVED_TOPIC = "navigation/status"
 MOTHER_WORKING_FRAME = "odom"
 ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
@@ -20,7 +21,7 @@ USING_PATH_PLANNING = True
 USING_ARM = False
 USING_VISION = True
 
-ROUND = 1 # 1 - the first round of the contest, 2 - the second round of the contest
+RAUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
 
 color_2_rgb = {
     "green": (0, 255, 0),

@@ -14,6 +14,7 @@ add_service_files(
   FILES
     direction.srv
     global_path.srv
+    exploration.srv
 )
 
 generate_messages(

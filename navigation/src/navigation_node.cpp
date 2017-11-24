@@ -27,6 +27,7 @@
 #include <project_msgs/stop.h>
 #include "project_msgs/direction.h"
 #include "project_msgs/global_path.h"
+#include "project_msgs/exploration.h"
 
 using namespace std;
 
@@ -44,6 +45,9 @@ class GoalPosition {
     void publisherCallback(const geometry_msgs::Twist::ConstPtr& msg);
     bool serviceCallback(project_msgs::global_path::Request &request,
                          project_msgs::global_path::Response &response);
+
+    bool explorationCallback(project_msgs::exploration::Request &request,
+                             project_msgs::exploration::Response &response);
   private:
     shared_ptr<GlobalPathPlanner> gpp;
     shared_ptr<Location> loc;
@@ -118,6 +122,24 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new) {
     }
 }
 
+bool GoalPosition::explorationCallback(project_msgs::exploration::Request &request,
+                                       project_msgs::exploration::Response &response) {
+
+    bool req = request.req;
+    if (req) {
+        stringstream s;
+        s << "Exploration path callback! "<< loc->x << " " <<loc->y;
+        ROS_INFO("%s/n", s.str().c_str());
+        gpp->explorationCallback(req, loc->x, loc->y);
+        pair<double, double> goal = gpp->explorationPath.back();
+        path->setPath(goal.first, goal.second, theta, distanceTol, gpp->explorationPath);
+    }
+
+    response.resp = true;
+    return true;
+}
+
+
 string getHomeDir() {
     passwd* pw = getpwuid(getuid());
     string path(pw->pw_dir);
@@ -157,9 +179,8 @@ int main(int argc, char **argv)
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal_test", 1, &GoalPosition::publisherCallback, &goal);
+  ros::ServiceServer explorationService = n.advertiseService("navigation/exploration_path", &GoalPosition::explorationCallback, &goal);
   ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
-  ros::Subscriber explorationSub = n.subscribe("navigation/exploration_path", 1, &GlobalPathPlanner::explorationCallback, gpp.get());
-
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
@@ -183,15 +204,21 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
-    double minLinVel = 0.20;
+    double c = 0.13; // total velocity
+    double r = 0.12; // approximate radius of wheel base
+    double k = max(1.0, 25*pow(fabs(path->angVel),2));
+    if (path->angVel > M_PI/2.0) {
+        path->linVel = 0; // sharp turn
+    }
     if (path->linVel > 0) {
-        path->linVel = max(minLinVel, path->linVel);
-        path->angVel *= 1.2;
-    } else {
-        path->angVel *=0.5;
+        double a = c/(r*fabs(path->angVel)+ fabs(path->linVel)/k);
+        path->linVel = a/k*path->linVel;
+        path->angVel = a*path->angVel;
+    } else if (path->angVel > 0) {
+        path->angVel = c/r;
     }
     geometry_msgs::Twist msg;
-    msg.linear.x = 0.4*path->linVel;
+    msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
     msg.linear.z = 0.0;
     msg.angular.x = 0.0;

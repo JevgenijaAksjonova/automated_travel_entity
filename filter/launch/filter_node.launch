@@ -1,4 +1,5 @@
 <launch>
-    <rosparam  file="$(find filter)/filter_params.yaml" command="load"/>
-	<node name="filter_node" pkg="filter" type="filter_node" output="screen"/>
+    <rosparam file="$(find filter)/filter_params.yaml" command="load"/>
+    <node name="filter_node" pkg="filter" type="filter_node" output="log"/>
+    <include file="$(find odometry)/launch/odometry_node.launch"/>
 </launch>
