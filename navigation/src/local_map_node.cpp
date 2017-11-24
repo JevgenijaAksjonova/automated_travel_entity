@@ -157,7 +157,11 @@ void LocalPathPlanner::addDepth(vector<double>& localMap){
             localMapNew[ind] = max(localMapNew[ind], 1.0);
             //cout << "Depth affecting lpp "<< ind << " " << r << endl;
         }
-        distanceDepth[ind] = r;
+        if (distanceDepth[ind]> 0) {
+            distanceDepth[ind] = min(r,distanceDepth[ind]);
+        } else {
+            distanceDepth[ind] = r;
+        }
         //cout <<"Depth affecting lpp :"<< ind << " " << r << endl;
     }
     localMap = localMapNew;
