@@ -4,4 +4,4 @@ geometry_msgs/Point pos
 std_msgs/String color
 float32 area
 bool centered
-
+float32 score

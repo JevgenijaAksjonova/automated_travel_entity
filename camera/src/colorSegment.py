@@ -45,7 +45,7 @@ def extract_object_image(middle_point, top_left, bot_right, image):
     (x_max, y_max) = bot_right
     #Calculate the width of the window
     window_width = max(x_max - x_min, y_max - y_min)
-    alignment = int((window_width // 2) * 1.5)
+    alignment = int((window_width // 2) * 2)
 
     #Create preliminary new window
     new_x_min = x_mid - alignment
@@ -101,6 +101,9 @@ class ObjectCandidate(object):
         self.area = self.height * self.widht
         self.color = color
         self.contour_area = cont_area
+    @property
+    def score(self):
+        return self.distance_from_center * self.contour_area / (4.0 if self.adjusted else 1.0)
 
     def find_img(self, full_rgb_img):
         self.img,self.adjusted,self.distance_from_center = extract_object_image(self.mid, self.top_left,
@@ -115,8 +118,8 @@ class ObjectCandidate(object):
         return self.z is None or math.isnan(self.z)
 
     def __repr__(self):
-        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}".format(
-            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center)
+        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}, score = {score}".format(
+            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center, score = self.score)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
