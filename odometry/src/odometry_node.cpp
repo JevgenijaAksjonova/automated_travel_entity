@@ -101,7 +101,7 @@ void positionUpdateCallback(const std_msgs::Bool::ConstPtr& update)
 }
 
 void updatePositionAccordingToFilter(){
-    ROS_INFO("Updating odom position!");
+    ROS_INFO("************************UPDATING ODOM POSITION*****************************");
     xpos = _filterX;
     ypos = _filterY;
     theta = _filterTheta;
@@ -120,7 +120,7 @@ void monitorPositionDeviation(){
             _strikes --;
         }
     }
-    // ROS_INFO("Deviation = [%f] strikes = [%d]", deviation, _strikes);
+     ROS_INFO("*** ODOM Deviation = [%f] strikes = [%d]", deviation, _strikes);
 
     if(_strikes >= MAXIMUM_NUMBER_OF_STRIKES_ALLOWED){
         _update_position = true;
