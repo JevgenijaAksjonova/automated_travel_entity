@@ -49,7 +49,7 @@ class MazeMap:
                                  robot_pos=None,
                                  max_classification_attempts=0,
                                  not_seen_within_secs = -1):
-        now_secs = rospy.Time.now.to_sec()
+        now_secs = rospy.Time.now().to_sec()
         unclassified_objects = (
             obj for obj in self.maze_objects
             if not obj.classified
@@ -97,10 +97,7 @@ class MazeMap:
     def _merge_maze_objects(self, maze_objs):
         mean_height = np.mean([close_obj.height for close_obj in maze_objs])
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
-        close_images = (close_obj.image for close_obj in maze_objs)
-        largest_image = max(
-            close_images,
-            key=lambda close_image: close_image.height * close_image.width)
+        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.contour_area * 1 if maze_obj.image_centered else 0.25).image
         p_max = max(obj.p for obj in maze_objs)
         class_label, class_id = chain(((obj.class_label, obj.class_id)
                                        for obj in maze_objs if obj.classified),
@@ -110,10 +107,10 @@ class MazeMap:
         last_seen = max(obj.last_seen for obj in maze_objs)
 
         self.maze_objects.difference_update(maze_objs)
-        representative_obj = min(maze_objs, key=lambda maze_obj, : maze_obj.id)
+        representative_obj = min(maze_objs, key=lambda maze_obj : maze_obj.id)
 
         representative_obj.pos = mean_pos
-        representative_obj.image = largest_image
+        representative_obj.image = best_image
         representative_obj.height = mean_height
         representative_obj.p = p_max
         representative_obj.class_label = class_label
@@ -180,6 +177,8 @@ class MazeObject(object):
         self.class_label = class_label
         self.class_id = class_id
         self.image = obj_cand_msg.image
+        self.contour_area = obj_cand_msg.area
+        self.image_centered = obj_cand_msg.centered
         self.id = MazeObject.n_maze_objects
         MazeObject.n_maze_objects += 1
         self._marker = None

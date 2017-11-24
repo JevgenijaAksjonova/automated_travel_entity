@@ -20,7 +20,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 
 from maze import MazeMap, MazeObject
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, RAUND
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
 
 class Mother:
@@ -53,7 +53,7 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub, 0.05, 0.01)
+        self.maze_map = MazeMap(self.map_pub, 0.05, 0.0025)
 
         #Subscribers
         if USING_VISION:
@@ -92,7 +92,7 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
-            if RAUND == 1:
+            if ROUND == 1:
                 #self.exploration_path_publisher = rospy.Publisher(
                 #    NAVIGATION_EXPLORATION_TOPIC, 
                 #    Bool, 
@@ -227,10 +227,11 @@ class Mother:
             resp = self.recognizer_srv(self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
                 resp.probability.data))
-            rospy.loginfo("resp.probability > .95 = {0}".format(
-                resp.probability.data > .95))
+            rospy.loginfo("resp.probability > .75 = {0}".format(
+                resp.probability.data > .75))
             rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
-            if resp.probability.data > .95:
+            if resp.probability.data > .75 and self.classifying_obj.color.lower() in resp.class_name.data.lower():
+                
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
                 rospy.loginfo("returning tru from try classify")
@@ -313,11 +314,11 @@ class Mother:
                         classifying_obj)
 
             elif self.mode == "following_an_exploration_path":
-                rospy.loginfo("Following an exploration path")
+                #rospy.loginfo("Following an exploration path")
                 self.object_classification_queue = list(
                     self.maze_map.get_unclassified_objects(self.pos,3,4))
                 if len(self.object_classification_queue) > 0:
-                    classifying_obj = self.object_classification_queue.pop()
+                    self.classifying_obj = self.object_classification_queue.pop()
                     if self.try_classify():
                         classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                             x=np.round(self.classifying_obj.pos[0], 2),
@@ -381,10 +382,10 @@ class Mother:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
             #rospy.loginfo("mother iter {i}\n".format(i = self.i))
-            rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
-            rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
-            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
+            #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
+            #rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
+            #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.i += 1

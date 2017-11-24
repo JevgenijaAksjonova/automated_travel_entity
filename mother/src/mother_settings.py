@@ -36,4 +36,4 @@ color_2_rgb = {
 #Define verboseness of different parts
 
 VISION_VERBOSE = True
-DETECTION_VERBOSE = True
+DETECTION_VERBOSE = False
