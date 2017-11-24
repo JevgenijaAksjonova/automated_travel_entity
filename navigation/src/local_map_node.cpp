@@ -75,7 +75,7 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
         if (localMap[i] > 0) {
 
             int angAddMax = (asin((robotRad)/max(distance[i],robotRad))/2.0/M_PI*360);
-            int angAddMin = (asin((robotRad-0.04)/max(distance[i],robotRad-0.04))/2.0/M_PI*360);
+            int angAddMin = (asin((robotRad-0.05)/max(distance[i],robotRad-0.05))/2.0/M_PI*360);
             //cout << "(" << angAddMin << ":"<<angAddMax << ")" ;
             for (int di = -angAddMax; di < angAddMax+1; di++) {
                 int j = i + di;
@@ -304,7 +304,7 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "local_map_node");
     ros::NodeHandle nh;
 
-    LocalPathPlanner lpp(0.175, 0.25);
+    LocalPathPlanner lpp(0.18, 0.25);
     ros::ServiceServer service = nh.advertiseService("local_path", &LocalPathPlanner::amendDirection, &lpp);
     ros::Subscriber lidarSub = nh.subscribe("/scan", 1000, &LocalPathPlanner::lidarCallback, &lpp);
 
