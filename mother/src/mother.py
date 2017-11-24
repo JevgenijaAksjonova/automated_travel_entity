@@ -314,7 +314,27 @@ class Mother:
 
             elif self.mode == "following_an_exploration_path":
                 rospy.loginfo("Following an exploration path")
-
+                self.object_classification_queue = list(
+                    self.maze_map.get_unclassified_objects(self.pos,3,4))
+                if len(self.object_classification_queue) > 0:
+                    classifying_obj = self.object_classification_queue.pop()
+                    if self.try_classify():
+                        classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
+                            x=np.round(self.classifying_obj.pos[0], 2),
+                            y=np.round(self.classifying_obj.pos[1], 2),
+                            label=self.classifying_obj.class_label,
+                            frame=MOTHER_WORKING_FRAME)
+                        msg = String()
+                        msg.data = classification_msg
+                        rospy.loginfo(classification_msg)
+                        self.speak_pub.publish(msg)
+                        self.evidence_pub.publish(
+                            self.classifying_obj.get_evidence_msg())
+                        self.classifying_obj = None
+                    else:
+                        self.classifying_obj.classification_attempts += 1
+                        self.classifying_obj = None
+                        
             elif self.mode == "following_path_to_object_classification":
 
                 if self.nav_goal_acchieved:

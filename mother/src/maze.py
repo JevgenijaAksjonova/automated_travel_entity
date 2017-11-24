@@ -47,16 +47,19 @@ class MazeMap:
     #returns the objects to be classified, sortend on proximity to robot_pos
     def get_unclassified_objects(self,
                                  robot_pos=None,
-                                 max_classification_attempts=0):
+                                 max_classification_attempts=0,
+                                 not_seen_within_secs = -1):
+        now_secs = rospy.Time.now.to_sec()
         unclassified_objects = (
             obj for obj in self.maze_objects
             if not obj.classified
-            and obj.classification_attempts <= max_classification_attempts)
+            and obj.classification_attempts <= max_classification_attempts
+            and now_secs - obj.last_seen >= not_seen_within_secs)
         if robot_pos is not None:
             unclassified_objects = sorted(unclassified_objects
                 ,lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - robot_pos) - np.linalg.norm(obj_b.pos - robot_pos))
         return unclassified_objects
-
+    
     # Add any type of object to the map.
     # Returns a reference to the object in the map
     # as it may not be the same object as was added, eventhough it is equivilent
@@ -71,7 +74,8 @@ class MazeMap:
     def update(self):
         objs_to_remove = set()
         for obj in self.maze_objects.copy():
-            obj.p -= self.p_loss_rate
+            if not obj.classified:
+                obj.p -= self.p_loss_rate
             obj._update_marker()
             if obj.p <= 0:
                 obj.visulisation_publisher = None
@@ -81,6 +85,7 @@ class MazeMap:
     def _add_maze_obj(self, obj):
         neighs = self._same_color_neighbors(obj)
         obj.p = self.p_increse_rate
+        obj.last_seen = rospy.Time.now().to_sec()
         if len(neighs) > 0:
             neighs.append(obj)
             obj = self._merge_maze_objects(neighs)
@@ -102,6 +107,8 @@ class MazeMap:
                                       [("an_object", -1)]).next()
         classification_attempts = max(
             obj.classification_attempts for obj in maze_objs)
+        last_seen = max(obj.last_seen for obj in maze_objs)
+
         self.maze_objects.difference_update(maze_objs)
         representative_obj = min(maze_objs, key=lambda maze_obj, : maze_obj.id)
 
@@ -112,6 +119,7 @@ class MazeMap:
         representative_obj.class_label = class_label
         representative_obj.class_id = class_id
         representative_obj.classification_attempts = classification_attempts
+        representative_obj.last_seen = last_seen
         for maze_obj in maze_objs:
             maze_obj.visulisation_publisher = None
         return representative_obj
@@ -185,6 +193,7 @@ class MazeObject(object):
     def classify(self, class_label, class_id):
         self._class_label = class_label
         self.class_id = class_id
+        self.p = 1
 
     def is_close(self, other, tol=0.1):
         return self.point_is_close(other.pos, tol=tol)
