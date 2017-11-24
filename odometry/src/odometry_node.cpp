@@ -10,6 +10,7 @@
 /**
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
+using namespace std;
 
 class OdometryPublisher{
 public:
@@ -38,6 +39,21 @@ OdometryPublisher(int frequency){
     ypos = 0.230;
     theta = pi/2;
     _update_position = false;
+    _strikes = 0;
+
+    if(!n.getParam("/odom/MAXIMUM_DEVIATION_ALLOWED",MAXIMUM_DEVIATION_ALLOWED)){
+        ROS_ERROR("odom failed to detect parameter 1");
+        exit(EXIT_FAILURE);
+    }
+    if(!n.getParam("/odom/MAXIMUM_NUMBER_OF_STRIKES_ALLOWED",MAXIMUM_NUMBER_OF_STRIKES_ALLOWED)){
+        ROS_ERROR("odom failed to detect parameter 2");
+        exit(EXIT_FAILURE);
+    }
+
+    ROS_INFO("ODOM running with params:");
+    ROS_INFO("Deviation allowed: %f", MAXIMUM_DEVIATION_ALLOWED);
+    ROS_INFO("Strikes allowed : %d", MAXIMUM_NUMBER_OF_STRIKES_ALLOWED);
+
 
 
     encoding_abs_prev = std::vector<int>(2,0);
@@ -74,12 +90,43 @@ void filterCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
   _filterTheta = tf::getYaw(odom_quat);
+  monitorPositionDeviation();
+
 
 }
 
 void positionUpdateCallback(const std_msgs::Bool::ConstPtr& update)
 {
   _update_position = update->data;
+}
+
+void updatePositionAccordingToFilter(){
+    ROS_INFO("Updating odom position!");
+    xpos = _filterX;
+    ypos = _filterY;
+    theta = _filterTheta;
+
+    _update_position = false;
+}
+
+void monitorPositionDeviation(){
+    float deviation =  sqrt(pow((_filterX - xpos),2) + pow((_filterY - ypos), 2));
+    //ROS_INFO("odom says: x = %f y = %f theta = %f", xpos, ypos, theta);
+    //ROS_INFO("filter says x = %f y = %f theta = %f", _filterX, _filterY, _filterTheta);
+    if(deviation > MAXIMUM_DEVIATION_ALLOWED){
+        _strikes ++;
+    }else{
+        if(_strikes >0){
+            _strikes --;
+        }
+    }
+    // ROS_INFO("Deviation = [%f] strikes = [%d]", deviation, _strikes);
+
+    if(_strikes >= MAXIMUM_NUMBER_OF_STRIKES_ALLOWED){
+        _update_position = true;
+        _strikes = 0;
+    }
+    
 }
 
 void calculateNewPosition(){
@@ -150,8 +197,6 @@ void calculateNewPosition(){
 
     odom_publisher.publish(odom_msg);
 
-    ROS_INFO("new Position [%f] [%f] [%f] ", xpos, ypos, theta);
-
 }
 private:
     std::vector<int> encoding_abs_prev;
@@ -159,6 +204,9 @@ private:
     std::vector<double> encoding_delta;
     int control_frequency;
     int first_loop;
+    float MAXIMUM_DEVIATION_ALLOWED;
+    int _strikes;
+    int MAXIMUM_NUMBER_OF_STRIKES_ALLOWED;
 };
 
 
@@ -177,10 +225,7 @@ int main(int argc, char **argv)
   int count = 0;
   while (odom.n.ok()){
       if(odom._update_position){
-          odom.xpos = odom._filterX;
-          odom.ypos = odom._filterY;
-          odom.theta = odom._filterTheta;
-          odom._update_position = false;
+          odom.updatePositionAccordingToFilter();
       }
 
     odom.calculateNewPosition();
