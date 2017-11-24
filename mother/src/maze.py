@@ -21,7 +21,7 @@ import numpy as np
 from geometry_msgs.msg import PointStamped
 from itertools import chain
 
-
+TRAP_CLASS_ID = 10000
 class MazeMap:
     #A general reprensentation of the robot map
     def __init__(self, visulisation_publisher, p_increse_rate, p_loss_rate):
@@ -106,9 +106,12 @@ class MazeMap:
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
         best_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.height * maze_obj.image.width).image
         p_max = max(obj.p for obj in maze_objs)
-        class_label, class_id = chain(((obj.class_label, obj.class_id)
+        if not any(obj.class_id == TRAP_CLASS_ID for obj in maze_objs):
+            class_label, class_id = chain(((obj.class_label, obj.class_id)
                                        for obj in maze_objs if obj.classified),
                                       [("an_object", -1)]).next()
+        else:
+            class_label, class_id = "trap",TRAP_CLASS_ID
         classification_attempts = max(
             obj.classification_attempts for obj in maze_objs)
         last_seen = max(obj.last_seen for obj in maze_objs)
@@ -196,16 +199,21 @@ class MazeObject(object):
         self._marker = None
         self._vis_pub = None
         self.visulisation_publisher = vis_pub
+        if obj_cand_msg.is_trap:
+            self.class_label = "trap"
+            self.class_id = TRAP_CLASS_ID
 
     @property
     def classified(self):
         return self.class_id >= 0
 
     def classify(self, class_label, class_id):
-        self._class_label = class_label
-        self.class_id = class_id
-        self.p = 1
-
+        if self.class_label != TRAP_CLASS_ID:
+            self._class_label = class_label
+            self.class_id = class_id
+            self.p = 1
+        else:
+            rospy.logwarn("trying to classify a trap")
     def is_close(self, other, tol=0.1):
         return self.point_is_close(other.pos, tol=tol)
 
