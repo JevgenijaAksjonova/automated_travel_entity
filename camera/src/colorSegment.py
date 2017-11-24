@@ -103,7 +103,7 @@ class ObjectCandidate(object):
         self.contour_area = cont_area
 
     def find_img(self, full_rgb_img):
-        self.img,self._quality_score = extract_object_image(self.mid, self.top_left,
+        self.img,self.adjusted = extract_object_image(self.mid, self.top_left,
                                         self.bot_right, full_rgb_img)
         (x, y, z) = self.img.shape
         return x * y * z != 0
@@ -114,6 +114,8 @@ class ObjectCandidate(object):
         self.z = np.nanmean(full_depth_img[x_range,y_range])
         return self.z is None or math.isnan(self.z)
 
+    def __repr__(self):
+        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}".format(contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
