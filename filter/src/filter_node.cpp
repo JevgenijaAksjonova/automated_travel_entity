@@ -11,9 +11,6 @@
 #include <ctime>
 #include <stdlib.h>
 #include <pwd.h>
-#include <sstream>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <geometry_msgs/Pose.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -32,11 +29,9 @@ class FilterPublisher
 
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
-    ros::Publisher outlier_publisher;
 
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
-    ros::Subscriber initalPose_subscriber;
     float pi;
     std::vector<float> dphi_dt;
     tf::TransformBroadcaster odom_broadcaster;
@@ -48,23 +43,16 @@ class FilterPublisher
     float range_max;
     int _nr_measurements;
     int _nr_random_particles;
-    int _nr_particles;
-    bool _intitialPoseReceived;
-    float _start_x;
-    float _start_y;
-    float _start_theta;
-
-    std::vector<pair<float, float>> outliers;
-
-    Particle winner_position;
+    bool _using_random_particles;
+    float _gaussian_particle_noise_spread;
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(int frequency)
+    FilterPublisher(float frequency)
     {
         control_frequency = frequency;
+        dt = 1/control_frequency;
         n = ros::NodeHandle("~");
-        _intitialPoseReceived = false;
         int nr_particles = 500;
         int nr_measurements = 8;
         int nr_random_particles = 10;
@@ -72,37 +60,50 @@ class FilterPublisher
         float k_D = 0.5;
         float k_V = 0.5;
         float k_W = 0.5;
-
+        bool using_random_particles = false;
+        float gaussian_particle_noise_spread = 0.1;
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
-            ROS_ERROR("failed to detect parameter 1");
+            ROS_ERROR("Filter failed to detect parameter 1");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/nr_measurements",nr_measurements)){
-            ROS_ERROR("failed to detect parameter 2");
+            ROS_ERROR("Filter failed to detect parameter 2");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/nr_random_particles",nr_random_particles)){
-            ROS_ERROR("failed to detect parameter 3");
+            ROS_ERROR("Filter failed to detect parameter 3");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/particle_params/random_particle_spread",random_particle_spread)){
-            ROS_ERROR("failed to detect parameter 4");
+            ROS_ERROR("Filter failed to detect parameter 4");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/particle_params/gaussian_particle_noise_spread",gaussian_particle_noise_spread)){
+            ROS_ERROR("Filter failed to detect parameter 4");
+            exit(EXIT_FAILURE);
+        }
+
+        if(!n.getParam("/filter/particle_params/using_random_particles",using_random_particles)){
+            ROS_ERROR("Filter failed to detect parameter 4");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_D",k_D)){
-            ROS_ERROR("failed to detect parameter 5");
+            ROS_ERROR("Filter failed to detect parameter 5");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_V",k_V)){
-            ROS_ERROR("failed to detect parameter 6");
+            ROS_ERROR("Filter failed to detect parameter 6");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/filter/odom_noise/k_W",k_W)){
-            ROS_ERROR("failed to detect parameter 7");
+            ROS_ERROR("Filter failed to detect parameter 7");
             exit(EXIT_FAILURE);
         }
+
+        _using_random_particles = using_random_particles;
+        _gaussian_particle_noise_spread = gaussian_particle_noise_spread;
 
         ROS_INFO("Running filter with parameters:");
         ROS_INFO("Number of particles: [%d]", nr_particles);
@@ -125,28 +126,32 @@ class FilterPublisher
 
         first_loop = true;
 
-        filter_publisher = n.advertise<nav_msgs::Odometry>("/odom", 1);
+        filter_publisher = n.advertise<nav_msgs::Odometry>("/filter", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
-        initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
 
         _wheel_r = 0.04;
         _base_d = 0.2;
         tick_per_rotation = 900;
-        control_frequenzy = 10; //10 hz
-        dt = 1 / control_frequenzy;
 
         _k_D = k_D;
         _k_V = k_V;
         _k_W = k_W;
 
+        float start_x = 0.215;
+        float start_y = 0.26;
+        float spread_xy = 0.05;
+        float start_theta = pi / 2;
+        float spread_theta = pi / 40;
         srand(static_cast<unsigned>(time(0)));
         particle_randomness = std::normal_distribution<float>(0.0, random_particle_spread);
+        particle_randomness2 = std::normal_distribution<float>(0.0, _gaussian_particle_noise_spread);
         _nr_measurements = nr_measurements;
         _nr_random_particles = nr_random_particles;
-        _nr_particles = nr_particles;
+
+        initializeParticles(start_x, start_y, spread_xy, start_theta, spread_theta, nr_particles);
     }
 
     void encoderCallbackLeft(const phidgets::motor_encoder::ConstPtr &msg)
@@ -168,36 +173,21 @@ class FilterPublisher
         range_max = msg->range_max;
     }
 
-    void initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg){
-        _start_x = msg->pose.pose.position.x;
-        _start_y = msg->pose.pose.position.y;
-        ROS_INFO("Initial pose recieved start_x [%f], start_y [%f] ", _start_x, _start_y);
-        tf::Pose pose;
-        tf::poseMsgToTF(msg->pose.pose, pose);
-        _start_theta = tf::getYaw(pose.getRotation());
-        _intitialPoseReceived = true;
-        ROS_INFO("Initial pose theta [%f] ", _start_theta);
-    }
-
-    void initializeParticles()
+    void initializeParticles(float start_x, float start_y, float spread_xy, float start_theta, float spread_theta, int nr_particles)
     {
-        ROS_INFO("intitializing particles!");
-        float spread_xy = 0.05;
-        float spread_theta = pi / 40;
 
-        std::normal_distribution<float> dist_start_x = std::normal_distribution<float>(_start_x, spread_xy);
-        std::normal_distribution<float> dist_start_y = std::normal_distribution<float>(_start_y, spread_xy);
-        std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(_start_theta, spread_theta);
+        std::normal_distribution<float> dist_start_x = std::normal_distribution<float>(start_x, spread_xy);
+        std::normal_distribution<float> dist_start_y = std::normal_distribution<float>(start_y, spread_xy);
+        std::normal_distribution<float> dist_start_theta = std::normal_distribution<float>(start_theta, spread_theta);
 
-        particles.resize(_nr_particles);
-
-        for (int i = 0; i < _nr_particles; i++)
+        particles.resize(nr_particles);
+        for (int i = 0; i < nr_particles; i++)
         {
 
             particles[i].xPos = dist_start_x(generator);
             particles[i].yPos = dist_start_y(generator);
             particles[i].thetaPos = dist_start_theta(generator);
-            particles[i].weight = (float)1.0 / _nr_particles;
+            particles[i].weight = (float)1.0 / nr_particles;
         }
     }
 
@@ -209,10 +199,11 @@ class FilterPublisher
         {
             particles[m].weight = (float)1.0 / particles.size();
         }
+
         calculateVelocityAndNoise();
 
-        if (linear_v != 0 || angular_w != 0)
-        {
+         if (linear_v != 0 || angular_w != 0)
+         {
             //update according to odom
             for (int m = 0; m < particles.size(); m++)
             {
@@ -234,7 +225,12 @@ class FilterPublisher
                 particles[i].weight = particles[i].weight / weight_sum;
             }
 
-            resampleParticles();
+            if(_using_random_particles){
+                resampleParticlesWithRandomParticles();
+            }else{
+                resampleParticlesWithGaussianNoise();
+
+            }
         }
 
 
@@ -264,7 +260,7 @@ class FilterPublisher
 
     }
 
-    void resampleParticles()
+    void resampleParticlesWithRandomParticles()
     {
         float rand_num;
         float cumulativeProb;
@@ -302,7 +298,7 @@ class FilterPublisher
     }
 
     // WORKS VERY BAD, WHY?
-    void resampleParticles2()
+    void resampleParticlesWithGaussianNoise()
     {
         float rand_num;
         float cumulativeProb;
@@ -320,14 +316,15 @@ class FilterPublisher
                 cumulativeProb += particles[j].weight;
             }
 
-            particles[j].xPos += particle_randomness(generator)*0.2;
-            particles[j].yPos += particle_randomness(generator)*0.2;
-            particles[j].thetaPos += particle_randomness(generator)*0.1;
-
             temp_vec.push_back(particles[j]);
         }
         
         particles.swap(temp_vec);
+        for(int i = 0; i<particles.size(); i++){
+            particles[i].xPos += particle_randomness2(generator);
+            particles[i].yPos += particle_randomness2(generator);
+            particles[i].thetaPos += particle_randomness2(generator);
+        }
     }
 
     void calculateVelocityAndNoise()
@@ -418,11 +415,10 @@ class FilterPublisher
 
         if (ranges.size() > 0)
         {
+
             getParticlesWeight(particles, map, sampled_measurements, max_distance, lidar_x, lidar_y);
         }
-        
     }
-
 
     void publishPosition(Particle ml_pos, Particle ml_pos_prev)
     {
@@ -574,12 +570,11 @@ class FilterPublisher
             particle.id = id;
             id++;
 
-            all_particles.markers.push_back(particle);
+           all_particles.markers.push_back(particle);
         }
 
         particle_publisher.publish(all_particles);
     }
-
 
 
   private:
@@ -591,19 +586,18 @@ class FilterPublisher
     std::normal_distribution<float> dist_V;
     std::normal_distribution<float> dist_W;
     std::normal_distribution<float> particle_randomness;
+    std::normal_distribution<float> particle_randomness2;
     std::vector<Particle> particles;
-
-    std::vector<float> prob_meas;
 
     float _wheel_r;
     float _base_d;
     int tick_per_rotation = 900;
-    float control_frequenzy = 10; //10 hz
-    float dt = 1 / control_frequenzy;
-    int control_frequency;
+    float control_frequency;
+    float dt;
     bool first_loop;
     float linear_v;
     float angular_w;
+
     float _k_D;
     float _k_V;
     float _k_W;
@@ -636,9 +630,6 @@ int main(int argc, char **argv)
     most_likely_position_prev.yPos = 0.0;
     most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
-    bool ready_to_run = false;
-    ROS_INFO("Filter waiting for initial position");
-
 
 
 
@@ -646,30 +637,13 @@ int main(int argc, char **argv)
     while (filter.n.ok())
     {
 
-        
-        if(filter._intitialPoseReceived){
-            filter.initializeParticles();
-            filter._intitialPoseReceived = false;
-            most_likely_position_prev.xPos = filter._start_x;
-            most_likely_position_prev.yPos = filter._start_y;
-            most_likely_position_prev.thetaPos = filter._start_theta;
-            ready_to_run = true;
-            ROS_INFO("Ready to run!");
 
-        }
-        if(ready_to_run){
-            most_likely_position = filter.localize(map);
-            filter.winner_position = most_likely_position;
-            filter.publishPosition(most_likely_position, most_likely_position_prev);
-            filter.publish_rviz_particles();
-
-            // if(filter.outliers.size() > 0) {
-            //     filter.publish_rviz_outliers();
-            // }
-
-            //filter.collect_measurements(sampled_measurements, map);
-            most_likely_position_prev = most_likely_position;
-        }
+        most_likely_position = filter.localize(map);
+        most_likely_position_prev = most_likely_position;
+        filter.publishPosition(most_likely_position, most_likely_position_prev);
+        filter.publish_rviz_particles();
+        //filter.collect_measurements(sampled_measurements, map);
+        most_likely_position_prev = most_likely_position;
         ros::spinOnce();
 
         loop_rate.sleep();

@@ -81,7 +81,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
 
     float lambda_short = 4.776181;
     
-    int num_short = 0;
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, translated_particle_x, translated_particle_y, laser_data, particle_theta);
 
@@ -125,9 +124,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
             float eta_short = 1 / (1 - exp(-lambda_short * mapRange));
 
             prob_short = eta_short * lambda_short * exp(-lambda_short * mapRange);
-
-            num_short++;
-            //ROS_INFO("Prob_short: %f", prob_short);
         }
 
         // Calculate the max probability
@@ -151,8 +147,6 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
     }
 
     weight = q;
-
-    //ROS_INFO("Number of short: %d", num_short);
     
 
     return weight;
@@ -193,7 +187,6 @@ void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, 
 
     float sigma_parameter = 0;
     float lambda_parameter = 0;
-    
 
     vector<pair<float, float>> rangeWithTrueRange = calculateRealRange(map, pos_x, pos_y, measurements, theta);
 
