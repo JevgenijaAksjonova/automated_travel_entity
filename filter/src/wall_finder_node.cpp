@@ -31,6 +31,7 @@ class WallFinder
     ros::Subscriber lidar_subscriber;
     ros::Subscriber position_subscriber;
     ros::Publisher outlier_publisher;
+    ros::Publisher wall_publisher;
 
     std::vector<float> ranges;
     float angle_increment;
@@ -49,6 +50,19 @@ class WallFinder
         float probability;
         int index;
     };
+
+    struct Wall{
+        float xStart;
+        float yStart;
+        float xEnd;
+        float yEnd;
+        float xCenter;
+        float yCenter;
+        float angle;
+        float length;
+    };
+    vector<Wall> _wallsFound;
+
 
 
 
@@ -81,7 +95,7 @@ class WallFinder
         lidar_subscriber = n.subscribe("/scan", 1, &WallFinder::lidarCallback, this);
         position_subscriber = n.subscribe("/filter", 1, &WallFinder::positionCallback, this );
         outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
-
+        wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls", 1);
 
         _nr_measurements = nr_measurements;
     }
@@ -166,7 +180,6 @@ class WallFinder
         vector<Outlier> confirmedOutliers;
 
         float sumOfProbs = 0;
-        ROS_INFO("sampled_measurement size [%lu]", sampled_measurements.size());
 
 
         if (sampled_measurements.size() > 0);
@@ -193,41 +206,101 @@ class WallFinder
                 }
             }
 
-            ROS_INFO("looking for rows");
             int i = 0;
             vector<Outlier> rowCandidate;
             vector<vector<Outlier>> outlierRows;
             while(i < confirmedOutliers.size()){
+                ROS_INFO("i = %d", i);
                 int outLierIndex = confirmedOutliers[i].index;
                     int j = i+1;
-                    if(j < confirmedOutliers.size() && confirmedOutliers[j].index < outLierIndex + MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW){
-                        rowCandidate.push_back(confirmedOutliers[i]);    
+                    if(j < confirmedOutliers.size() && confirmedOutliers[j].index < outLierIndex + MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW && calculateDistanceBetweenOutliers(confirmedOutliers[i], confirmedOutliers[j])<MIN_DISTANCE){
+                        rowCandidate.push_back(confirmedOutliers[i]);
+                        ROS_INFO("added to row");
                     }else{
+                        ROS_INFO("outlier %d too far away", j);
                         if(rowCandidate.size() > MIN_OUTLIERS_IN_ROW){
                             outlierRows.push_back(rowCandidate);
+                            ROS_INFO("Row of size %lu, row added!", rowCandidate.size());
                         }
                         else{
-                            rowCandidate.clear();
+                            ROS_INFO("Row of size %lu, row NOT added!", rowCandidate.size());                         
                         }
+                        rowCandidate.clear();
+
                     }
                     i++;
             }
             ROS_INFO("nr of outlierRows = [%lu]", outlierRows.size());
 
+            // if(outlierRows.size() > 0) {
+            //     for(int i = 0; i < outlierRows.size(); i++){
+            //         ROS_INFO("Row size, %lu", outlierRows[i].size());
+            //         publish_rviz_outliers(outlierRows[i]);
+            //     }
+            // }
 
 
-
-
-            ROS_INFO("nr of outliers = [%lu]", confirmedOutliers.size());
             if(outlierRows.size() > 0) {
-                ROS_INFO("5");
                 for(int i = 0; i < outlierRows.size(); i++){
-                    publish_rviz_outliers(outlierRows[i]);
+                    float rowStartX = outlierRows[i][0].xPos;
+                    float rowStartY = outlierRows[i][0].yPos;
+
+                    float rowEndX = outlierRows[i].back().xPos;
+                    float rowEndY = outlierRows[i].back().yPos;
+                    Wall w = createWall(rowStartX, rowStartY, rowEndX, rowEndY);
+                    addWall(w);
                 }
             }
+            if(_wallsFound.size()> 0){
+                publish_rviz_walls();
+            }
+
+
 
         
         }
+    }
+    void addWall(Wall w){
+        bool wallIsNew = true;
+        int i = 0;
+        while(wallIsNew && i < _wallsFound.size()){
+            wallIsNew = checkIfNewWall(w, _wallsFound[i]);
+            i++;
+        }
+        if(wallIsNew){
+            _wallsFound.push_back(w);
+        }
+    }
+
+    bool checkIfNewWall(Wall w1, Wall w2){
+        float centerDistance = sqrt(pow((w1.xCenter - w2.xCenter),2) + pow((w1.yCenter - w2.yCenter),2));
+        if(centerDistance > 0.15){
+            return true;
+        }
+        return false;
+
+    }
+
+    Wall createWall(float xStart, float yStart, float xEnd, float yEnd){
+
+        float centre_x = (xStart + xEnd) / 2;
+        float centre_y = (yStart + yEnd) / 2;
+
+        float rotation = atan2((yEnd - yStart), (xEnd - xStart));
+        float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
+
+        Wall w;
+        w.xStart = xStart;
+        w.yStart = yStart;
+        w.xEnd = xEnd;
+        w.yEnd = yEnd;
+        w.xCenter = centre_x;
+        w.yCenter = centre_y;
+        w.angle = rotation;
+        w.length = length;
+
+        return w;
+
     }
         
     Outlier addOutlierMeasurement(float x, float y, float theta, float angle, float range, float prob, int i) {
@@ -242,7 +315,6 @@ class WallFinder
 
     void publish_rviz_outliers(vector<Outlier> outliers)
     {
-        ROS_INFO("publishing outliers");
         ros::Time current_time = ros::Time::now();
         
         visualization_msgs::MarkerArray all_outliers;
@@ -266,7 +338,7 @@ class WallFinder
         outlier.color.b = 0.0f;
         outlier.color.a = 1.0;
 
-        float weight = 0.01;
+        float weight = 0.02;
 
         int id = 0;
         for (int i = 0; i < outliers.size(); i++)
@@ -290,6 +362,55 @@ class WallFinder
         all_outliers.markers.clear();
     }
 
+    void publish_rviz_walls(){
+
+        visualization_msgs::MarkerArray found_walls;
+        for(int i = 0; i < _wallsFound.size(); i++){
+            Wall w = _wallsFound[i];
+
+            visualization_msgs::Marker wall;
+
+            wall.header.frame_id = "/odom";
+            wall.header.stamp = ros::Time::now();
+
+            wall.ns = "global_wall";
+            wall.type = visualization_msgs::Marker::CUBE;
+            wall.action = visualization_msgs::Marker::ADD;
+
+            wall.pose.position.z = 0.1;
+
+            // Set the scale of the marker -- 1x1x1 here means 1m on a side
+            //marker.scale.x = 1.0;
+            wall.scale.y = 0.01;
+            wall.scale.z = 0.3;
+
+            // Set the color -- be sure to set alpha to something non-zero!
+            wall.color.r = 1.0f;
+            wall.color.g = 0.0f;
+            wall.color.b = 0.0f;
+            wall.color.a = 1.0;
+
+
+            wall.pose.position.x = w.xCenter;
+            wall.pose.position.y = w.yCenter;
+
+            tf::Quaternion q;
+            q.setRPY(0.0, 0.0, w.angle);
+            tf::quaternionTFToMsg(q, wall.pose.orientation);
+
+            wall.scale.x = w.length;
+
+            wall.id = i;
+            found_walls.markers.push_back(wall);
+        }
+
+        wall_publisher.publish(found_walls);
+    }
+
+    float calculateDistanceBetweenOutliers(Outlier &first, Outlier &second){
+        return sqrt(pow((second.xPos - first.xPos),2) + pow((second.yPos - first.yPos),2));
+    }
+
   private:
 
     std::vector<float> prob_meas;
@@ -299,6 +420,7 @@ class WallFinder
     float MAX_DISTANCE = 3;
     int MIN_OUTLIERS_IN_ROW = 5;
     int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW = 3;
+    float MIN_DISTANCE = 0.1;
 
 };
 
