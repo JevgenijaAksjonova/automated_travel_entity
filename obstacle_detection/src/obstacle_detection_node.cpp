@@ -1,13 +1,15 @@
 #include <ros/ros.h>
+#include <tf/transform_listener.h>
+
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
 
-
-ros::Publisher pub;
 
 
 class ObstaclePublisher
@@ -21,6 +23,9 @@ class ObstaclePublisher
     // Create a ROS publisher for the output point cloud
     ros::Publisher pub;
 
+    // Sent vector for obstacle avoidance 
+    std::vector< std::pair<float, float> > obstacles;
+
 
     ObstaclePublisher()
     {
@@ -28,7 +33,7 @@ class ObstaclePublisher
 
         sub = n.subscribe ("/camera/depth/points", 1, &ObstaclePublisher::pointCloudCallback, this);
 
-        pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
+        pub = n.advertise<sensor_msgs::PointCloud2> ("obstacle/output", 1);
 
     }
 
@@ -39,23 +44,45 @@ class ObstaclePublisher
       pcl::PCLPointCloud2ConstPtr cloudPtr(cloud);
       pcl::PCLPointCloud2 cloud_filtered;
 
+      sensor_msgs::PointCloud2 transformed_pc;
+
+      // Transform cloud
+      listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
+      pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
+
+      /*
       // Convert to PCL data type
-      pcl_conversions::toPCL(*cloud_msg, *cloud);
+      pcl_conversions::toPCL(transformed_pc, *cloud);
 
       // Perform the actual filtering
       pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
-      sor.setInputCloud (cloudPtr);
-      sor.setLeafSize (0.1, 0.1, 0.1);
-      sor.filter (cloud_filtered);
+      sor.setInputCloud(cloudPtr);
+      sor.setLeafSize(0.1, 0.1, 0.1);
+      sor.filter(cloud_filtered);
 
       // Convert to ROS data type
       sensor_msgs::PointCloud2 output;
       pcl_conversions::fromPCL(cloud_filtered, output);
+      */
 
       // Publish the data
-      pub.publish (output);
+      pub.publish(transformed_pc);
     }
 
+    /*
+    void detectObstacles() 
+    {
+
+    }
+
+    void removeUnwantedData()
+    {
+      
+    }*/
+
+  private:
+    tf::TransformListener listener;
+    tf::StampedTransform transform;
 };
 
 
