@@ -3,4 +3,5 @@
 	<node name="filter_node" pkg="filter" type="filter_node" output="screen"/>
 	<rosparam  file="$(find filter)/wall_finder_params.yaml" command="load"/>
 	<node name="wall_finder_node" pkg="filter" type="wall_finder_node" output="screen"/>
+	<include file="$(find odometry)/launch/odometry_node.launch"/>
 </launch>
