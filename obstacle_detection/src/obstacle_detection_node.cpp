@@ -25,7 +25,7 @@ class ObstaclePublisher
 
     // Sent vector for obstacle avoidance 
     std::vector< std::pair<float, float> > obstacles;
-
+    sensor_msgs::PointCloud2 transformed_pc;
 
     ObstaclePublisher()
     {
@@ -44,10 +44,9 @@ class ObstaclePublisher
       pcl::PCLPointCloud2ConstPtr cloudPtr(cloud);
       pcl::PCLPointCloud2 cloud_filtered;
 
-      sensor_msgs::PointCloud2 transformed_pc;
 
       // Transform cloud
-      listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
+      listener.lookupTransform("/camera_link", "/camera_depth_optical_frame", ros::Time(0), transform);
       pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
 
       /*
@@ -66,19 +65,30 @@ class ObstaclePublisher
       */
 
       // Publish the data
+
+      removeUnwantedData();
+
       pub.publish(transformed_pc);
-    }
-
-    /*
-    void detectObstacles() 
-    {
-
     }
 
     void removeUnwantedData()
     {
-      
-    }*/
+      pcl::PointCloud<pcl::PointXYZ> depth;
+      pcl::fromROSMsg(transformed_pc, depth);
+      int x = 320, y = 240; // set x and y
+
+      ROS_INFO("Width: [%d], Height: [%d]", depth.width, depth.height);
+
+      for(int i = 0; i < 10; i++) {
+        pcl::PointXYZ p1 = depth.at(x+i, y+i);
+
+        float x = p1._PointXYZ::data[ 0 ];
+        float y = p1._PointXYZ::data[ 1 ];
+        float z = p1._PointXYZ::data[ 2 ];
+
+        ROS_INFO("Depth: x[%f] y[%f] z[%f]", x, y, z);
+      }
+    }
 
   private:
     tf::TransformListener listener;
