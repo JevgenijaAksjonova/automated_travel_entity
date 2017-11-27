@@ -26,6 +26,7 @@ class ObstaclePublisher
     // Sent vector for obstacle avoidance 
     std::vector< std::pair<float, float> > obstacles;
     sensor_msgs::PointCloud2 transformed_pc;
+    sensor_msgs::PointCloud2 original_pc;
 
     ObstaclePublisher()
     {
@@ -45,8 +46,10 @@ class ObstaclePublisher
       pcl::PCLPointCloud2 cloud_filtered;
 
 
+      original_pc = *cloud_msg;
+
       // Transform cloud
-      listener.lookupTransform("/camera_link", "/camera_depth_optical_frame", ros::Time(0), transform);
+      listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
       pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
 
       /*
@@ -73,26 +76,59 @@ class ObstaclePublisher
 
     void removeUnwantedData()
     {
+      pcl::PointCloud<pcl::PointXYZ> old_depth;
       pcl::PointCloud<pcl::PointXYZ> depth;
-      pcl::fromROSMsg(transformed_pc, depth);
-      int x = 320, y = 240; // set x and y
+      pcl::fromROSMsg(original_pc, old_depth);
 
-      ROS_INFO("Width: [%d], Height: [%d]", depth.width, depth.height);
+      pcl_ros::transformPointCloud(old_depth, depth, transform);
 
-      for(int i = 0; i < 10; i++) {
-        pcl::PointXYZ p1 = depth.at(x+i, y+i);
+      //int x = 320, y = 240; // set x and y
 
-        float x = p1._PointXYZ::data[ 0 ];
-        float y = p1._PointXYZ::data[ 1 ];
-        float z = p1._PointXYZ::data[ 2 ];
+      //ROS_INFO("Width: [%d], Height: [%d]", depth.width, depth.height);
 
-        ROS_INFO("Depth: x[%f] y[%f] z[%f]", x, y, z);
+      std::vector<int> bins(1, 100);
+
+      for(int i = 0; i < depth.width; i++) {
+        for(int j = 0; j < depth.height; j++) {
+          pcl::PointXYZ p1 = depth.at(i, j);
+
+          float x = p1._PointXYZ::data[ 0 ];
+          float y = p1._PointXYZ::data[ 1 ];
+          float z = p1._PointXYZ::data[ 2 ];
+
+          if(z < HEIGHT_THRESHOLD) {
+            double rad = Radius(x, y);
+            if(rad < DISTANCE_THRESHOLD) {
+              double theta = Theta(x, y);
+            }
+          }
+
+          //ROS_INFO("Depth: x[%f] y[%f] z[%f]", x, y, z);
+        }
       }
+    }
+
+    double Radius(double x, double y)
+    {
+      double rad;
+      rad = sqrt((pow(x,2))+(pow(y,2)));
+      return rad;
+    }	
+    double Theta(double x, double y)
+    {
+      double Thta;
+
+      // TODO: USE ATAN2 IN THE FUTURE
+      Thta = atan(y/x);
+      return Thta;
     }
 
   private:
     tf::TransformListener listener;
     tf::StampedTransform transform;
+
+    float HEIGHT_THRESHOLD = 0.02;
+    float DISTANCE_THRESHOLD = 0.05;
 };
 
 
