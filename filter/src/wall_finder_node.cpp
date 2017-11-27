@@ -125,15 +125,12 @@ class WallFinder
     }
     
     void lookForWalls(LocalizationGlobalMap map){
-        ROS_INFO("Looking for walls!");
-        ROS_INFO("at postition: x = [%f] y = [%f] theta = [%f]", _xPos, _yPos, _thetaPos);
         vector<pair<float, float>> measurements = mapMeasurementsToAngles();
         getOutliers(map, measurements);
     }
 
     vector<pair<float, float>> mapMeasurementsToAngles()
     {
-        ROS_INFO("Sampling measurements");
         //Sample the measurements
         int step_size = (ranges.size() / _nr_measurements);
         std::vector<pair<float, float>> sampled_measurements;
@@ -171,7 +168,6 @@ class WallFinder
 
 
     void getOutliers(LocalizationGlobalMap map, vector<pair<float, float>> sampled_measurements){
-        ROS_INFO("Getting outliers");
 
         pair<float, float> translatedCenters = particleToLidarConversion(_xPos, _yPos, _thetaPos, LIDAR_X, LIDAR_Y);
         float translated_x = translatedCenters.first;
@@ -211,37 +207,25 @@ class WallFinder
             vector<Outlier> rowCandidate;
             vector<vector<Outlier>> outlierRows;
             while(i < confirmedOutliers.size()){
-                ROS_INFO("i = %d", i);
                 int outLierIndex = confirmedOutliers[i].index;
                     int j = i+1;
                     if(j < confirmedOutliers.size() && confirmedOutliers[j].index < outLierIndex + MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW && calculateDistanceBetweenOutliers(confirmedOutliers[i], confirmedOutliers[j])<MIN_DISTANCE){
                         rowCandidate.push_back(confirmedOutliers[i]);
-                        ROS_INFO("added to row");
                     }else{
-                        ROS_INFO("outlier %d too far away", j);
                         if(rowCandidate.size() > MIN_OUTLIERS_IN_ROW){
                             outlierRows.push_back(rowCandidate);
-                            ROS_INFO("Row of size %lu, row added!", rowCandidate.size());
                         }
                         else{
-                            ROS_INFO("Row of size %lu, row NOT added!", rowCandidate.size());                         
                         }
                         rowCandidate.clear();
 
                     }
                     i++;
             }
-            ROS_INFO("nr of outlierRows = [%lu]", outlierRows.size());
-
-            // if(outlierRows.size() > 0) {
-            //     for(int i = 0; i < outlierRows.size(); i++){
-            //         ROS_INFO("Row size, %lu", outlierRows[i].size());
-            //         publish_rviz_outliers(outlierRows[i]);
-            //     }
-            // }
 
 
             if(outlierRows.size() > 0) {
+                ROS_INFO("--------nr of walls found this iteration: %lu", outlierRows.size());
                 for(int i = 0; i < outlierRows.size(); i++){
                     float rowStartX = outlierRows[i][0].xPos;
                     float rowStartY = outlierRows[i][0].yPos;
@@ -255,8 +239,7 @@ class WallFinder
             if(_wallsFound.size()> 0){
                 publish_rviz_walls();
             }
-
-
+            publish_rviz_outliers(confirmedOutliers);
 
         
         }
@@ -265,8 +248,9 @@ class WallFinder
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
         int i = 0;
+        ROS_INFO("Trying to add wall with center x = %f y = %f", w.xCenter, w.yCenter);
         while(wallIsNew && i < _wallsFound.size()){
-            wallIsNew = checkIfNewWall(w, _wallsFound[i]);
+            wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
             i++;
         }
         if(w.xCenter < map.xMin || w.xCenter > map.xMax || w.yCenter < map.yMin || w.yCenter > map.yMax){
@@ -277,12 +261,16 @@ class WallFinder
         }
     }
 
-    bool checkIfNewWall(Wall &wNew, Wall &wOld){
+    bool checkIfNewWall(Wall &wNew, Wall &wOld, int i){
         float centerDistance = sqrt(pow((wNew.xCenter - wOld.xCenter),2) + pow((wNew.yCenter - wOld.yCenter),2));
+        ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
         if(centerDistance > 0.15){
             return true;
         }
-        wOld.nrAgreeingPoints += wNew.nrAgreeingPoints;
+        ROS_INFO("Wall is the same");
+        ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
+        _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
+        ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
 
     }
@@ -374,7 +362,8 @@ class WallFinder
         visualization_msgs::MarkerArray found_walls;
         for(int i = 0; i < _wallsFound.size(); i++){
             Wall w = _wallsFound[i];
-            if(w.nrAgreeingPoints > 20){
+            //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
+            if(w.nrAgreeingPoints > 5){
 
                 visualization_msgs::Marker wall;
 
@@ -427,8 +416,8 @@ class WallFinder
     float LIDAR_X = -0.03;
     float LIDAR_Y = 0;
     float MAX_DISTANCE = 3;
-    int MIN_OUTLIERS_IN_ROW = 5;
-    int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW = 3;
+    int MIN_OUTLIERS_IN_ROW = 3;
+    int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW = 2;
     float MIN_DISTANCE = 0.1;
 
 };
