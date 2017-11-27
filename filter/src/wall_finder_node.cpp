@@ -60,6 +60,7 @@ class WallFinder
         float yCenter;
         float angle;
         float length;
+        int nrAgreeingPoints;
     };
     vector<Wall> _wallsFound;
 
@@ -247,8 +248,8 @@ class WallFinder
 
                     float rowEndX = outlierRows[i].back().xPos;
                     float rowEndY = outlierRows[i].back().yPos;
-                    Wall w = createWall(rowStartX, rowStartY, rowEndX, rowEndY);
-                    addWall(w);
+                    Wall w = createWall(rowStartX, rowStartY, rowEndX, rowEndY, outlierRows[i].size());
+                    addWall(w, map);
                 }
             }
             if(_wallsFound.size()> 0){
@@ -260,28 +261,33 @@ class WallFinder
         
         }
     }
-    void addWall(Wall w){
+    void addWall(Wall w, LocalizationGlobalMap &map){
         bool wallIsNew = true;
+        bool wallIsInsideMap = true;
         int i = 0;
         while(wallIsNew && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i]);
             i++;
         }
-        if(wallIsNew){
+        if(w.xCenter < map.xMin || w.xCenter > map.xMax || w.yCenter < map.yMin || w.yCenter > map.yMax){
+            wallIsInsideMap = false;
+        }
+        if(wallIsNew && wallIsInsideMap){
             _wallsFound.push_back(w);
         }
     }
 
-    bool checkIfNewWall(Wall w1, Wall w2){
-        float centerDistance = sqrt(pow((w1.xCenter - w2.xCenter),2) + pow((w1.yCenter - w2.yCenter),2));
+    bool checkIfNewWall(Wall &wNew, Wall &wOld){
+        float centerDistance = sqrt(pow((wNew.xCenter - wOld.xCenter),2) + pow((wNew.yCenter - wOld.yCenter),2));
         if(centerDistance > 0.15){
             return true;
         }
+        wOld.nrAgreeingPoints += wNew.nrAgreeingPoints;
         return false;
 
     }
 
-    Wall createWall(float xStart, float yStart, float xEnd, float yEnd){
+    Wall createWall(float xStart, float yStart, float xEnd, float yEnd, int nrPoints){
 
         float centre_x = (xStart + xEnd) / 2;
         float centre_y = (yStart + yEnd) / 2;
@@ -298,6 +304,7 @@ class WallFinder
         w.yCenter = centre_y;
         w.angle = rotation;
         w.length = length;
+        w.nrAgreeingPoints = nrPoints;
 
         return w;
 
@@ -367,41 +374,43 @@ class WallFinder
         visualization_msgs::MarkerArray found_walls;
         for(int i = 0; i < _wallsFound.size(); i++){
             Wall w = _wallsFound[i];
+            if(w.nrAgreeingPoints > 20){
 
-            visualization_msgs::Marker wall;
+                visualization_msgs::Marker wall;
 
-            wall.header.frame_id = "/odom";
-            wall.header.stamp = ros::Time::now();
+                wall.header.frame_id = "/odom";
+                wall.header.stamp = ros::Time::now();
 
-            wall.ns = "global_wall";
-            wall.type = visualization_msgs::Marker::CUBE;
-            wall.action = visualization_msgs::Marker::ADD;
+                wall.ns = "global_wall";
+                wall.type = visualization_msgs::Marker::CUBE;
+                wall.action = visualization_msgs::Marker::ADD;
 
-            wall.pose.position.z = 0.1;
+                wall.pose.position.z = 0.1;
 
-            // Set the scale of the marker -- 1x1x1 here means 1m on a side
-            //marker.scale.x = 1.0;
-            wall.scale.y = 0.01;
-            wall.scale.z = 0.3;
+                // Set the scale of the marker -- 1x1x1 here means 1m on a side
+                //marker.scale.x = 1.0;
+                wall.scale.y = 0.01;
+                wall.scale.z = 0.3;
 
-            // Set the color -- be sure to set alpha to something non-zero!
-            wall.color.r = 1.0f;
-            wall.color.g = 0.0f;
-            wall.color.b = 0.0f;
-            wall.color.a = 1.0;
+                // Set the color -- be sure to set alpha to something non-zero!
+                wall.color.r = 1.0f;
+                wall.color.g = 0.0f;
+                wall.color.b = 0.0f;
+                wall.color.a = 1.0;
 
 
-            wall.pose.position.x = w.xCenter;
-            wall.pose.position.y = w.yCenter;
+                wall.pose.position.x = w.xCenter;
+                wall.pose.position.y = w.yCenter;
 
-            tf::Quaternion q;
-            q.setRPY(0.0, 0.0, w.angle);
-            tf::quaternionTFToMsg(q, wall.pose.orientation);
+                tf::Quaternion q;
+                q.setRPY(0.0, 0.0, w.angle);
+                tf::quaternionTFToMsg(q, wall.pose.orientation);
 
-            wall.scale.x = w.length;
+                wall.scale.x = w.length;
 
-            wall.id = i;
-            found_walls.markers.push_back(wall);
+                wall.id = i;
+                found_walls.markers.push_back(wall);
+            }
         }
 
         wall_publisher.publish(found_walls);
