@@ -1,0 +1,5 @@
+wall_finder:
+    nr_measurements : 360
+    outlier_treshold : 0.1
+
+
