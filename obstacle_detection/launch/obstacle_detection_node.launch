@@ -1,4 +1,6 @@
 <launch>
+    <rosparam file="$(find camera)/param.yaml" command="load"/>
+	<include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch" if="$(arg running_on_robot)"/>
     <node name="obstacle_detection_node" pkg="obstacle_detection" type="obstacle_detection_node" output="screen"/>
     <node pkg="tf" type="static_transform_publisher" name="camera_static_transform" args="0.16 0.0 0.30 0 2.35619 0 base_link camera_depth_optical_frame 100" />
 </launch>
