@@ -1,5 +1,9 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
+#include <math.h>
 
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
@@ -10,49 +14,69 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 
-
-
 class ObstaclePublisher
 {
-  public:
-    ros::NodeHandle n;
+public:
+  float HEIGHT_LOWER_THRESHOLD;
+  float HEIGHT_UPPER_THRESHOLD;
+  float DISTANCE_THRESHOLD;
+  float NBINS;
 
-    // Create a ROS subscriber for the input point cloud
-    ros::Subscriber sub;
+  float START_THETA;
+  float END_THETA;
 
-    // Create a ROS publisher for the output point cloud
-    ros::Publisher pub;
+  float INCREMENT_SIZE;
 
-    // Sent vector for obstacle avoidance 
-    std::vector< std::pair<float, float> > obstacles;
-    sensor_msgs::PointCloud2 transformed_pc;
-    sensor_msgs::PointCloud2 original_pc;
+  ros::NodeHandle n;
 
-    ObstaclePublisher()
-    {
-        n = ros::NodeHandle("~");
+  // Create a ROS subscriber for the input point cloud
+  ros::Subscriber sub;
 
-        sub = n.subscribe ("/camera/depth/points", 1, &ObstaclePublisher::pointCloudCallback, this);
+  // Create a ROS publisher for the output point cloud
+  ros::Publisher pub;
 
-        pub = n.advertise<sensor_msgs::PointCloud2> ("obstacle/output", 1);
+  ros::Publisher bin_publisher;
 
-    }
+  // Sent vector for obstacle avoidance
+  //std::vector<std::pair<float, float>> obstacles;
+  sensor_msgs::PointCloud2 transformed_pc;
+  sensor_msgs::PointCloud2 original_pc;
 
-    void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
-    {
-      // Container for original & filtered data
-      pcl::PCLPointCloud2* cloud = new pcl::PCLPointCloud2; 
-      pcl::PCLPointCloud2ConstPtr cloudPtr(cloud);
-      pcl::PCLPointCloud2 cloud_filtered;
+  ObstaclePublisher()
+  {
+    n = ros::NodeHandle("~");
 
+    sub = n.subscribe("/camera/depth/points", 1, &ObstaclePublisher::pointCloudCallback, this);
 
-      original_pc = *cloud_msg;
+    pub = n.advertise<sensor_msgs::PointCloud2>("obstacle/output", 1);
 
-      // Transform cloud
-      listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
-      pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
+    bin_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_bins", 1);
 
-      /*
+    HEIGHT_LOWER_THRESHOLD = 0.02;
+    HEIGHT_UPPER_THRESHOLD = 0.04;
+    DISTANCE_THRESHOLD = 0.4;
+    NBINS = 100;
+
+    START_THETA = M_PI / 2;
+    END_THETA = -M_PI / 2;
+
+    INCREMENT_SIZE = M_PI / NBINS;
+  }
+
+  void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
+  {
+    // Container for original & filtered data
+    pcl::PCLPointCloud2 *cloud = new pcl::PCLPointCloud2;
+    pcl::PCLPointCloud2ConstPtr cloudPtr(cloud);
+    pcl::PCLPointCloud2 cloud_filtered;
+
+    original_pc = *cloud_msg;
+
+    // Transform cloud
+    listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
+    pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
+
+    /*
       // Convert to PCL data type
       pcl_conversions::toPCL(transformed_pc, *cloud);
 
@@ -67,82 +91,158 @@ class ObstaclePublisher
       pcl_conversions::fromPCL(cloud_filtered, output);
       */
 
-      // Publish the data
+    // Publish the data
 
-      removeUnwantedData();
+    removeUnwantedData();
 
-      pub.publish(transformed_pc);
-    }
+    visualizeBins();
 
-    void removeUnwantedData()
+    pub.publish(transformed_pc);
+  }
+
+  void removeUnwantedData()
+  {
+    pcl::PointCloud<pcl::PointXYZ> old_depth;
+    pcl::PointCloud<pcl::PointXYZ> depth;
+    pcl::fromROSMsg(original_pc, old_depth);
+
+    pcl_ros::transformPointCloud(old_depth, depth, transform);
+
+    std::vector<int> bins(NBINS, 0);
+    std::vector<float> sum_dist(NBINS, 0);
+    std::vector<float> avg_dist(NBINS, 0);
+
+    for (int i = depth.width - 1; i > 0; i--)
     {
-      pcl::PointCloud<pcl::PointXYZ> old_depth;
-      pcl::PointCloud<pcl::PointXYZ> depth;
-      pcl::fromROSMsg(original_pc, old_depth);
+      for (int j = 0; j < depth.height; j++)
+      {
+        pcl::PointXYZ p1 = depth.at(i, j);
 
-      pcl_ros::transformPointCloud(old_depth, depth, transform);
+        //ROS_INFO("X: [%d], Y: [%d]", i, j);
 
-      //int x = 320, y = 240; // set x and y
+        float x = p1._PointXYZ::data[0];
+        float y = p1._PointXYZ::data[1];
+        float z = p1._PointXYZ::data[2];
 
-      //ROS_INFO("Width: [%d], Height: [%d]", depth.width, depth.height);
-
-      std::vector<int> bins(1, 100);
-
-      for(int i = 0; i < depth.width; i++) {
-        for(int j = 0; j < depth.height; j++) {
-          pcl::PointXYZ p1 = depth.at(i, j);
-
-          float x = p1._PointXYZ::data[ 0 ];
-          float y = p1._PointXYZ::data[ 1 ];
-          float z = p1._PointXYZ::data[ 2 ];
-
-          if(z < HEIGHT_THRESHOLD) {
+        if(!isnan(x) && !isnan(y) && !isnan(z)) {
+          if (z > HEIGHT_LOWER_THRESHOLD && z < HEIGHT_UPPER_THRESHOLD)
+          {
             double rad = Radius(x, y);
-            if(rad < DISTANCE_THRESHOLD) {
+            if (rad < DISTANCE_THRESHOLD)
+            {
+              int bin = 0;
               double theta = Theta(x, y);
+
+              bin = int(std::floor((theta + START_THETA) / INCREMENT_SIZE));
+
+              bins[bin] += 1;
+              sum_dist[bin] += rad;
             }
           }
-
-          //ROS_INFO("Depth: x[%f] y[%f] z[%f]", x, y, z);
         }
       }
     }
 
-    double Radius(double x, double y)
-    {
-      double rad;
-      rad = sqrt((pow(x,2))+(pow(y,2)));
-      return rad;
-    }	
-    double Theta(double x, double y)
-    {
-      double Thta;
+    for(int i = 0; i < sum_dist.size(); i++) {
+      if(sum_dist[i] > 0 && bins[i] > 0) {
+        avg_dist[i] = sum_dist[i] / bins[i];
+      }
+    }
+    distances = avg_dist;
+    answer_bins = bins;
+  }
 
-      // TODO: USE ATAN2 IN THE FUTURE
-      Thta = atan(y/x);
-      return Thta;
+  double Radius(double x, double y)
+  {
+    double rad;
+    rad = sqrt((pow(x, 2)) + (pow(y, 2)));
+    return rad;
+  }
+
+  double Theta(double x, double y)
+  {
+    double Thta;
+
+    // TODO: USE ATAN2 IN THE FUTURE
+    Thta = atan(y / x);
+    return Thta;
+  }
+
+  void visualizeBins()
+  {
+    ros::Time current_time = ros::Time::now();
+
+    visualization_msgs::MarkerArray all_bins;
+    visualization_msgs::Marker bin;
+
+    bin.header.stamp = current_time;
+    bin.header.frame_id = "/base_link";
+
+    bin.ns = "all_bins";
+    bin.type = visualization_msgs::Marker::CUBE;
+    bin.action = visualization_msgs::Marker::ADD;
+
+    bin.pose.position.z = 0.05;
+
+    // Set the color -- be sure to set alpha to something non-zero!
+    bin.color.r = 0.0f;
+    bin.color.g = 0.0f;
+    bin.color.b = 1.0f;
+
+    float size = 0.01;
+
+    int id = 0;
+    for (int i = 0; i < answer_bins.size(); i++)
+    {
+      if(answer_bins[i] > 100) {
+        float theta = (i * INCREMENT_SIZE) - START_THETA;
+        bin.pose.position.x = cos(theta) * distances[i];
+        bin.pose.position.y = sin(theta) * distances[i];
+        bin.color.a = 1.0;
+
+        //bin.scale.z = 0.001 * answer_bins[i];
+        //ROS_INFO("Bin: [%d]", i);
+        //ROS_INFO("X[%f], Y[%f]", cos(theta) * 0.3, sin(theta) * 0.3);
+      } else {
+        bin.pose.position.x = 0;
+        bin.pose.position.y = 0;
+        bin.color.a = 0;
+      }
+      
+
+      // Set the scale of the marker -- 1x1x1 here means 1m on a side
+      bin.scale.y = size;
+      bin.scale.x = size;
+      bin.scale.z = size;
+
+      bin.id = id;
+      id++;
+
+      all_bins.markers.push_back(bin);
     }
 
-  private:
-    tf::TransformListener listener;
-    tf::StampedTransform transform;
+    bin_publisher.publish(all_bins);
+  }
 
-    float HEIGHT_THRESHOLD = 0.02;
-    float DISTANCE_THRESHOLD = 0.05;
+private:
+  tf::TransformListener listener;
+  tf::StampedTransform transform;
+
+  std::vector<int> answer_bins;
+  std::vector<float> distances;
 };
 
-
-int main (int argc, char** argv)
+int main(int argc, char **argv)
 {
 
   ROS_INFO("Spinning!");
 
   // Initialize ROS
-  ros::init (argc, argv, "obstacle_detection");
+  ros::init(argc, argv, "obstacle_detection");
 
   ObstaclePublisher obs;
   ros::Rate loop_rate(10);
- 
+
   int count = 0;
   while (obs.n.ok())
   {
