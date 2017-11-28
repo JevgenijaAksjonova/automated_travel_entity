@@ -144,14 +144,14 @@ class Mother:
         rospy.loginfo("navigation stop callback")
         self.stop_info = stop_msg
         #self.mode = "handling_emergency_stop"
-        if stop_info.stop:
-            if stop_info.reason == 1:
+        if self.stop_info.stop:
+            if self.stop_info.reason == 1:
                 rospy.loginfo("EMERGENCY STOP, LIDAR")
-            elif stop_info.reason == 2:
+            elif self.stop_info.reason == 2:
                 rospy.loginfo("EMERGENCY STOP, DEPTH")
-            elif stop_info.reason == 3:
+            elif self.stop_info.reason == 3:
                 rospy.loginfo("EMERGENCY STOP, LPP: NO WAY")
-            elif stop_info.reason == 4:
+            elif self.stop_info.reason == 4:
                 rospy.loginfo("EMERGENCY STOP, DEVIATION FROM A PATH")
             else:
                 rospy.loginfo("EMERGENCY STOP, REASON NOT SPECIFIED")
