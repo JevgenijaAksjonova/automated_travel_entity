@@ -2,7 +2,8 @@
     <arg name="running_on_robot" default="True" />
     <rosparam file="$(find camera)/param.yaml" command="load"/>
 	<include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch" if="$(arg running_on_robot)"/>
-	<node pkg="tf" type="static_transform_publisher" name="camera_static_transform" args="0.16 0.0 0.30 0 -0.285 0 -1 base_link camera_link 100" />
+	<node pkg="tf" type="static_transform_publisher" name="camera_static_transform" args="0.15 0.0 0.16 0 -0.285 0 -1 base_link camera_link 100" />
+	<!--node pkg="tf" type="static_transform_publisher" name="camera_static_transform" args="0.16 0.0 0.30 0 -0.285 0 -1 base_link camera_link 100" /-->
 	<node pkg="camera" name="object_candidate_spotter" type="spotter.py" output="screen"/>
 	<node pkg="camera" name="recognizer_server_node" type="recognizer.py" output="log"/>
 </launch>

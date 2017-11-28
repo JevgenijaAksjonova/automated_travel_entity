@@ -403,9 +403,9 @@ class Mother:
                     else:
                         rospy.loginfo("Arm movement failed")
 
-            elif self.mode = "handling_emergency_stop":
+            elif self.mode == "handling_emergency_stop":
 
-
+                rospy.loginfo("Handling emergency stop")
 
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
