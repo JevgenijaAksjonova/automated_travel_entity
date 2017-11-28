@@ -71,14 +71,37 @@ public:
     DISTANCE_THRESHOLD = 0.4;
     NBINS = 180;
 
+    PUBLISH_MARKERS = true;
+
+    BIN_THRESHOLD = 100;
+
     START_THETA = M_PI / 2;
     END_THETA = -M_PI / 2;
 
     INCREMENT_SIZE = M_PI / NBINS;
 
-    PUBLISH_MARKERS = true;
+    
+    if(!n.getParam("/obstacle_detection/thresholds/HEIGHT_LOWER_THRESHOLD", HEIGHT_LOWER_THRESHOLD)){
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 1");
+      exit(EXIT_FAILURE);
+    }
+    if(!n.getParam("/obstacle_detection/thresholds/HEIGHT_UPPER_THRESHOLD", HEIGHT_UPPER_THRESHOLD)){
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 2");
+      exit(EXIT_FAILURE);
+    }
+    if(!n.getParam("/obstacle_detection/thresholds/BIN_THRESHOLD", BIN_THRESHOLD)){
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 3");
+      exit(EXIT_FAILURE);
+    }
+    if(!n.getParam("/obstacle_detection/thresholds/DISTANCE_THRESHOLD", DISTANCE_THRESHOLD)){
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 4");
+      exit(EXIT_FAILURE);
+    }
 
-    BIN_THRESHOLD = 100;
+    if(!n.getParam("/obstacle_detection/visual/PUBLISH_MARKERS", PUBLISH_MARKERS)){
+      ROS_ERROR("Obstacle detection failed to detect visual parameter 1");
+      exit(EXIT_FAILURE);
+    }
 
   }
 

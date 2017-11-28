@@ -1,12 +1,8 @@
 obstacle_detection:
-    particle_params:
-        nr_particles : 1000
-        nr_measurements : 8
-        using_random_particles : false
-        nr_random_particles : 50
-        random_particle_spread : 0.1
-        gaussian_particle_noise_spread : 0.05
-    odom_noise:
-        k_D : 0.5
-        k_V : 0.5
-        k_W : 0.5
+    thresholds:
+        HEIGHT_LOWER_THRESHOLD : 0.02
+        HEIGHT_UPPER_THRESHOLD : 0.04
+        DISTANCE_THRESHOLD : 0.4
+        BIN_THRESHOLD : 100
+    visual:
+        PUBLISH_MARKERS : true
