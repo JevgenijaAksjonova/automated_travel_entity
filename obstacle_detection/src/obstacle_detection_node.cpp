@@ -5,6 +5,8 @@
 
 #include <math.h>
 
+#include <project_msgs/depth.h>
+
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -27,6 +29,10 @@ public:
 
   float INCREMENT_SIZE;
 
+  float BIN_THRESHOLD;
+
+  bool PUBLISH_MARKERS;
+
   ros::NodeHandle n;
 
   // Create a ROS subscriber for the input point cloud
@@ -35,12 +41,18 @@ public:
   // Create a ROS publisher for the output point cloud
   ros::Publisher pub;
 
+  // ROS publisher for obstacles found
+  ros::Publisher obstacle_publisher;
+
+  // ROS publisher for visualization in rviz
   ros::Publisher bin_publisher;
 
   // Sent vector for obstacle avoidance
   //std::vector<std::pair<float, float>> obstacles;
   sensor_msgs::PointCloud2 transformed_pc;
   sensor_msgs::PointCloud2 original_pc;
+
+  project_msgs::depth obstacles_found;
 
   ObstaclePublisher()
   {
@@ -50,17 +62,24 @@ public:
 
     pub = n.advertise<sensor_msgs::PointCloud2>("obstacle/output", 1);
 
+    obstacle_publisher = n.advertise<project_msgs::depth>("/depth", 1);
+
     bin_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_bins", 1);
 
     HEIGHT_LOWER_THRESHOLD = 0.02;
     HEIGHT_UPPER_THRESHOLD = 0.04;
     DISTANCE_THRESHOLD = 0.4;
-    NBINS = 100;
+    NBINS = 180;
 
     START_THETA = M_PI / 2;
     END_THETA = -M_PI / 2;
 
     INCREMENT_SIZE = M_PI / NBINS;
+
+    PUBLISH_MARKERS = true;
+
+    BIN_THRESHOLD = 100;
+
   }
 
   void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
@@ -76,28 +95,16 @@ public:
     listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
     pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
 
-    /*
-      // Convert to PCL data type
-      pcl_conversions::toPCL(transformed_pc, *cloud);
-
-      // Perform the actual filtering
-      pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
-      sor.setInputCloud(cloudPtr);
-      sor.setLeafSize(0.1, 0.1, 0.1);
-      sor.filter(cloud_filtered);
-
-      // Convert to ROS data type
-      sensor_msgs::PointCloud2 output;
-      pcl_conversions::fromPCL(cloud_filtered, output);
-      */
-
     // Publish the data
-
     removeUnwantedData();
 
-    visualizeBins();
+    if(PUBLISH_MARKERS) {
+      visualizeBins();
+    }
 
     pub.publish(transformed_pc);
+
+    obstacle_publisher.publish(obstacles_found);
   }
 
   void removeUnwantedData()
@@ -112,17 +119,21 @@ public:
     std::vector<float> sum_dist(NBINS, 0);
     std::vector<float> avg_dist(NBINS, 0);
 
+    std::vector<float> found_ranges;
+    std::vector<float> found_angles;
+    
+
     for (int i = depth.width - 1; i > 0; i--)
     {
       for (int j = 0; j < depth.height; j++)
       {
-        pcl::PointXYZ p1 = depth.at(i, j);
+        pcl::PointXYZ depth_point = depth.at(i, j);
 
         //ROS_INFO("X: [%d], Y: [%d]", i, j);
 
-        float x = p1._PointXYZ::data[0];
-        float y = p1._PointXYZ::data[1];
-        float z = p1._PointXYZ::data[2];
+        float x = depth_point._PointXYZ::data[0];
+        float y = depth_point._PointXYZ::data[1];
+        float z = depth_point._PointXYZ::data[2];
 
         if(!isnan(x) && !isnan(y) && !isnan(z)) {
           if (z > HEIGHT_LOWER_THRESHOLD && z < HEIGHT_UPPER_THRESHOLD)
@@ -144,11 +155,18 @@ public:
     }
 
     for(int i = 0; i < sum_dist.size(); i++) {
-      if(sum_dist[i] > 0 && bins[i] > 0) {
+      if(sum_dist[i] > 0 && bins[i] > BIN_THRESHOLD) {
         avg_dist[i] = sum_dist[i] / bins[i];
+
+        found_ranges.push_back(avg_dist[i]);
+        found_angles.push_back(i * INCREMENT_SIZE - START_THETA);
       }
     }
     distances = avg_dist;
+
+    obstacles_found.ranges = found_ranges;
+    obstacles_found.angles = found_angles;
+
     answer_bins = bins;
   }
 
@@ -194,7 +212,7 @@ public:
     int id = 0;
     for (int i = 0; i < answer_bins.size(); i++)
     {
-      if(answer_bins[i] > 100) {
+      if(answer_bins[i] > BIN_THRESHOLD) {
         float theta = (i * INCREMENT_SIZE) - START_THETA;
         bin.pose.position.x = cos(theta) * distances[i];
         bin.pose.position.y = sin(theta) * distances[i];
