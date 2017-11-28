@@ -133,6 +133,7 @@ void LocalPathPlanner::addDepth(vector<double>& localMap){
             localMapNew[ind] = max(localMapNew[ind], 1.0);
         }
         distance[ind] = min(distance[ind], r);
+        //cout << ind << " " << r << " "<< distance[ind]<< endl;
     }
     localMap = localMapNew;
 }
@@ -165,7 +166,7 @@ void LocalPathPlanner::updateLocalMapLidar() {
     localMap = localMapNew;
     //cout << "LOCAL MAP Distance " << endl;
     //for (int i = 0; i < localMapNew.size(); i++) {
-    //    cout << localMapNew[i] << ":" <<distance[i] <<" ";
+    //    cout << localMapNew[i];// << ":" <<distance[i] <<" ";
     //}
     //cout << endl;
     //cout << "LOCAL MAP NEW " << endl;
@@ -180,6 +181,11 @@ void LocalPathPlanner::updateLocalMapLidar() {
     //}
     //cout << endl;
     addDepth(localMapNew);
+    //cout << "LOCAL MAP DEPTH" << endl;
+    //for (int i = 0; i < localMapNew.size(); i++) {
+    //    cout << localMapNew[i] ;//<<":" <<distance[i] <<" ";
+    //}
+    //cout << endl;
     addRobotRadius(localMapNew);
     //cout << "LOCAL MAP RADIUS" << endl;
     //for (int i = 0; i < localMapNew.size(); i++) {
