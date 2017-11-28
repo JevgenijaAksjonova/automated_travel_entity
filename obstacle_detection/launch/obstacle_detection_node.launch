@@ -1,0 +1,5 @@
+<launch>
+    <rosparam file="$(find obstacle_detection)/obstacle_detection_params.yaml" command="load"/>
+    <node name="obstacle_detection_node" pkg="obstacle_detection" type="obstacle_detection_node" output="screen"/>
+    <node pkg="tf" type="static_transform_publisher" name="pc_static_transform" args="0 0 0 0.511 -0.488 0.511 -0.488 camera_link camera_depth_optical_frame 100" />
+</launch>

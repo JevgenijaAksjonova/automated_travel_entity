@@ -20,6 +20,8 @@ class Path {
     double linVel;
     double angVel;
     bool move;
+    bool replan;
+    bool rollback;
 
     vector<pair<double,double> > globalPath;
 
@@ -31,7 +33,9 @@ class Path {
         pathRad(_pathRad), 
         distanceTol(_distanceTol), 
         angleTol(_angleTol), 
-        move(false) {};
+        move(false),
+        replan(false),
+        rollback(false) {};
     void setGoal(double x, double y, double theta);
     void followPath(double x, double y, double theta);
     void obstaclesCallback(const project_msgs::stop::ConstPtr& msg);

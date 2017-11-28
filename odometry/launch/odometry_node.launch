@@ -1,4 +1,4 @@
 <launch>
 	<rosparam file="$(find odometry)/odom_params.yaml" command="load"/>
-	<node name="odometry_node" pkg="odometry" type="odometry_node" output="screen" />
+	<node name="odometry_node" pkg="odometry" type="odometry_node" output="log" />
 </launch>

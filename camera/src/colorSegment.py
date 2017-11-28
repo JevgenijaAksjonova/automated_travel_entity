@@ -15,6 +15,7 @@ import random
 pp = pprint.PrettyPrinter(indent=4)
 #rec = Recognizer()p
 
+MIDDLE_PIXEL = np.r_[640//2,480//2]
 
 #Thresholds in hue for all collors
 colors = ["green", "red", "blue", "yellow", "purple", "orange"]
@@ -44,41 +45,45 @@ def extract_object_image(middle_point, top_left, bot_right, image):
     (x_max, y_max) = bot_right
     #Calculate the width of the window
     window_width = max(x_max - x_min, y_max - y_min)
-    alignment = int((window_width // 2) * 1.5)
+    alignment = int((window_width // 2) * 2)
 
     #Create preliminary new window
     new_x_min = x_mid - alignment
     new_x_max = x_mid + alignment
     new_y_min = y_mid - alignment
     new_y_max = y_mid + alignment
-
+    
+    adjusted_window = False
     #Check if resulting window is outside of image
     if new_x_max >= image.shape[1]:
         new_x_mid = x_mid - (new_x_max - image.shape[1])
+        adjusted_window = True
     elif new_x_min < 0:
         new_x_mid = x_mid - new_x_min
+        adjusted_window = True
     else:
         new_x_mid = x_mid
 
     if new_y_max >= image.shape[0]:
         new_y_mid = y_mid - (new_y_max - image.shape[0])
+        adjusted_window = True
     elif new_y_min < 0:
         new_y_mid = y_mid - new_y_min
+        adjusted_window = True
     else:
         new_y_mid = y_mid
-
+    distance_from_center = np.linalg.norm(np.r_[new_x_mid,new_y_mid] - MIDDLE_PIXEL)
     #Create new window
     new_x_min = new_x_mid - alignment
     new_x_max = new_x_mid + alignment
     new_y_min = new_y_mid - alignment
     new_y_max = new_y_mid + alignment
 
-    return image[new_y_min:new_y_max, new_x_min:new_x_max, :]
-
+    return image[new_y_min:new_y_max, new_x_min:new_x_max, :], adjusted_window, distance_from_center
 
 #An object representic an area classified by the algorithm as a candidate area.
 class ObjectCandidate(object):
-    def __init__(self, x_min, x_max, y_min, y_max, color):
+    def __init__(self, x_min, x_max, y_min, y_max, color,cont_area):
 
         self.bot_right = (x_max, y_max)
         self.top_left = (x_min, y_min)
@@ -95,9 +100,13 @@ class ObjectCandidate(object):
         self.height = (y_max - y_min)
         self.area = self.height * self.widht
         self.color = color
+        self.contour_area = cont_area
+    @property
+    def score(self):
+        return self.distance_from_center * self.contour_area / (4.0 if self.adjusted else 1.0)
 
     def find_img(self, full_rgb_img):
-        self.img = extract_object_image(self.mid, self.top_left,
+        self.img,self.adjusted,self.distance_from_center = extract_object_image(self.mid, self.top_left,
                                         self.bot_right, full_rgb_img)
         (x, y, z) = self.img.shape
         return x * y * z != 0
@@ -108,6 +117,9 @@ class ObjectCandidate(object):
         self.z = np.nanmean(full_depth_img[x_range,y_range])
         return self.z is None or math.isnan(self.z)
 
+    def __repr__(self):
+        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}, score = {score}".format(
+            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center, score = self.score)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
@@ -157,13 +169,14 @@ def color_segment_image(bgr_image,
             #if to_many_object_candidates:
                 #break
             contour = cv2.convexHull(contour)
+            cont_area = cv2.contourArea(contour)
             x_min = int(contour[:, 0, 0].min())
             x_max = int(contour[:, 0, 0].max())
             y_min = int(contour[:, 0, 1].min())
             y_max = int(contour[:, 0, 1].max())
             detected_obj = ObjectCandidate(x_min, x_max, y_min, y_max,
-                                            color)
-
+                                            color,cont_area)
+            
             #resonability checks
             im_width, im_height, im_channels = bgr_image.shape
             im_area = float(im_width * im_height)
