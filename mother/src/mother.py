@@ -6,20 +6,20 @@ rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
 import rospy
-from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose
+from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
 from project_msgs.msg import stop
 from nav_msgs.msg import Odometry
 from tf import TransformListener, ExtrapolationException
-from tf.transformations import quaternion_from_euler
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 trans = TransformListener()
 from camera.msg import PosAndImage
 from camera.srv import recognizer
 from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
-
+from math import atan2
 from maze import MazeMap, MazeObject
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
@@ -192,41 +192,21 @@ class Mother:
             return
         self.maze_map.add_object(obj_cand)
 
-    def get_pos_to_classify_object(self, object_pos):
-        #TODO: Find resonable way of getting into position
-        #current_pose = self.robot_pose
-        #object_pos_msg = point_to_msg(*object_pos)
+    def go_to_twist(self,twist,distance_tol=0.05,angle_tol=0.1):
+        if USING_PATH_PLANNING:
+            self.nav_goal_acchieved = False
+            request = global_pathRequest()
+            request.pose = twist
+            request.distanceTol = distance_tol
+            request.angleTol = angle_tol
+            response = self.global_path_service(request)
+            return response.path_found
+        else:
+            self.nav_goal_acchieved = True
+            return True
 
-        #for i in range(100):
 
-        #Sample point on circle
-        #angle_sample = random.uniform(0,np.pi * 2)
-        #radius = .2 #robot distance from object
-        #x_sample = np.cos(angle_sample) * radius
-        #y_sample = np.sin(angle_sample) * radius
-
-        #Move circle to perspective of object
-        #x_sample = object_pos.x + x_sample
-        #y_sample = object_pos.y + y_sample
-
-        #pose = pose_to_msg(x_sample,y_sample,theta)
-
-        # Further optimization, score different positions and select a good one.
-        # This would also enable batching requests to a map server
-        # This whole function should problably be implemented at some map server
-        # well well.
-        #if self.possible_pose(pose) and self.line_of_sight(pose.point,object_pos_msg):
-        #    return pose
-        return None
-
-        pose = Pose()
-        pose.x = object_pos[0]
-        pose.y = object_pos[1]
-        pose.z = 0
-        pose.orientation = Quaternion(*quaternion_from_euler)
-        return pose
-
-    def go_to_pose(self, pose, distanceTol):
+    def go_to_pose(self, pose,distance_tol=0.05,angle_tol=0.1):
         #print("go pose = ", type(pose))
         if USING_PATH_PLANNING:
             self.nav_goal_acchieved = False
@@ -244,8 +224,11 @@ class Mother:
             request = global_pathRequest()
             request.pose.linear.x = pose.pose.position.x
             request.pose.linear.y = pose.pose.position.y
-            request.pose.angular.x = 1.57
-            request.distanceTol = distanceTol
+            angles = *euler_from_quaternion(pose.orientation)
+            print("angles =",angles)
+            request.pose.angular = Vector3(*angles)
+            request.distanceTol = distance_tol
+            request.angleTol = angle_tol
             response = self.global_path_service(request)
             return response.path_found
         else:
@@ -293,11 +276,57 @@ class Mother:
     def set_following_path_to_object_classification(self, classifying_obj):
 
         classification_pose = classifying_obj.pose_stamped
-        if self.go_to_pose(classification_pose,0.20):
+        if self.go_to_pose(classification_pose,angle_tol=2 * np.pi):
             self.mode = "following_path_to_object_classification"
             self.classifying_obj = classifying_obj
         else:
             rospy.loginfo("Did not find any feasable path to the object")
+
+    def set_turning_towards_object(self,classifying_obj):
+        [x,y] = classifying_obj.pos - self.pos
+        theta = atan2(y,x)
+        msg = Twist()
+        msg.pose.angular = Vector3(0,0,theta)
+        msg.pose.linear = Vector3(0,0,0)
+        if self.go_to_twist(msg,distance_tol=100000):
+            self.mode = "turning_towards_object"
+            self.classifying_obj = classifying_obj
+            return True
+        else:
+            rospy.loginfo("Was not able to find way to turn to that object")
+            return False
+
+    def turning_towards_object_update(self):
+        if self.nav_goal_acchieved:
+            if self.try_classify():
+                classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
+                    x=np.round(self.classifying_obj.pos[0], 2),
+                    y=np.round(self.classifying_obj.pos[1], 2),
+                    label=self.classifying_obj.class_label,
+                    frame=MOTHER_WORKING_FRAME)
+                msg = String()
+                msg.data = classification_msg
+                rospy.loginfo(classification_msg)
+                self.speak_pub.publish(msg)
+                self.evidence_pub.publish(
+                    self.classifying_obj.get_evidence_msg())
+                if "Cube" in self.classifying_obj.class_label:
+                    rospy.loginfo("Object {0} is liftable".format(
+                        self.classifying_obj.class_label))
+                    self.set_lift_up_object(classifying_obj)
+                else:
+                    rospy.loginfo("{0} is not liftable".format(
+                        self.classifying_obj.class_label))
+                    if ROUND == 1:
+                        self.set_following_an_exploration_path()
+                    else:
+                        self.set_following_path_to_main_goal()
+                self.classifying_obj = None
+            else:
+                self.classifying_obj.classification_attempts += 1
+                self.set_following_path_to_main_goal()
+                self.classifying_obj = None
+
 
     def set_lift_up_object(self, lifting_obj):
         if USING_ARM:
@@ -317,7 +346,7 @@ class Mother:
         else:
             self.set_following_path_to_main_goal()
 
-    # Main mother loop  
+    # Main mother loop
     def mother_forever(self, rate=5):
         rate = rospy.Rate(rate)
         rate.sleep()
@@ -345,56 +374,19 @@ class Mother:
                         classifying_obj)
 
             elif self.mode == "following_an_exploration_path":
-                #rospy.loginfo("Following an exploration path")
                 self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(self.pos,3,4))
+                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.3,max_classification_attempts=3))
                 if len(self.object_classification_queue) > 0:
-                    self.classifying_obj = self.object_classification_queue.pop()
-                    if self.try_classify():
-                        classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
-                            x=np.round(self.classifying_obj.pos[0], 2),
-                            y=np.round(self.classifying_obj.pos[1], 2),
-                            label=self.classifying_obj.class_label,
-                            frame=MOTHER_WORKING_FRAME)
-                        msg = String()
-                        msg.data = classification_msg
-                        rospy.loginfo(classification_msg)
-                        self.speak_pub.publish(msg)
-                        self.evidence_pub.publish(
-                            self.classifying_obj.get_evidence_msg())
-                        self.classifying_obj = None
-                    else:
-                        self.classifying_obj.classification_attempts += 1
-                        self.classifying_obj = None
+                    classifying_obj = self.object_classification_queue.pop()
+                    self.set_turning_towards_object(classifying_obj)
                         
             elif self.mode == "following_path_to_object_classification":
-
                 if self.nav_goal_acchieved:
-                    if self.try_classify():
-                        classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
-                            x=np.round(self.classifying_obj.pos[0], 2),
-                            y=np.round(self.classifying_obj.pos[1], 2),
-                            label=self.classifying_obj.class_label,
-                            frame=MOTHER_WORKING_FRAME)
-                        msg = String()
-                        msg.data = classification_msg
-                        rospy.loginfo(classification_msg)
-                        self.speak_pub.publish(msg)
-                        self.evidence_pub.publish(
-                            self.classifying_obj.get_evidence_msg())
-                        if "Cube" in self.classifying_obj.class_label:
-                            rospy.loginfo("Object {0} is liftable".format(
-                                self.classifying_obj.class_label))
-                            self.set_lift_up_object(classifying_obj)
-                        else:
-                            rospy.loginfo("{0} is not liftable".format(
-                                self.classifying_obj.class_label))
-                            self.set_following_path_to_main_goal()
-                        self.classifying_obj = None
-                    else:
-                        self.classifying_obj.classification_attempts += 1
-                        self.set_following_path_to_main_goal()
-                        self.classifying_obj = None
+                    if not self.set_turning_towards_object(self.classifying_obj):
+                        self.set_following_an_exploration_path()
+                    
+            elif self.mode == "turning_towards_object":
+                self.turning_towards_object_update()
 
             elif self.mode == "lift_object":
                 # Enyu do your stuff, not sure what needs to be done to lift something.

@@ -47,8 +47,9 @@ class MazeMap:
     #returns the objects to be classified, sortend on proximity to robot_pos
     def get_unclassified_objects(self,
                                  robot_pos=None,
+                                 distance_thresh=float("inf")):
                                  max_classification_attempts=0,
-                                 not_seen_within_secs = -1):
+                                 not_seen_within_secs = -1,
         now_secs = rospy.Time.now().to_sec()
         unclassified_objects = (
             obj for obj in self.maze_objects
@@ -57,7 +58,11 @@ class MazeMap:
             and now_secs - obj.last_seen >= not_seen_within_secs)
         if robot_pos is not None:
             unclassified_objects = sorted(unclassified_objects
-                ,lambda obj_a, obj_b: np.linalg.norm(obj_a.pos - robot_pos) - np.linalg.norm(obj_b.pos - robot_pos))
+                ,key = lambda obj: np.linalg.norm(obj.pos - robot_pos))
+            unclassified_objects = filter(unclassified_objects,
+                ,lambda : obj: obj.point_is_close(robot_pos,distance_thresh))
+        else:
+            raise Exception("robot pos is None")
         return unclassified_objects
     
     # Add any type of object to the map.
@@ -97,7 +102,7 @@ class MazeMap:
     def _merge_maze_objects(self, maze_objs):
         mean_height = np.mean([close_obj.height for close_obj in maze_objs])
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
-        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.contour_area * 1 if maze_obj.image_centered else 0.25).image
+        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.shape[0] * maze_obj.image.shape[1]).image
         p_max = max(obj.p for obj in maze_objs)
         class_label, class_id = chain(((obj.class_label, obj.class_id)
                                        for obj in maze_objs if obj.classified),
