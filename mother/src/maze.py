@@ -6,7 +6,7 @@ import rospkg
 rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
-importunclassified_objects rospy
+import rospy
 from geometry_msgs.msg import TransformStamped
 from tf import TransformListener, ExtrapolationException
 trans = TransformListener()
@@ -59,10 +59,12 @@ class MazeMap:
         if robot_pos is not None:
             unclassified_objects = sorted(unclassified_objects
                 ,key = lambda obj: np.linalg.norm(obj.pos - robot_pos))
-            unclassified_objects = filter(unclassified_objects,
-                lambda obj: obj.point_is_close(robot_pos,distance_thresh))
+            unclassified_objects = filter(
+                lambda obj: obj.point_is_close(robot_pos,distance_thresh),unclassified_objects)
+            rospy.loginfo("robot_pos was not none")
         else:
-            raise Exception("robot pos is None")
+            rospy.loginfo("robot_pos was none")
+            return []
         return unclassified_objects
     
     # Add any type of object to the map.
@@ -102,7 +104,7 @@ class MazeMap:
     def _merge_maze_objects(self, maze_objs):
         mean_height = np.mean([close_obj.height for close_obj in maze_objs])
         mean_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
-        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.shape[0] * maze_obj.image.shape[1]).image
+        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.height * maze_obj.image.width).image
         p_max = max(obj.p for obj in maze_objs)
         class_label, class_id = chain(((obj.class_label, obj.class_id)
                                        for obj in maze_objs if obj.classified),
@@ -133,14 +135,14 @@ class MazeMap:
         ]
 
 
-def tf_transform_pose_stamped(pose_stamped_msg,max_iter = 3000):
+def tf_transform_point_stamped(pose_stamped_msg,max_iter = 3000):
     i = 0
     ros_sucks = True
     obj_cand_msg_new = None
     while ros_sucks and i < max_iter:
         try:
             obj_cand_msg_new = trans.transformPoint(
-                MOTHER_WORKING_FRAME, obj_cand_point_msg)
+                MOTHER_WORKING_FRAME, pose_stamped_msg)
             ros_sucks = False
         except ExtrapolationException:
             pass
@@ -166,7 +168,7 @@ class MazeObject(object):
         obj_cand_point_msg.point = obj_cand_msg.pos
         self.color = obj_cand_msg.color.data
 
-        obj_cand_msg_new = tf_transform_pose_stamped(obj_cand_point_msg)
+        obj_cand_msg_new = tf_transform_point_stamped(obj_cand_point_msg)
         if obj_cand_msg_new is None:
             raise ExtrapolationException
 
