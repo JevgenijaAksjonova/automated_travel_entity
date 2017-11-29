@@ -193,7 +193,7 @@ int main(int argc, char **argv)
   ros::Rate loop_rate(10);
 
   vector<pair<double, double> > history;
-  int maxHistorySize = 200;
+  int maxHistorySize = 15;
 
   bool onlyTurn = false;
   double prevAngVel = 0.0;
@@ -249,8 +249,8 @@ int main(int argc, char **argv)
             ROS_INFO("%s/n",s.str().c_str());
         } else {
             path->rollback = false;
-            //onlyTurn = true;
-            //prevAngVel = 0.0;
+            onlyTurn = true;
+            prevAngVel = 0.0;
             if (!path->replan) {
                 path->move = true;
             }
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
     }
 
     // precaution (if emergency stop appeared while doing computations)
-    if (!path->move) {
+    if (!(path->move || path->rollback)) {
         path->linVel = 0;
         path->angVel = 0;
     }
