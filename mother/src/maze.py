@@ -47,9 +47,9 @@ class MazeMap:
     #returns the objects to be classified, sortend on proximity to robot_pos
     def get_unclassified_objects(self,
                                  robot_pos=None,
-                                 distance_thresh=float("inf")):
+                                 distance_thresh=float("inf"),
                                  max_classification_attempts=0,
-                                 not_seen_within_secs = -1,
+                                 not_seen_within_secs = -1):
         now_secs = rospy.Time.now().to_sec()
         unclassified_objects = (
             obj for obj in self.maze_objects
@@ -60,7 +60,7 @@ class MazeMap:
             unclassified_objects = sorted(unclassified_objects
                 ,key = lambda obj: np.linalg.norm(obj.pos - robot_pos))
             unclassified_objects = filter(unclassified_objects,
-                ,lambda : obj: obj.point_is_close(robot_pos,distance_thresh))
+                lambda obj: obj.point_is_close(robot_pos,distance_thresh))
         else:
             raise Exception("robot pos is None")
         return unclassified_objects

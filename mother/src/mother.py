@@ -225,9 +225,6 @@ class Mother:
             request = global_pathRequest()
             request.pose.linear.x = pose.pose.position.x
             request.pose.linear.y = pose.pose.position.y
-            angles = *euler_from_quaternion(pose.orientation)
-            print("angles =",angles)
-            request.pose.angular = Vector3(*angles)
             request.distanceTol = distance_tol
             request.angleTol = angle_tol
             response = self.global_path_service(request)
