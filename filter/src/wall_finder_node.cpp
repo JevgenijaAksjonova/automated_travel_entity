@@ -215,8 +215,9 @@ class WallFinder
             float averageProb = sumOfProbs/sampled_measurements.size();
             for(int i = 0; i<outlierCandidates.size(); i++){
                 Outlier candidate = outlierCandidates[i];
+                float distanceToCandidate = sqrt(pow((candidate.xPos - _xPos),2) + pow((candidate.yPos - _yPos),2));
                 //ROS_INFO("average prob [%f] outlier prob [%f]",averageProb,candidate.probability);
-                if(candidate.probability < averageProb * OUTLIER_THRESHOLD){
+                if(candidate.probability < averageProb * OUTLIER_THRESHOLD && distanceToCandidate < MAX_DISTANCE_TO_OUTLIER){
                     confirmedOutliers.push_back(candidate);
                 }
             }
@@ -359,7 +360,10 @@ class WallFinder
         float centre_x = (xStart + xEnd) / 2;
         float centre_y = (yStart + yEnd) / 2;
 
-        float rotation = abs(atan2((yEnd - yStart), (xEnd - xStart)));
+        float rotation = atan2((yEnd - yStart), (xEnd - xStart));
+        if(rotation < 0){
+            rotation += 2*M_PI;
+        }
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;
@@ -443,7 +447,7 @@ class WallFinder
         for(int i = 0; i < _wallsFound.size(); i++){
             Wall w = _wallsFound[i];
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
-            if(w.nrAgreeingPoints > 10 && !w.published){
+            if(w.nrAgreeingPoints > MIN_POINTS && !w.published){
 
                 visualization_msgs::Marker wall;
 
@@ -491,7 +495,7 @@ class WallFinder
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
             std_msgs::Float32MultiArray array;
             array.data.clear();
-            if(w.nrAgreeingPoints > 10 && !w.published){
+            if(w.nrAgreeingPoints > MIN_POINTS && !w.published){
                 array.data.push_back(w.xStart);
                 array.data.push_back(w.yStart);
                 array.data.push_back(w.xEnd);
@@ -519,6 +523,8 @@ class WallFinder
     int MIN_OUTLIERS_IN_ROW = 3;
     int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW = 2;
     float MIN_DISTANCE = 0.1;
+    int MIN_POINTS = 10;
+    float MAX_DISTANCE_TO_OUTLIER = 1.5;
 
 };
 
