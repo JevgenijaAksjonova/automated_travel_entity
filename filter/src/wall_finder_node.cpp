@@ -88,11 +88,35 @@ class WallFinder
 
 
         if(!n.getParam("/wall_finder/nr_measurements",nr_measurements)){
-            ROS_ERROR("failed to detect parameter");
+            ROS_ERROR("wf failed to detect parameter1");
             exit(EXIT_FAILURE);
         }
         if(!n.getParam("/wall_finder/outlier_treshold",OUTLIER_THRESHOLD)){
-            ROS_ERROR("failed to detect parameter");
+            ROS_ERROR("wf failed to detect parameter2 ");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MAX_DISTANCE_LIDAR",MAX_DISTANCE_LIDAR)){
+            ROS_ERROR("wf failed to detect parameter3");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MIN_OUTLIERS_IN_ROW",MIN_OUTLIERS_IN_ROW)){
+            ROS_ERROR("wf failed to detect parameter 4");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW",MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW)){
+            ROS_ERROR("wf failed to detect parameter 5");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MIN_DISTANCE",MIN_DISTANCE)){
+            ROS_ERROR("wf failed to detect parameter 6");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MIN_POINTS",MIN_POINTS)){
+            ROS_ERROR("wf failed to detect parameter 7");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/MAX_DISTANCE_TO_OUTLIER",MAX_DISTANCE_TO_OUTLIER)){
+            ROS_ERROR("wf failed to detect parameter 8");
             exit(EXIT_FAILURE);
         }
 
@@ -171,9 +195,9 @@ class WallFinder
             }
             i = i +j;
             
-            if (range > MAX_DISTANCE)
+            if (range > MAX_DISTANCE_LIDAR)
             {
-                range = MAX_DISTANCE;
+                range = MAX_DISTANCE_LIDAR;
             }
 
             
@@ -204,7 +228,7 @@ class WallFinder
 
                 vector<pair<float, float>> temp_measurements;
                 temp_measurements.push_back(measurement);
-                float prob = calculateWeight(map, translated_x, translated_y, temp_measurements, MAX_DISTANCE, _thetaPos);
+                float prob = calculateWeight(map, translated_x, translated_y, temp_measurements, MAX_DISTANCE_LIDAR, _thetaPos);
                 Outlier o = addOutlierMeasurement(translated_x, translated_y, _thetaPos, measurement.first, measurement.second, prob, i);
                 //ROS_INFO("outlier %d", i);
                 //ROS_INFO("location: x [%f] y [%f] probability [%f] ", o.xPos, o.yPos, o.probability);
@@ -268,7 +292,7 @@ class WallFinder
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
         int i = 0;
-        ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
+        // ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
         while(wallIsNew && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
             i++;
@@ -315,7 +339,7 @@ class WallFinder
         return sqrt(dx * dx + dy * dy);
     }
 
-    bool checkIfNewWall(Wall &wNew, Wall &wOld, int i){
+    bool checkIfNewWall(Wall &wNew, Wall wOld, int i){
 
         float x1 = wOld.xStart;
         float x2 = wOld.xEnd;
@@ -323,15 +347,11 @@ class WallFinder
         float y2 = wOld.yEnd;
         float x = wNew.xCenter;
         float y = wNew.yCenter;
-        //float numerator = abs((wOld.yEnd - wOld.yStart)*wNew.xCenter - (wOld.xEnd - wOld.xStart)*wNew.yCenter + wOld.xEnd*wOld.yStart - wOld.yEnd*wOld.xStart);
-        //float denominator = sqrt(pow(wOld.yEnd - wOld.yStart,2) + pow(wOld.xEnd - wOld.xStart, 2));
-        // float numerator = abs((y2-y1)*x0 - (x2-x1)*y0 + x2*y1 - y2*x1);
-        // float denominator = sqrt(pow(y2-y1,2) + pow(x2-x1, 2));
 
         float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
-        ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
-        ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
+        // ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
+        // ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
         if(centerDistance > 0.05 && angleDifference > M_PI/8){
             return true;
         }
@@ -341,16 +361,20 @@ class WallFinder
         if(angleDifference > M_PI/4){
             return true;
         }
-        ROS_INFO("Wall is the same angle difference : %f", angleDifference);
-        ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
+        // ROS_INFO("Wall is the same angle difference : %f", angleDifference);
+        // ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
         if(wNew.length >wOld.length){ //Assume longer is better.
+            ROS_INFO("Updating wall %d", i);
+            ROS_INFO("Published before = %d", _wallsFound[i].published);
             _wallsFound[i] = wNew;
             _wallsFound[i].nrAgreeingPoints += wOld.nrAgreeingPoints;
+            _wallsFound[i].published = wOld.published;
+            ROS_INFO("Published = %d", _wallsFound[i].published);
         }else{
             _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
 
         }
-        ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
+        // ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
 
     }
@@ -502,6 +526,7 @@ class WallFinder
                 array.data.push_back(w.yEnd);
                 wall_array_publisher.publish(array);
                 _wallsFound[i].published = true;
+                ROS_INFO("Published wall %d [%f] [%f] [%f] [%f]", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
 
 
             }
@@ -519,12 +544,12 @@ class WallFinder
     float OUTLIER_THRESHOLD;
     float LIDAR_X = -0.03;
     float LIDAR_Y = 0;
-    float MAX_DISTANCE = 3;
-    int MIN_OUTLIERS_IN_ROW = 3;
-    int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW = 2;
-    float MIN_DISTANCE = 0.1;
-    int MIN_POINTS = 10;
-    float MAX_DISTANCE_TO_OUTLIER = 1.5;
+    float MAX_DISTANCE_LIDAR;
+    int MIN_OUTLIERS_IN_ROW;
+    int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW;
+    float MIN_DISTANCE;
+    int MIN_POINTS;
+    float MAX_DISTANCE_TO_OUTLIER;
 
 };
 
