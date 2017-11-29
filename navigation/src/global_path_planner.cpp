@@ -19,6 +19,9 @@
 #include <ros/ros.h>
 #include <chrono>
 #include <std_msgs/Bool.h>
+#include "std_msgs/Float32MultiArray.h"
+#include "std_msgs/MultiArrayLayout.h"
+#include "std_msgs/MultiArrayDimension.h"
 
 #include <global_path_planner.h>
 
@@ -203,7 +206,60 @@ void GlobalPathPlanner::setMap(string mapFile){
     addRobotRadiusToObstacles(radius);
 }
 
-void GlobalPathPlanner::updateMap(){
+void GlobalPathPlanner::newWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array){
+    vector<double> wall;
+    for(std::vector<float>::const_iterator it = array->data.begin(); it != array->data.end(); ++it){
+        wall.push_back(*it);
+    }
+    updateMap(wall);
+}
+
+void GlobalPathPlanner::updateMap(vector<double> wall){
+
+    double x1 = wall[0];
+    double y1 = wall[1];
+    double x2 = wall[2];
+    double y2 = wall[3];
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    size_t count = 0;
+    while (pow(dx,2) + pow(dy,2) > pow(robotRad*2,2)/4.0) {
+        dx /= 2;
+        dy /= 2;
+        count++;
+    }
+    for (size_t c = 0; c < pow(2,count)+1; c++) {
+        pair<int, int> cell = getCell(x1 + c*dx, y1 + c*dy);
+        addRobotRadiusToPoint(cell);
+    }
+    mapChanged = true;
+
+
+}
+
+void GlobalPathPlanner::addRobotRadiusToPoint(pair<int, int> xy){
+
+    int radCell = robotRad/cellSize;
+    int maxX = static_cast<int>(gridSize.first);
+    int maxY = static_cast<int>(gridSize.second);
+
+    int startX = max(xy.first - radCell, 0);
+    int startY = max(xy.second - radCell, 0);
+    int endX = min(xy.first + radCell, maxX);
+    int endY = min(xy.second + radCell, maxY);
+    float distance;
+
+    for (int i = startX; i <=endX; i++){
+        for (int j = startY; j <=endY; j++){
+            if(pow(i*cellSize,2) + pow(j*cellSize,2) <= pow(robotRad,2)){
+                map[i][j] = 1;
+            }
+        }
+    }
+
+
+
+    
 
 }
 
