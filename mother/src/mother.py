@@ -20,7 +20,7 @@ from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
-from maze import MazeMap, MazeObject
+from maze import MazeMap, MazeObject, tf_transform_pose_stamped
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
 
@@ -172,8 +172,12 @@ class Mother:
 
     @property
     def pos(self):
-        if self.odometry_msg is not None:
-            pos = self.odometry_msg.pose.pose.position
+        msg = PoseStamped()
+        msg.header.frame_id = "base_link"
+        msg.header.stamp = rospy.Time.now()
+        msg_new = tf_transform_pose_stamped(msg)
+        pos = msg_new.point
+        if msg_new is not None:
             return np.r_[pos.x, pos.y]
         else:
             return None

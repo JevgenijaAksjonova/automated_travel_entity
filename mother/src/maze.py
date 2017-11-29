@@ -6,7 +6,7 @@ import rospkg
 rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
-import rospy
+importunclassified_objects rospy
 from geometry_msgs.msg import TransformStamped
 from tf import TransformListener, ExtrapolationException
 trans = TransformListener()
@@ -133,6 +133,21 @@ class MazeMap:
         ]
 
 
+def tf_transform_pose_stamped(pose_stamped_msg,max_iter = 3000):
+    i = 0
+    ros_sucks = True
+    obj_cand_msg_new = None
+    while ros_sucks and i < max_iter:
+        try:
+            obj_cand_msg_new = trans.transformPoint(
+                MOTHER_WORKING_FRAME, obj_cand_point_msg)
+            ros_sucks = False
+        except ExtrapolationException:
+            pass
+        i += 1
+    return obj_cand_msg_new
+
+
 class MazeObject(object):
 
     n_maze_objects = 0
@@ -150,18 +165,8 @@ class MazeObject(object):
         obj_cand_point_msg.header.stamp = obj_cand_msg.header.stamp
         obj_cand_point_msg.point = obj_cand_msg.pos
         self.color = obj_cand_msg.color.data
-        ros_sucks = True
-        obj_cand_msg_new = None
-        i = 0
-        while ros_sucks and i < 3000:
-            try:
-                obj_cand_msg_new = trans.transformPoint(
-                    MOTHER_WORKING_FRAME, obj_cand_point_msg)
-                ros_sucks = False
-            except ExtrapolationException:
-                pass
-            i += 1
 
+        obj_cand_msg_new = tf_transform_pose_stamped(obj_cand_point_msg)
         if obj_cand_msg_new is None:
             raise ExtrapolationException
 
