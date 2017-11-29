@@ -138,6 +138,7 @@ void GoalPosition::callback(double x_new, double y_new, double theta_new, double
 bool GoalPosition::explorationCallback(project_msgs::exploration::Request &request,
                                        project_msgs::exploration::Response &response) {
 
+    ROS_INFO("Hello from exploration callback in navigation node");
     bool req = request.req;
     if (req) {
         stringstream s;
@@ -240,7 +241,11 @@ int main(int argc, char **argv)
             path->linVel = a/k*path->linVel;
             path->angVel = a*path->angVel;
         } else if (path->angVel != 0) {
-            path->angVel = c/r;
+            if (path->angVel < 0) {
+                path->angVel = -c/r;
+            } else {
+                path->angVel = c/r;
+            }
         }
 
 

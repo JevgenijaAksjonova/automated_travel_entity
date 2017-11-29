@@ -91,8 +91,10 @@ void Path::followPath(double x, double y, double theta) {
             globalPath.erase(globalPath.begin());
             linVel = 0;
             angVel = diffAngles(goalAng,theta);
+            ROS_INFO("LIN VEL LESS THAN DISTANCE TOL");
         }
         stringstream s;
+        s << "Tolerance " << distanceTol << " " << angleTol << endl;
         s << "Angles " << targetAng <<" "<< theta << " " << angVel;
         ROS_INFO("%s/n", s.str().c_str());
     } else if (dist > distanceTol) {

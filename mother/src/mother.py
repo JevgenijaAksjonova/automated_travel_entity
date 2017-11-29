@@ -292,6 +292,7 @@ class Mother:
     def set_turning_towards_object(self,classifying_obj):
         robot_pos = self.pos
         if robot_pos is None:
+            rospy.loginfo("was not able to set turning_towards_object because robot_pos was None")
             return False
         [x,y] = classifying_obj.pos - robot_pos
         theta = atan2(y,x)
@@ -335,7 +336,7 @@ class Mother:
                 self.classifying_obj = None
             else:
                 self.classifying_obj.classification_attempts += 1
-                self.set_following_path_to_main_goal()
+                self.set_following_an_exploration_path()
                 self.classifying_obj = None
 
 
@@ -364,14 +365,23 @@ class Mother:
 
         self.set_waiting_for_main_goal()
         rospy.loginfo("Entering mother loop")
-
+        
+        
+        
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None:
+                    #robot_pos = self.pos 
+                    #if robot_pos is not None:
+                        #msg = Twist()
+                        #msg.angular = Vector3(0,0,1.57)
+                        #msg.linear = Vector3(robot_pos[0],robot_pos[1],0)   
+                        #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
                     if ROUND == 1:
                         rospy.loginfo("Following an exploration path")
                         self.set_following_an_exploration_path()
+                    
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal()
