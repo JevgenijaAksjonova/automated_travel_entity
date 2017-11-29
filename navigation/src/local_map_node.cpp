@@ -14,6 +14,8 @@
 #include "project_msgs/direction.h"
 #include "project_msgs/stop.h"
 #include "project_msgs/depth.h"
+#include <nav_msgs/Odometry.h>
+#include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sstream>
@@ -38,6 +40,7 @@ class LocalPathPlanner {
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void depthCallback(const project_msgs::depth::ConstPtr& msg);
+    void locationCallback(const nav_msgs::Odometry::ConstPtr& msg);
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
     void showLocalMap();
@@ -55,6 +58,11 @@ class LocalPathPlanner {
     bool useDepth = true;
     vector<float> rangesDepth;
     vector<float> anglesDepth;
+
+    //location
+    double locX;
+    double locY;
+    double locTheta;
 
     vector<double> localMap;
     vector<double> localMapProcessed;
@@ -242,6 +250,27 @@ void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
     anglesDepth = msg->angles;
 }
 
+void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+    double locX_new = msg->pose.pose.position.x;//xStart - msg->pose.pose.position.y;
+    double locY_new = msg->pose.pose.position.y;//yStart + msg->pose.pose.position.x;
+
+    geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
+    double locTheta_new = tf::getYaw(odom_quat);
+
+    double dx = locX_new - locX;
+    double dy = locY_new - locY;
+    double dtheta = locTheta_new - locTheta;
+    locX = locX_new;
+    locY = locY_new;
+    locTheta = locTheta_new;
+
+    double r = pow(dx*dx+dy*dy,0.5);
+    //for (int i = 0; i < rangesDepth.size(); i++) {
+    //    anglesDepth[i] -= dtheta;
+    //    rangesDepth[i]
+    //}
+}
+
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
                                       project_msgs::direction::Response &res) {
 
@@ -352,6 +381,9 @@ int main(int argc, char **argv) {
     // STOP!
     lpp.stopPub = nh.advertise<project_msgs::stop>("navigation/obstacles", 1);
     ros::Rate loop_rate(10);
+
+    // Location
+    ros::Subscriber locationSub = nh.subscribe("/odom", 1, &LocalPathPlanner::locationCallback, &lpp);
 
     while (ros::ok())
     {

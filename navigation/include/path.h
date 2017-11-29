@@ -57,6 +57,7 @@ class Path {
     double normalizeAngle(double angle);
     void amendDirection();
     void stop();
+    void goalIsReached();
 };
 
 #endif // NAVIGATION_PATH_H
