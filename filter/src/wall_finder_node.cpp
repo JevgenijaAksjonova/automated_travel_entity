@@ -12,6 +12,10 @@
 #include <stdlib.h>
 #include <pwd.h>
 #include <sstream>
+#include "std_msgs/MultiArrayLayout.h"
+#include "std_msgs/MultiArrayDimension.h"
+
+#include "std_msgs/Float32MultiArray.h"
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -32,6 +36,9 @@ class WallFinder
     ros::Subscriber position_subscriber;
     ros::Publisher outlier_publisher;
     ros::Publisher wall_publisher;
+    ros::Publisher wall_array_publisher;
+
+
 
     std::vector<float> ranges;
     float angle_increment;
@@ -61,7 +68,7 @@ class WallFinder
         float angle;
         float length;
         int nrAgreeingPoints;
-        bool fromMap;
+        bool published;
     };
     vector<Wall> _wallsFound;
 
@@ -97,7 +104,8 @@ class WallFinder
         lidar_subscriber = n.subscribe("/scan", 1, &WallFinder::lidarCallback, this);
         position_subscriber = n.subscribe("/filter", 1, &WallFinder::positionCallback, this );
         outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
-        wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls", 1);
+        wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls_visual", 1);
+        wall_array_publisher= n.advertise<std_msgs::Float32MultiArray>("/wall_finder_walls_array", 100);
 
         _nr_measurements = nr_measurements;
 
@@ -246,8 +254,9 @@ class WallFinder
                     addWall(w, map);
                 }
             }
-            if(_wallsFound.size()> 0){
+            if(_wallsFound.size() > 0){
                 publish_rviz_walls();
+                publish_array_walls();
             }
             publish_rviz_outliers(confirmedOutliers);
 
@@ -258,7 +267,7 @@ class WallFinder
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
         int i = 0;
-        ROS_INFO("Trying to add wall with center x = %f y = %f", w.xCenter, w.yCenter);
+        ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
         while(wallIsNew && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
             i++;
@@ -267,43 +276,90 @@ class WallFinder
             wallIsInsideMap = false;
         }
         if(wallIsNew && wallIsInsideMap){
-            ROS_INFO("Found new wall!");
+            ROS_INFO("*****************Found new wall!***********************");
             _wallsFound.push_back(w);
         }
     }
 
+    float calculateLinePointDistance(float &x, float &y, float &x1, float &y1, float &x2, float &y2 ){
+
+        float A = x - x1;
+        float B = y - y1;
+        float C = x2 - x1;
+        float D = y2 - y1;
+
+        float dot = A * C + B * D;
+        float len_sq = C * C + D * D;
+        float param = -1;
+        if (len_sq != 0) //in case of 0 length line
+            param = dot / len_sq;
+
+        float xx, yy;
+
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        }
+        else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        }
+        else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+
+        float dx = x - xx;
+        float dy = y - yy;
+        return sqrt(dx * dx + dy * dy);
+    }
+
     bool checkIfNewWall(Wall &wNew, Wall &wOld, int i){
-        float numerator = abs((wOld.yEnd - wOld.yStart)*wNew.xCenter - (wOld.xEnd - wOld.xStart)*wNew.yCenter + wOld.xEnd*wOld.yStart - wOld.yEnd*wOld.xStart);
-        float denominator = sqrt(pow(wOld.yEnd - wOld.yStart,2) + pow(wOld.xEnd - wOld.xStart, 2));
-        float centerDistance = numerator/denominator;
+
+        float x1 = wOld.xStart;
+        float x2 = wOld.xEnd;
+        float y1 = wOld.yStart;
+        float y2 = wOld.yEnd;
+        float x = wNew.xCenter;
+        float y = wNew.yCenter;
+        //float numerator = abs((wOld.yEnd - wOld.yStart)*wNew.xCenter - (wOld.xEnd - wOld.xStart)*wNew.yCenter + wOld.xEnd*wOld.yStart - wOld.yEnd*wOld.xStart);
+        //float denominator = sqrt(pow(wOld.yEnd - wOld.yStart,2) + pow(wOld.xEnd - wOld.xStart, 2));
+        // float numerator = abs((y2-y1)*x0 - (x2-x1)*y0 + x2*y1 - y2*x1);
+        // float denominator = sqrt(pow(y2-y1,2) + pow(x2-x1, 2));
+
+        float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
+        ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
         ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
         if(centerDistance > 0.05 && angleDifference > M_PI/8){
             return true;
         }
-        if(centerDistance > 0.7){
+        if(centerDistance > 0.15){
+            return true;
+        }
+        if(angleDifference > M_PI/4){
             return true;
         }
         ROS_INFO("Wall is the same angle difference : %f", angleDifference);
-        float newxCenter = (wNew.xCenter + wOld.xCenter)/2;
-        float newYCenter = (wNew.yCenter + wOld.yCenter)/2;
-        float newLength = max(wNew.length, wOld.length);
         ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
-        _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
-        _wallsFound[i].xCenter = newxCenter;
-        _wallsFound[i].yCenter = newYCenter;
-        _wallsFound[i].length = newLength;
+        if(wNew.length >wOld.length){ //Assume longer is better.
+            _wallsFound[i] = wNew;
+            _wallsFound[i].nrAgreeingPoints += wOld.nrAgreeingPoints;
+        }else{
+            _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
+
+        }
         ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
 
     }
 
-    Wall createWall(float xStart, float yStart, float xEnd, float yEnd, int nrPoints, bool fromMap){
+    Wall createWall(float xStart, float yStart, float xEnd, float yEnd, int nrPoints, bool published){
 
         float centre_x = (xStart + xEnd) / 2;
         float centre_y = (yStart + yEnd) / 2;
 
-        float rotation = atan2((yEnd - yStart), (xEnd - xStart));
+        float rotation = abs(atan2((yEnd - yStart), (xEnd - xStart)));
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;
@@ -316,7 +372,7 @@ class WallFinder
         w.angle = rotation;
         w.length = length;
         w.nrAgreeingPoints = nrPoints;
-        w.fromMap = fromMap;
+        w.published = published;
 
         return w;
 
@@ -387,7 +443,7 @@ class WallFinder
         for(int i = 0; i < _wallsFound.size(); i++){
             Wall w = _wallsFound[i];
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
-            if(w.nrAgreeingPoints > 5 && !w.fromMap){
+            if(w.nrAgreeingPoints > 10 && !w.published){
 
                 visualization_msgs::Marker wall;
 
@@ -427,6 +483,26 @@ class WallFinder
         }
 
         wall_publisher.publish(found_walls);
+    }
+
+    void publish_array_walls(){
+        for(int i = 0; i < _wallsFound.size(); i++){
+            Wall w = _wallsFound[i];
+            //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
+            std_msgs::Float32MultiArray array;
+            array.data.clear();
+            if(w.nrAgreeingPoints > 10 && !w.published){
+                array.data.push_back(w.xStart);
+                array.data.push_back(w.yStart);
+                array.data.push_back(w.xEnd);
+                array.data.push_back(w.yEnd);
+                wall_array_publisher.publish(array);
+                _wallsFound[i].published = true;
+
+
+            }
+        }
+
     }
 
     float calculateDistanceBetweenOutliers(Outlier &first, Outlier &second){
