@@ -148,8 +148,8 @@ void LocalizationGlobalMap::createMap(string filename) {
     double max_num = numeric_limits<double>::infinity();
     double min_num = -numeric_limits<double>::infinity();
     string line;
-    double x_min = max_num, y_min = max_num;
-    double x_max = min_num, y_max = min_num;
+    xMin = max_num, yMin = max_num;
+    xMax = min_num, yMax = min_num;
 
     while (getline(file, line)){
         if (line[0] == '#') {
@@ -167,18 +167,18 @@ void LocalizationGlobalMap::createMap(string filename) {
             continue;
         }
         walls.push_back(wall);
-        x_min = min(x_min, wall[0]);
-        x_min = min(x_min, wall[2]);
-        x_max = max(x_max, wall[0]);
-        x_max = max(x_max, wall[2]);
-        y_min = min(y_min, wall[1]);
-        y_min = min(y_min, wall[3]);
-        y_max = max(y_max, wall[1]);
-        y_max = max(y_max, wall[3]);
+        xMin = min(xMin, wall[0]);
+        xMin = min(xMin, wall[2]);
+        xMax = max(xMax, wall[0]);
+        xMax = max(xMax, wall[2]);
+        yMin = min(yMin, wall[1]);
+        yMin = min(yMin, wall[3]);
+        yMax = max(yMax, wall[1]);
+        yMax = max(yMax, wall[3]);
     }
 
-    mapOffset = pair<double,double>(x_min, y_min);
-    mapScale = pair<double,double>(x_max - x_min, y_max - y_min);
+    mapOffset = pair<double,double>(xMin, yMin);
+    mapScale = pair<double,double>(xMax - xMin, yMax - yMin);
     gridSize = pair<size_t,size_t>(ceil(mapScale.first/cellSize), ceil(mapScale.second/cellSize));
     cout << "Grid Size = " <<  gridSize.first << " " << gridSize.second << endl;
 

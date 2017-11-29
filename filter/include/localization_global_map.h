@@ -15,6 +15,10 @@ public:
 
     vector<vector<unsigned char> > global_map;
     vector<vector<double> > walls;
+    double xMin;
+    double yMin;
+    double xMax;
+    double yMax;
 
     pair<int, int> getCell(double x, double y);
     pair<float, float> getDistance(int x, int y);

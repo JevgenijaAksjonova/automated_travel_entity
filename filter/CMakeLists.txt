@@ -27,4 +27,6 @@ include_directories(
 )
 
 add_executable(filter_node src/filter_node.cpp src/localization_global_map.cpp include/localization_global_map.h src/measurements.cpp include/measurements.h)
+add_executable(wall_finder_node src/wall_finder_node.cpp src/localization_global_map.cpp include/localization_global_map.h src/measurements.cpp include/measurements.h)
 target_link_libraries(filter_node ${catkin_LIBRARIES})
+target_link_libraries(wall_finder_node ${catkin_LIBRARIES})
