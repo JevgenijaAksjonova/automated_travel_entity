@@ -193,9 +193,9 @@ int main(int argc, char **argv)
   ros::Rate loop_rate(10);
 
   vector<pair<double, double> > history;
-  int maxHistorySize = 10;
+  int maxHistorySize = 15;
 
-  bool onlyTurn = false;
+  path->onlyTurn = false;
   double prevAngVel = 0.0;
 
   int count = 0;
@@ -217,15 +217,15 @@ int main(int argc, char **argv)
         ROS_INFO("%s/n", s.str().c_str());
 
         // make sure that the robot turned enough (if sign differ, this is the case)
-        if (onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
-            onlyTurn = false;
+        if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
+            path->onlyTurn = false;
         }
         prevAngVel = path->angVel;
 
         double c = 0.13; // total velocity
         double r = 0.12; // approximate radius of wheel base
         double k = max(1.0, 25*pow(fabs(path->angVel),2));
-        if (fabs(path->angVel) > M_PI/2.0 || onlyTurn) {
+        if (fabs(path->angVel) > M_PI/2.0 || path->onlyTurn) {
             path->linVel = 0; // sharp turn
         }
         if (path->linVel > 0) {
@@ -238,15 +238,18 @@ int main(int argc, char **argv)
 
 
     } else if (path->rollback){
-        onlyTurn = false;
+        path->onlyTurn = false;
         if (history.size() > 0 ) {
             pair<double, double> vel = history.back();
             history.pop_back();
             path->linVel = -vel.first;
             path->angVel = -vel.second;
+            stringstream s;
+            s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
+            ROS_INFO("%s/n",s.str().c_str());
         } else {
             path->rollback = false;
-            onlyTurn = true;
+            path->onlyTurn = true;
             prevAngVel = 0.0;
             if (!path->replan) {
                 path->move = true;
@@ -280,7 +283,7 @@ int main(int argc, char **argv)
     }
 
     // precaution (if emergency stop appeared while doing computations)
-    if (!path->move) {
+    if (!(path->move || path->rollback)) {
         path->linVel = 0;
         path->angVel = 0;
     }
@@ -293,7 +296,7 @@ int main(int argc, char **argv)
     msg.angular.y = 0.0;
     msg.angular.z = path->angVel;
 
-    if ( (path->move==true) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
+    if ( (path->move==true && path->onlyTurn == false) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
         history.push_back(pair<double,double>(path->linVel, path->angVel));
     }
     if (history.size() > maxHistorySize) {

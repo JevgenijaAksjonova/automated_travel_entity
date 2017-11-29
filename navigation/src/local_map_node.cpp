@@ -249,10 +249,10 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     mapRad = req.linVel;
     //updateLocalMapLidar();
 
-    for (int i = 0; i < localMapProcessed.size(); i++) {
-        cout << localMapProcessed[i] << " ";
-    }
-    cout << endl;
+    //for (int i = 0; i < localMapProcessed.size(); i++) {
+    //    cout << localMapProcessed[i] << " ";
+    //}
+    //cout << endl;
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
