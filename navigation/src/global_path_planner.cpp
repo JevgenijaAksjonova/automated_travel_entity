@@ -471,6 +471,7 @@ void GlobalPathPlanner::explorationCallback(bool start_exploration, double x, do
     if (start_exploration) {
         if (explorationStatus == 0) {
             getExplorationPath(x, y);
+            explorationStatus = 1;
         } else {
             recalculateExplorationPath(x, y);
             explorationStatus = 1;
