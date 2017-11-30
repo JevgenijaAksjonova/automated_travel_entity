@@ -296,6 +296,7 @@ class WallFinder
                     addWall(w, map);
                 }
             }
+            forgetWalls();
             if(_wallsFound.size() > 0){
                 publish_rviz_walls();
                 publish_array_walls();
@@ -320,6 +321,13 @@ class WallFinder
         if(wallIsNew && wallIsInsideMap){
             ROS_INFO("*****************Found new wall!***********************");
             _wallsFound.push_back(w);
+        }
+    }
+    void forgetWalls(){
+        for(int i = 0; i<_wallsFound.size(); i++){
+            if(!_wallsFound[i].published && _wallsFound[i].nrAgreeingPoints > 0){ // if not published, start forgetting
+                _wallsFound[i].nrAgreeingPoints -= 1;
+            }
         }
     }
 
