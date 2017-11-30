@@ -70,6 +70,7 @@ void MapVisualization::loadMap() {
 
 void MapVisualization::publishMap() {
 
+    loadMap();
     grid_pub.publish(grid);
     publishNodes();
     publishPath(gpp->explorationPath);
