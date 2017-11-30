@@ -86,7 +86,7 @@ def extract_object_image(middle_point, top_left, bot_right, image):
 
 #An object representic an area classified by the algorithm as a candidate area.
 class ObjectCandidate(object):
-    def __init__(self, x_min, x_max, y_min, y_max, color,cont_area):
+    def __init__(self, x_min, x_max, y_min, y_max):
 
         self.bot_right = (x_max, y_max)
         self.top_left = (x_min, y_min)
@@ -102,11 +102,6 @@ class ObjectCandidate(object):
         self.widht = (x_max - x_min)
         self.height = (y_max - y_min)
         self.area = self.height * self.widht
-        self.color = color
-        self.contour_area = cont_area
-    @property
-    def score(self):
-        return self.distance_from_center * self.contour_area / (4.0 if self.adjusted else 1.0)
 
     def find_img(self, full_rgb_img):
         self.img,self.adjusted,self.distance_from_center = extract_object_image(self.mid, self.top_left,
@@ -120,9 +115,38 @@ class ObjectCandidate(object):
         self.z = np.nanmean(full_depth_img[x_range,y_range])
         return self.z is None or math.isnan(self.z)
 
+class QRCodeDetection(ObjectCandidate):
+
+    def __init__(self,zbar_symbol):
+        top_left,_,bot_right,_ = zbar_symbol.location
+        x_min = top_left[0]; y_min = top_left[1]
+        x_max = bot_right[0]; y_max = bot_right[1]
+        super(QRCodeDetection,self).__init__(x_min,x_max,y_min,y_max)
+        self.message = zbar_symbol.data
+
     def __repr__(self):
-        return "contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}, score = {score}".format(
-            contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center, score = self.score)
+        return "QRCodeDetection(area = {area}, adjusted = {adjusted}, distance from center = {distance_from_center}, message = {message})".format(
+                area=self.area, adjusted=self.adjusted,distance_from_center = self.distance_from_center, message=self.message)
+
+    @property
+    def is_trap(self):
+        return "trap" in self.message.lower()
+    
+
+class ColoredObjectCandidate(ObjectCandidate):
+
+    def __init__(self, x_min, x_max, y_min, y_max, color,cont_area = None):
+        super(ColoredObjectCandidate,self).__init__(x_min,x_max,y_min,y_max)
+        self.color = color
+        self.contour_area = cont_area
+
+    def __repr__(self):
+            return "ColoredObjectCandidate(contour_area = {contour_area}, area = {area} ,color = {color}, adjusted = {adjusted}, distance from center = {distance_from_center}, score = {score})".format(
+                contour_area = self.contour_area,area = self.area, color = self.color, adjusted=self.adjusted,distance_from_center = self.distance_from_center, score = self.score)
+
+    @property
+    def score(self):
+        return self.distance_from_center * self.contour_area / (4.0 if self.adjusted else 1.0)
 
 default_hsv_thresh = {
     "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
@@ -156,6 +180,7 @@ def color_segment_image(bgr_image,
     #hsv_image = cv2.medianBlur(hsv_image,11)
 
     object_candidates = []
+    bar_codes = []
     #to_many_object_candidates = False
     if return_debug_image:
         bgr_dbg = bgr_image.copy()
@@ -173,6 +198,12 @@ def color_segment_image(bgr_image,
     for symbol in zbar_image:
         # do something useful with results
         print('decoded', symbol.type, 'symbol', '"%s"' % symbol.data,"location =",symbol.location)
+        bar_obj = QRCodeDetection(symbol)
+        if bar_obj.is_trap:
+            bar_obj.find_img(bgr_image)
+            bar_obj.find_depth(depth_image)
+            bar_codes.append(bar_obj)
+
     for color in ["red","green","blue","purple"]:
         #if to_many_object_candidates:
             #break
@@ -189,7 +220,7 @@ def color_segment_image(bgr_image,
             x_max = int(contour[:, 0, 0].max())
             y_min = int(contour[:, 0, 1].min())
             y_max = int(contour[:, 0, 1].max())
-            detected_obj = ObjectCandidate(x_min, x_max, y_min, y_max,
+            detected_obj = ColoredObjectCandidate(x_min, x_max, y_min, y_max,
                                             color,cont_area)
             
             #resonability checks
@@ -240,9 +271,9 @@ def color_segment_image(bgr_image,
         #print("Too many object candidates")
 
     if return_debug_image:
-        return object_candidates, bgr_dbg
+        return object_candidates,bar_codes, bgr_dbg
     else:
-        return object_candidates
+        return object_candidates,bar_codes
 
 
 def save_dataset_object_candidates(dataset_base_dir,
