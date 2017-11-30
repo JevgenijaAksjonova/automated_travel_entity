@@ -328,11 +328,25 @@ class WallFinder
         }
     }
     void forgetWalls(){
+        /*
         for(int i = 0; i<_wallsFound.size(); i++){
             if(!_wallsFound[i].published && _wallsFound[i].nrAgreeingPoints > 0){ // if not published, start forgetting
                 _wallsFound[i].nrAgreeingPoints -= 1;
             }
         }
+        */
+
+        vector<Wall>::iterator iter = _wallsFound.begin();
+            while (iter != _wallsFound.end() && !*iter.published){
+                if(*iter.nrAgreeingPoints < 1){
+                    iter = _wallsFound.erase(iter);
+                }
+                else
+                {
+                    *iter.nrAgreeingPoints --;
+                    ++iter;
+                }
+            }
     }
 
     float calculateLinePointDistance(float &x, float &y, float &x1, float &y1, float &x2, float &y2 ){
@@ -387,7 +401,7 @@ class WallFinder
         if(centerDistance > 0.15){
             return true;
         }
-        if(angleDifference > M_PI/4){
+        if(angleDifference > M_PI/5){
             return true;
         }
         ROS_INFO("Wall is the same angle difference : %f", angleDifference);
