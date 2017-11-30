@@ -208,6 +208,7 @@ int main(int argc, char **argv)
 
   path->onlyTurn = false;
   double prevAngVel = 0.0;
+  double prev = 0;
 
   int count = 0;
   while (ros::ok())
@@ -227,13 +228,17 @@ int main(int argc, char **argv)
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
 
-        if (fabs(path->directionChange) > 0.1) {
-            path->onlyTurn = true;
-        } else if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
+        //if (fabs(path->directionChange) > 0.1) {
+        //    path->onlyTurn = true;
+        //} else
+        if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
             // make sure that the robot turned enough (if sign differ, this is the case)
             path->onlyTurn = false;
         }
         prevAngVel = path->angVel;
+        if (path->onlyTurn) {
+            cout << "ONLY TURN !!!!!!!!!!!!!!!!!!!!!!!!!!!!" <<cout;
+        }
 
         double c = 0.13; // total velocity
         double r = 0.12; // approximate radius of wheel base
@@ -256,7 +261,7 @@ int main(int argc, char **argv)
 
     } else if (path->rollback){
         path->onlyTurn = false;
-        if (history.size() > 0 ) {
+        if (history.size() == maxHistorySize ) {
             pair<double, double> vel = history.back();
             history.pop_back();
             path->linVel = -vel.first;
@@ -265,6 +270,7 @@ int main(int argc, char **argv)
             s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
             ROS_INFO("%s/n",s.str().c_str());
         } else {
+            history.clear();
             path->rollback = false;
             path->onlyTurn = true;
             prevAngVel = 0.0;
@@ -305,6 +311,11 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
+    if (prev * path->angVel <= 0) {
+        cout << "DIRECTION CHANGE - "<< prev << " " << path->angVel << endl ;
+    }
+    prev = path->angVel; 
+
     geometry_msgs::Twist msg;
     msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
@@ -313,7 +324,7 @@ int main(int argc, char **argv)
     msg.angular.y = 0.0;
     msg.angular.z = path->angVel;
 
-    if ( (path->move==true /*&& path->onlyTurn == false*/) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
+    if ( (path->move==true && path->onlyTurn == false) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
         history.push_back(pair<double,double>(path->linVel, path->angVel));
     }
     if (history.size() > maxHistorySize) {
