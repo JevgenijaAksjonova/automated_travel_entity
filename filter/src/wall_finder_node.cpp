@@ -175,7 +175,6 @@ class WallFinder
     
     void lookForWalls(LocalizationGlobalMap map){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
-            ROS_INFO("angular_v ok, %f", _angular_velocity);
             if(_wasTurning){
                 _wasTurning = false;
             }else{
@@ -183,7 +182,6 @@ class WallFinder
             getOutliers(map, measurements);
             }
         }else{
-            ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
             _wasTurning = true;
         }
     }
