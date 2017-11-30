@@ -97,6 +97,7 @@ class ObjectDetector:
 
             if DEBUGGING:
                 object_candidates, bar_codes, debug_img = ret_val
+                object_candidates_and_barcodes = object_candidates + bar_codes
                 debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
                 dbg_msg = CompressedImage()
                 dbg_msg.header.stamp = rospy.Time.now()
@@ -104,9 +105,9 @@ class ObjectDetector:
                 dbg_msg.data = np.array(cv2.imencode(".jpg",
                                                      debug_img)[1]).tostring()
                 self.dbg_img_pub.publish(dbg_msg)
-                if len(object_candidates) > 0:
+                if len(object_candidates_and_barcodes) > 0:
                     self.dbg_object_image.publish(
-                        bridge.cv2_to_imgmsg(object_candidates[0].img, "rgb8"))
+                        bridge.cv2_to_imgmsg(object_candidates_and_barcodes[0].img, "rgb8"))
             else:
                 object_candidates, bar_codes = ret_val
             print("object_candidates = {0}".format(object_candidates))

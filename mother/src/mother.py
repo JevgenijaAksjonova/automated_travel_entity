@@ -21,7 +21,7 @@ from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE
 
 
 class Mother:
@@ -57,7 +57,11 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub, 0.11, 0.005)
+        if ROUND == 2:
+            self.maze_map = MazeMap.load()
+        else:
+            self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
+
         #Subscribers
         if USING_VISION:
             rospy.Subscriber(
@@ -458,6 +462,9 @@ class Mother:
 
             self.maze_map.update()
             self.rate.sleep()
+            #if self.i % 1 == 0:
+            self.maze_map.save()
+            self.maze_map = MazeMap.load([self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE])
 
 
 if __name__ == "__main__":

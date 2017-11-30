@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 
+import pickle as pickle
 import sys
 import rospkg
 rospack = rospkg.RosPack()
@@ -20,7 +21,7 @@ from mother_utils import pose_to_msg_stamped
 import numpy as np
 from geometry_msgs.msg import PointStamped
 from itertools import chain
-
+from pprint import pprint
 TRAP_CLASS_ID = 10000
 class MazeMap:
     #A general reprensentation of the robot map
@@ -30,6 +31,15 @@ class MazeMap:
         self.visulisation_publisher = visulisation_publisher
         self.p_increse_rate = p_increse_rate
         self.p_loss_rate = p_loss_rate
+    @property
+    def visulisation_publisher(self):
+        return self._visulisation_publisher
+
+    @visulisation_publisher.setter
+    def visulisation_publisher(self,vis_pub):
+        self._visulisation_publisher = vis_pub
+        for maze_obj in self.maze_objects:
+            maze_obj.visulisation_publisher = self.visulisation_publisher
 
     #When the map has been modified, one must allways update any external references
     #They may have disaperared, in witch case None is returned
@@ -82,7 +92,11 @@ class MazeMap:
         objs_to_remove = set()
         for obj in self.maze_objects.copy():
             if not obj.classified:
+                print("self.p_loss_rate =",self.p_loss_rate)
+                print("obj.p before =",obj.p)
                 obj.p = obj.p - self.p_loss_rate if obj.class_id != TRAP_CLASS_ID else 1
+                print("obj.p after =",obj.p)
+                
             obj._update_marker()
             if obj.p <= 0:
                 obj.visulisation_publisher = None
@@ -98,37 +112,42 @@ class MazeMap:
             obj = self._merge_maze_objects(neighs)
             obj.p = min(obj.p + self.p_increse_rate, 1)
         self.maze_objects.add(obj)
-        obj.visulisation_publisher = self.visulisation_publisher
+        if obj.visulisation_publisher is None:
+            print("setting vis pub")
+            print("vis pub =",self.visulisation_publisher)
+            obj.visulisation_publisher = self.visulisation_publisher
         return obj
 
     def _merge_maze_objects(self, maze_objs):
-        mean_height = np.mean([close_obj.height for close_obj in maze_objs])
-        mean_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
-        best_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.height * maze_obj.image.width).image
-        p_max = max(obj.p for obj in maze_objs)
-        if not any(obj.class_id == TRAP_CLASS_ID for obj in maze_objs):
+        traps = [obj for obj in maze_objs if obj.class_id == TRAP_CLASS_ID]
+        if len(traps) == 0:
             class_label, class_id = chain(((obj.class_label, obj.class_id)
                                        for obj in maze_objs if obj.classified),
                                       [("an_object", -1)]).next()
+            rep_height = np.mean([close_obj.height for close_obj in maze_objs])
+            rep_pos = np.mean([close_obj.pos for close_obj in maze_objs], axis=0)
+            rep_image = max(maze_objs,key=lambda maze_obj : maze_obj.image.height * maze_obj.image.width).image
+            rep_p = max(obj.p for obj in maze_objs)
+            last_seen = max(obj.last_seen for obj in maze_objs)
+            classification_attempts = max(
+                obj.classification_attempts for obj in maze_objs)
+            representative_obj = min(maze_objs, key=lambda maze_obj : maze_obj.id)
+            representative_obj.pos = rep_pos
+            representative_obj.image = rep_image
+            representative_obj.height = rep_height
+            representative_obj.p = rep_p
+            representative_obj.class_label = class_label
+            representative_obj.class_id = class_id
+            representative_obj.classification_attempts = classification_attempts
+            representative_obj.last_seen = last_seen
         else:
-            class_label, class_id = "trap",TRAP_CLASS_ID
-        classification_attempts = max(
-            obj.classification_attempts for obj in maze_objs)
-        last_seen = max(obj.last_seen for obj in maze_objs)
+            representative_obj = min(traps,key=lambda trap: trap.id)
+
 
         self.maze_objects.difference_update(maze_objs)
-        representative_obj = min(maze_objs, key=lambda maze_obj : maze_obj.id)
-
-        representative_obj.pos = mean_pos
-        representative_obj.image = best_image
-        representative_obj.height = mean_height
-        representative_obj.p = p_max
-        representative_obj.class_label = class_label
-        representative_obj.class_id = class_id
-        representative_obj.classification_attempts = classification_attempts
-        representative_obj.last_seen = last_seen
         for maze_obj in maze_objs:
-            maze_obj.visulisation_publisher = None
+            if maze_obj != representative_obj:
+                maze_obj.visulisation_publisher = None
         return representative_obj
 
     def _same_color_neighbors(self, obj):
@@ -136,7 +155,19 @@ class MazeMap:
             maze_obj for maze_obj in self.maze_objects.copy()
             if obj.is_close_and_same_color(maze_obj)
         ]
+    
+    def save(self,fn="maze_map.p"):
+        with open(fn,"w") as save_file:
+            pickle.dump(self.maze_objects,save_file)
 
+    @classmethod
+    def load(cls,args,fn="maze_map.p"):
+        obj = cls(*args)
+        with open(fn,"rb") as load_file:
+            maze_objects = pickle.load(load_file)
+        for maze_object in maze_objects:
+            obj.add_object(maze_object)
+        return obj
 
 def tf_transform_point_stamped(pose_stamped_msg,max_iter = 3000):
     i = 0
@@ -203,7 +234,6 @@ class MazeObject(object):
             self.class_label = "trap"
             self.class_id = TRAP_CLASS_ID
             self.color = "gray"
-            print("Created trap maze object")
 
     @property
     def classified(self):
@@ -237,7 +267,7 @@ class MazeObject(object):
 
     @property
     def visulisation_publisher(self):
-        return self.visulisation_publisher
+        return self._vis_pub
 
     @visulisation_publisher.setter
     def visulisation_publisher(self, vis_pub):
@@ -297,6 +327,19 @@ class MazeObject(object):
         pos_trans.transform.translation.y = self._pos[1]
         msg.object_location = pos_trans
         return msg
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["_marker"]
+        del state["_vis_pub"]
+        print("__getstate__: state[\"p\"] =",state["p"])
+        return state
+
+    def __setstate__(self,state):
+        state["_vis_pub"] = None
+        state["_marker"] = None
+        print("__setstate__: state[\"p\"] =",state["p"])        
+        self.__dict__.update(state)
 
     def __str__(self):
         return "{color} {label} at {pos}, id {id}, p {p}, is trap: {trap}".format(
