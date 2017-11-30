@@ -337,13 +337,13 @@ class WallFinder
         */
 
         vector<Wall>::iterator iter = _wallsFound.begin();
-            while (iter != _wallsFound.end() && !*iter.published){
-                if(*iter.nrAgreeingPoints < 1){
+            while (iter != _wallsFound.end() && !(*iter).published){
+                if((*iter).nrAgreeingPoints < 1){
                     iter = _wallsFound.erase(iter);
                 }
                 else
                 {
-                    *iter.nrAgreeingPoints --;
+                    (*iter).nrAgreeingPoints --;
                     ++iter;
                 }
             }
