@@ -316,7 +316,10 @@ class WallFinder
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
             i++;
         }
-        if(w.xCenter < map.xMin || w.xCenter > map.xMax || w.yCenter < map.yMin || w.yCenter > map.yMax){
+        if(w.xStart < map.xMin || w.xStart > map.xMax || w.yStart < map.yMin || w.yStart > map.yMax){
+            wallIsInsideMap = false;
+        }
+        if(w.xEnd < map.xMin || w.xEnd > map.xMax || w.yEnd < map.yMin || w.yEnd > map.yMax){
             wallIsInsideMap = false;
         }
         if(wallIsNew && wallIsInsideMap){
@@ -551,7 +554,7 @@ class WallFinder
                 array.data.push_back(w.yEnd);
                 wall_array_publisher.publish(array);
                 _wallsFound[i].published = true;
-                ROS_INFO("Published wall %d [%f] [%f] [%f] [%f]", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
+                ROS_INFO("*********************Published wall %d [%f] [%f] [%f] [%f]******************'", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
 
 
             }
