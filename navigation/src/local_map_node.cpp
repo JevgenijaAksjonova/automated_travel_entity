@@ -37,7 +37,7 @@ class LocalPathPlanner {
                                     mapRad(p_mapRad),
                                     localMap(360,0),
                                     distance(360,0),
-                                    dConf(0.1),
+                                    dConf(0.02),
                                     useDepth(true){};
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
@@ -252,9 +252,9 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 }
 
 void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
-    rangesDepth = msg->ranges;
-    anglesDepth = msg->angles;
-    /*
+    //rangesDepth = msg->ranges;
+    //anglesDepth = msg->angles;
+    
     int i = 0;
     while(i < rangesDepth.size()) {
         confDepth[i] -= dConf;
@@ -266,10 +266,14 @@ void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
             i++;
         }
     }
-    rangesDepth.extend(msg->ranges);
-    anglesDepth.extend(msg->angles);
-    confDepth.extend(vecotor<float>(msg->ranges.size(),1.0));
-    */
+    rangesDepth.insert(rangesDepth.end(), msg->ranges.begin(), msg->ranges.end());
+    anglesDepth.insert(anglesDepth.end(), msg->angles.begin(), msg->angles.end());
+    vector<float> newConf(msg->ranges.size(),1.0); 
+    confDepth.insert(confDepth.end(), newConf.begin(), newConf.end());
+    cout << "DATA FROM DEPTH " << cout;
+    for(int i =0; i < rangesDepth.size(); i++) {
+        cout << i<< ": "<< rangesDepth[i] << " " << anglesDepth[i] << " "<< confDepth[i]<< endl;
+    }
 }
 
 void LocalPathPlanner::transform(float &r, float &a, float &dr) {
@@ -293,6 +297,10 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     locY = locY_new;
     locTheta = locTheta_new;
 
+    cout << "Location prev "<< locX << " " << locY << " "<< locTheta <<endl;
+    cout << "Location New " << locX_new << " " << locY_new << " " << locTheta_new << endl;
+    cout << "Deltas "<< dx << " " << dy << " " << dtheta << endl;
+
     // check if robot moved forward
     double diff = atan2(dy,dx) - locTheta_new;
     while (diff> M_PI) {
@@ -301,8 +309,10 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     while (diff <= - M_PI) {
         diff += 2*M_PI;
     }
-    if (diff < M_PI/3.0) {
+    cout << "Diff = "<< diff << endl;
+    if (fabs(diff) < M_PI/3.0) {
         float dr = pow(dx*dx+dy*dy,0.5);
+        cout << "dr = " << dr << endl;
         for (int i = 0; i < rangesDepth.size(); i++) {
             anglesDepth[i] -= dtheta;
             transform(rangesDepth[i], anglesDepth[i], dr);
@@ -317,10 +327,10 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
     mapRad = req.linVel;
     //updateLocalMapLidar();
 
-    //for (int i = 0; i < localMapProcessed.size(); i++) {
-    //    cout << localMapProcessed[i] << " ";
-    //}
-    //cout << endl;
+    for (int i = 0; i < localMapProcessed.size(); i++) {
+        cout << localMapProcessed[i] << " ";
+    }
+    cout << endl;
 
     int angleInd = round(req.angVel/2.0/M_PI*360);
     int angleIndLeft = angleInd;
