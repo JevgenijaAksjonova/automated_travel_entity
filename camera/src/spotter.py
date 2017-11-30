@@ -142,6 +142,7 @@ class ObjectDetector:
             obj_cand_msg.message = String_msg(data=oc.message)
             obj_cand_msg.is_trap = oc.is_trap
             obj_cand_msg.type = PosAndImage.TYPE_QR_CODE
+            obj_cand_msg.color = String_msg(data="gray")
         else:
             raise Exception("unexpected message type")
 
