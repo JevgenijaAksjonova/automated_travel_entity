@@ -1,7 +1,7 @@
 wall_finder:
     nr_measurements : 360
     outlier_treshold : 0.1
-    MAX_DISTANCE_LIDAR : 3
+    MAX_DISTANCE_LIDAR : 35
     MIN_OUTLIERS_IN_ROW : 3
     MAX_INDEX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW : 2
     MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS : 0.1
