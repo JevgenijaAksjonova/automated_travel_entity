@@ -103,11 +103,11 @@ class WallFinder
             ROS_ERROR("wf failed to detect parameter 4");
             exit(EXIT_FAILURE);
         }
-        if(!n.getParam("/wall_finder/MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW",MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW)){
+        if(!n.getParam("/wall_finder/MAX_INDEX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW",MAX_INDEX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW)){
             ROS_ERROR("wf failed to detect parameter 5");
             exit(EXIT_FAILURE);
         }
-        if(!n.getParam("/wall_finder/MIN_DISTANCE",MIN_DISTANCE)){
+        if(!n.getParam("/wall_finder/MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS",MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS)){
             ROS_ERROR("wf failed to detect parameter 6");
             exit(EXIT_FAILURE);
         }
@@ -252,7 +252,7 @@ class WallFinder
             while(i < confirmedOutliers.size()){
                 int outLierIndex = confirmedOutliers[i].index;
                     int j = i+1;
-                    if(j < confirmedOutliers.size() && confirmedOutliers[j].index < outLierIndex + MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW && calculateDistanceBetweenOutliers(confirmedOutliers[i], confirmedOutliers[j])<MIN_DISTANCE){
+                    if(j < confirmedOutliers.size() && confirmedOutliers[j].index < outLierIndex + MAX_INDEX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW && calculateDistanceBetweenOutliers(confirmedOutliers[i], confirmedOutliers[j])<MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS){
                         rowCandidate.push_back(confirmedOutliers[i]);
                     }else{
                         if(rowCandidate.size() > MIN_OUTLIERS_IN_ROW){
@@ -546,8 +546,8 @@ class WallFinder
     float LIDAR_Y = 0;
     float MAX_DISTANCE_LIDAR;
     int MIN_OUTLIERS_IN_ROW;
-    int MAX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW;
-    float MIN_DISTANCE;
+    int MAX_INDEX_DISTANCE_BETWEEN_OUTLIERS_IN_ROW;
+    float MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS;
     int MIN_POINTS;
     float MAX_DISTANCE_TO_OUTLIER;
 
