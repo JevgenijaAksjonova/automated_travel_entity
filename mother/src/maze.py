@@ -82,7 +82,7 @@ class MazeMap:
         objs_to_remove = set()
         for obj in self.maze_objects.copy():
             if not obj.classified:
-                obj.p -= self.p_loss_rate
+                obj.p = obj.p - self.p_loss_rate if obj.class_id != TRAP_CLASS_ID else 1
             obj._update_marker()
             if obj.p <= 0:
                 obj.visulisation_publisher = None
@@ -133,7 +133,7 @@ class MazeMap:
 
     def _same_color_neighbors(self, obj):
         return [
-            maze_obj for maze_obj in self.maze_objects
+            maze_obj for maze_obj in self.maze_objects.copy()
             if obj.is_close_and_same_color(maze_obj)
         ]
 
@@ -202,6 +202,8 @@ class MazeObject(object):
         if obj_cand_msg.is_trap:
             self.class_label = "trap"
             self.class_id = TRAP_CLASS_ID
+            self.color = "gray"
+            print("Created trap maze object")
 
     @property
     def classified(self):
@@ -222,7 +224,7 @@ class MazeObject(object):
         return tol > np.linalg.norm(self._pos - point)
 
     def is_close_and_same_color(self, other, tol=0.1):
-        return self.is_close(other, tol) and self.color == other.color
+        return self.is_close(other, tol) and (self.color == other.color or other.class_id == TRAP_CLASS_ID)
 
     @property
     def pos(self):
@@ -258,12 +260,12 @@ class MazeObject(object):
 
     def _update_marker(self):
         if self._vis_pub is not None and self._marker is not None:
-                pose_stmp = self.pose_stamped
-                self._marker.header = pose_stmp.header
-                self._marker.pose = pose_stmp.pose
-                self._marker.action = Marker.MODIFY
-                self._marker.color.a = self.p
-                self._vis_pub.publish(self._marker)
+            pose_stmp = self.pose_stamped
+            self._marker.header = pose_stmp.header
+            self._marker.pose = pose_stmp.pose
+            self._marker.action = Marker.MODIFY
+            self._marker.color.a = self.p
+            self._vis_pub.publish(self._marker)
 
     def _add_marker(self):
         if self._vis_pub is not None:
@@ -297,12 +299,13 @@ class MazeObject(object):
         return msg
 
     def __str__(self):
-        return "{color} {label} at {pos} id {id} p {p}".format(
+        return "{color} {label} at {pos}, id {id}, p {p}, is trap: {trap}".format(
             color=self.color,
             label=self.class_label,
             pos=self._pos,
             id=self.id,
-            p=self.p)
+            p=self.p,
+            trap=self.class_id == TRAP_CLASS_ID)
 
     def __repr__(self):
         return self.__str__()

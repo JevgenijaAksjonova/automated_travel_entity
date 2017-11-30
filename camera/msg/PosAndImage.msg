@@ -1,7 +1,7 @@
 Header header
 sensor_msgs/Image image
 geometry_msgs/Point pos
-std_msgs/String type
+string type
 std_msgs/String color
 std_msgs/String message
 bool is_trap
