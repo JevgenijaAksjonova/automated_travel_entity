@@ -51,7 +51,7 @@ class WallFinder
     std::vector<pair<float, float>> outliers;
     float _begunMoving;
     float _angular_velocity;
-    bool _wasTurning;
+    int _wasTurning;
     struct Outlier{
         float xPos;
         float yPos;
@@ -86,6 +86,7 @@ class WallFinder
         _yPos = 0;
         _thetaPos = 0;
         _begunMoving = false;
+        _wasTurning = 0;
 
 
         if(!n.getParam("/wall_finder/nr_measurements",nr_measurements)){
@@ -175,14 +176,16 @@ class WallFinder
     
     void lookForWalls(LocalizationGlobalMap map){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
-            if(_wasTurning){
-                _wasTurning = false;
+            ROS_INFO("angular_v ok, %f", _angular_velocity);
+            if(_wasTurning >0){
+                _wasTurning --;
             }else{
             vector<pair<float, float>> measurements = mapMeasurementsToAngles();
             getOutliers(map, measurements);
             }
         }else{
-            _wasTurning = true;
+            ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
+            _wasTurning = 3;
         }
     }
 
@@ -308,7 +311,7 @@ class WallFinder
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
         int i = 0;
-        // ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
+        ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
         while(wallIsNew && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
             i++;
@@ -373,8 +376,8 @@ class WallFinder
 
         float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
-        // ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
-        // ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
+        ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
+        ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
         if(centerDistance > 0.05 && angleDifference > M_PI/8){
             return true;
         }
@@ -384,8 +387,8 @@ class WallFinder
         if(angleDifference > M_PI/4){
             return true;
         }
-        // ROS_INFO("Wall is the same angle difference : %f", angleDifference);
-        // ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
+        ROS_INFO("Wall is the same angle difference : %f", angleDifference);
+        ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
         if(wNew.length >wOld.length){ //Assume longer is better.
             ROS_INFO("Updating wall %d", i);
             ROS_INFO("Published before = %d", _wallsFound[i].published);
@@ -395,7 +398,6 @@ class WallFinder
             ROS_INFO("Published = %d", _wallsFound[i].published);
         }else{
             _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
-
         }
         // ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
