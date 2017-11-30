@@ -211,6 +211,10 @@ void GlobalPathPlanner::newWallCallback(const std_msgs::Float32MultiArray::Const
     for(std::vector<float>::const_iterator it = array->data.begin(); it != array->data.end(); ++it){
         wall.push_back(*it);
     }
+    if(wall.size() != 4){
+        ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wall.size());
+    }
+    ROS_INFO("RECIVED NEW WALL --- [%f] [%f] [%f] [%f] ", wall[0], wall[1], wall[2], wall[3]);
     updateMap(wall);
 }
 
