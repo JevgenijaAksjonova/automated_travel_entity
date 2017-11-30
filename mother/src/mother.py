@@ -55,7 +55,7 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub, 0.05, 0.00025)
+        self.maze_map = MazeMap(self.map_pub, 0.11, 0.005)
         print("hello")
         #Subscribers
         if USING_VISION:
@@ -139,6 +139,7 @@ class Mother:
         if status:
             self.nav_goal_acchieved = True
         else:
+            self.nav_goal_acchieved = False
             rospy.loginfo("navigation status = false")
 
     def _navigation_stop_callback(self, stop_msg):
@@ -204,7 +205,7 @@ class Mother:
 
     def go_to_twist(self,twist,distance_tol=0.05,angle_tol=0.1):
         if USING_PATH_PLANNING:
-            self.nav_goal_acchieved = False
+            self.nav_goal_acchieved = None
             request = global_pathRequest()
             request.pose = twist
             request.distanceTol = distance_tol
@@ -292,13 +293,14 @@ class Mother:
     def set_turning_towards_object(self,classifying_obj):
         robot_pos = self.pos
         if robot_pos is None:
+            rospy.loginfo("was not able to set turning_towards_object because robot_pos was None")
             return False
         [x,y] = classifying_obj.pos - robot_pos
         theta = atan2(y,x)
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
-        if self.go_to_twist(msg,distance_tol=100000):
+        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.1):
             self.mode = "turning_towards_object"
             self.classifying_obj = classifying_obj
             rospy.loginfo("We were able to find a way to turn")
@@ -308,36 +310,42 @@ class Mother:
             return False
 
     def turning_towards_object_update(self):
-        if self.nav_goal_acchieved:
-            if self.try_classify():
-                classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
-                    x=np.round(self.classifying_obj.pos[0], 2),
-                    y=np.round(self.classifying_obj.pos[1], 2),
-                    label=self.classifying_obj.class_label,
-                    frame=MOTHER_WORKING_FRAME)
-                msg = String()
-                msg.data = classification_msg
-                rospy.loginfo(classification_msg)
-                self.speak_pub.publish(msg)
-                self.evidence_pub.publish(
-                    self.classifying_obj.get_evidence_msg())
-                if "Cube" in self.classifying_obj.class_label:
-                    rospy.loginfo("Object {0} is liftable".format(
-                        self.classifying_obj.class_label))
-                    self.set_lift_up_object(classifying_obj)
-                else:
-                    rospy.loginfo("{0} is not liftable".format(
-                        self.classifying_obj.class_label))
-                    if ROUND == 1:
-                        self.set_following_an_exploration_path()
+        if self.nav_goal_acchieved is not None:
+            if self.nav_goal_acchieved:
+                rospy.Rate(0.35).sleep() 
+                if self.try_classify():
+                    classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
+                        x=np.round(self.classifying_obj.pos[0], 2),
+                        y=np.round(self.classifying_obj.pos[1], 2),
+                        label=self.classifying_obj.class_label,
+                        frame=MOTHER_WORKING_FRAME)
+                    msg = String()
+                    msg.data = classification_msg
+                    rospy.loginfo(classification_msg)
+                    self.speak_pub.publish(msg)
+                    self.evidence_pub.publish(
+                        self.classifying_obj.get_evidence_msg())
+                    if "Cube" in self.classifying_obj.class_label:
+                        rospy.loginfo("Object {0} is liftable".format(
+                            self.classifying_obj.class_label))
+                        self.set_lift_up_object(self.classifying_obj)
                     else:
-                        self.set_following_path_to_main_goal()
-                self.classifying_obj = None
+                        rospy.loginfo("{0} is not liftable".format(
+                            self.classifying_obj.class_label))
+                        if ROUND == 1:
+                            self.set_following_an_exploration_path()
+                        else:
+                            self.set_following_path_to_main_goal()
+                    self.classifying_obj = None
+                else:
+                    self.classifying_obj.classification_attempts += 1
+                    self.set_following_an_exploration_path()
+                    self.classifying_obj = None
             else:
-                self.classifying_obj.classification_attempts += 1
-                self.set_following_path_to_main_goal()
-                self.classifying_obj = None
-
+                if ROUND == 1:
+                    self.set_following_an_exploration_path()
+                else:
+                    self.following_path_to_main_goal()
 
     def set_lift_up_object(self, lifting_obj):
         if USING_ARM:
@@ -359,19 +367,28 @@ class Mother:
 
     # Main mother loop
     def mother_forever(self, rate=5):
-        rate = rospy.Rate(rate)
-        rate.sleep()
+        self.rate = rospy.Rate(rate)
+        self.rate.sleep()
 
         self.set_waiting_for_main_goal()
         rospy.loginfo("Entering mother loop")
-
+        
+        
+        
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None:
+                    #robot_pos = self.pos 
+                    #if robot_pos is not None:
+                        #msg = Twist()
+                        #msg.angular = Vector3(0,0,1.57)
+                        #msg.linear = Vector3(robot_pos[0],robot_pos[1],0)   
+                        #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
                     if ROUND == 1:
                         rospy.loginfo("Following an exploration path")
                         self.set_following_an_exploration_path()
+                    
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal()
@@ -386,7 +403,7 @@ class Mother:
 
             elif self.mode == "following_an_exploration_path":
                 self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.3,max_classification_attempts=3))
+                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.4,max_classification_attempts=0))
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
                     print("setting turning towards object")
@@ -433,7 +450,7 @@ class Mother:
             self.i += 1
 
             self.maze_map.update()
-            rate.sleep()
+            self.rate.sleep()
 
 
 if __name__ == "__main__":

@@ -243,19 +243,19 @@ class MazeObject(object):
         return pose_to_msg_stamped(self._pos[0], self._pos[1], 0, self.height)
 
     def _remove_marker(self):
-        if self._vis_pub is not None:
+        if self._vis_pub is not None and self._marker is not None:
             self._marker.action = Marker.DELETE
             self._vis_pub.publish(self._marker)
             self._marker = None
 
     def _update_marker(self):
-        if self._vis_pub is not None:
-            pose_stmp = self.pose_stamped
-            self._marker.header = pose_stmp.header
-            self._marker.pose = pose_stmp.pose
-            self._marker.action = Marker.MODIFY
-            self._marker.color.a = self.p
-            self._vis_pub.publish(self._marker)
+        if self._vis_pub is not None and self._marker is not None:
+                pose_stmp = self.pose_stamped
+                self._marker.header = pose_stmp.header
+                self._marker.pose = pose_stmp.pose
+                self._marker.action = Marker.MODIFY
+                self._marker.color.a = self.p
+                self._vis_pub.publish(self._marker)
 
     def _add_marker(self):
         if self._vis_pub is not None:

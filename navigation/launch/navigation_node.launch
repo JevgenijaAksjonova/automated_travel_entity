@@ -1,5 +1,5 @@
 <launch>
-	<node name="navigaton_node" pkg="navigation" type="navigation_node" output="screen" />
-    <node name="local_map_node" pkg="navigation" type="local_map_node" output="screen" />
+	<node name="navigaton_node" pkg="navigation" type="navigation_node" output="log" />
+    <node name="local_map_node" pkg="navigation" type="local_map_node" output="log" />
 	<node pkg="tf" type="static_transform_publisher" name="world_transform" args="0 0 0 0 0 0 1 world_map odom 100" />
 </launch>

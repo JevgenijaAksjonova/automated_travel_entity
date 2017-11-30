@@ -14,6 +14,8 @@
 #include "project_msgs/direction.h"
 #include "project_msgs/stop.h"
 #include "project_msgs/depth.h"
+#include <nav_msgs/Odometry.h>
+#include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sstream>
@@ -34,10 +36,13 @@ class LocalPathPlanner {
                                     robotRad(p_robotRad),
                                     mapRad(p_mapRad),
                                     localMap(360,0),
-                                    distance(360,0) {};
+                                    distance(360,0),
+                                    dConf(0.1),
+                                    useDepth(true){};
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void depthCallback(const project_msgs::depth::ConstPtr& msg);
+    void locationCallback(const nav_msgs::Odometry::ConstPtr& msg);
     bool amendDirection(project_msgs::direction::Request  &req,
                         project_msgs::direction::Response &res);
     void showLocalMap();
@@ -52,9 +57,16 @@ class LocalPathPlanner {
     float range_max;
 
     // depth data
-    bool useDepth = true;
+    bool useDepth;
     vector<float> rangesDepth;
     vector<float> anglesDepth;
+    vector<float> confDepth;
+    double dConf;
+
+    //location
+    double locX;
+    double locY;
+    double locTheta;
 
     vector<double> localMap;
     vector<double> localMapProcessed;
@@ -63,6 +75,8 @@ class LocalPathPlanner {
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
     void addDepth(vector<double>& localMap);
+
+    void transform(float &r, float &a, float &dr);
 
     void stop(int reason);
     void emergencyStopLidar();
@@ -240,6 +254,60 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
     rangesDepth = msg->ranges;
     anglesDepth = msg->angles;
+    /*
+    int i = 0;
+    while(i < rangesDepth.size()) {
+        confDepth[i] -= dConf;
+        if (confDepth[i] <= 0) {
+            rangesDepth.erase(rangesDepth.begin()+i);
+            anglesDepth.erase(anglesDepth.begin()+i);
+            confDepth.erase(confDepth.begin()+i);
+        } else {
+            i++;
+        }
+    }
+    rangesDepth.extend(msg->ranges);
+    anglesDepth.extend(msg->angles);
+    confDepth.extend(vecotor<float>(msg->ranges.size(),1.0));
+    */
+}
+
+void LocalPathPlanner::transform(float &r, float &a, float &dr) {
+    // cosine law
+    r = pow(pow(r,2) + pow(dr,2) - 2*dr*r*cos(a),0.5);
+    // sine law
+    a += asin(sin(a)*dr/r);
+}
+
+void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+    double locX_new = msg->pose.pose.position.x;//xStart - msg->pose.pose.position.y;
+    double locY_new = msg->pose.pose.position.y;//yStart + msg->pose.pose.position.x;
+
+    geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
+    double locTheta_new = tf::getYaw(odom_quat);
+
+    double dx = locX_new - locX;
+    double dy = locY_new - locY;
+    double dtheta = locTheta_new - locTheta;
+    locX = locX_new;
+    locY = locY_new;
+    locTheta = locTheta_new;
+
+    // check if robot moved forward
+    double diff = atan2(dy,dx) - locTheta_new;
+    while (diff> M_PI) {
+        diff -= 2*M_PI ;
+    }
+    while (diff <= - M_PI) {
+        diff += 2*M_PI;
+    }
+    if (diff < M_PI/3.0) {
+        float dr = pow(dx*dx+dy*dy,0.5);
+        for (int i = 0; i < rangesDepth.size(); i++) {
+            anglesDepth[i] -= dtheta;
+            transform(rangesDepth[i], anglesDepth[i], dr);
+        }
+    }
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
@@ -352,6 +420,9 @@ int main(int argc, char **argv) {
     // STOP!
     lpp.stopPub = nh.advertise<project_msgs::stop>("navigation/obstacles", 1);
     ros::Rate loop_rate(10);
+
+    // Location
+    ros::Subscriber locationSub = nh.subscribe("/odom", 1, &LocalPathPlanner::locationCallback, &lpp);
 
     while (ros::ok())
     {
