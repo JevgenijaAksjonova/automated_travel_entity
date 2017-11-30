@@ -36,7 +36,9 @@ class LocalPathPlanner {
                                     robotRad(p_robotRad),
                                     mapRad(p_mapRad),
                                     localMap(360,0),
-                                    distance(360,0) {};
+                                    distance(360,0),
+                                    dConf(0.1),
+                                    useDepth(true){};
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void depthCallback(const project_msgs::depth::ConstPtr& msg);
@@ -55,9 +57,11 @@ class LocalPathPlanner {
     float range_max;
 
     // depth data
-    bool useDepth = true;
+    bool useDepth;
     vector<float> rangesDepth;
     vector<float> anglesDepth;
+    vector<float> confDepth;
+    double dConf;
 
     //location
     double locX;
@@ -71,6 +75,8 @@ class LocalPathPlanner {
     void addRobotRadius(vector<double>& localMap);
     void filterNoise(vector<double>& localMap);
     void addDepth(vector<double>& localMap);
+
+    void transform(float &r, float &a, float &dr);
 
     void stop(int reason);
     void emergencyStopLidar();
@@ -248,6 +254,29 @@ void LocalPathPlanner::lidarCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
     rangesDepth = msg->ranges;
     anglesDepth = msg->angles;
+    /*
+    int i = 0;
+    while(i < rangesDepth.size()) {
+        confDepth[i] -= dConf;
+        if (confDepth[i] <= 0) {
+            rangesDepth.erase(rangesDepth.begin()+i);
+            anglesDepth.erase(anglesDepth.begin()+i);
+            confDepth.erase(confDepth.begin()+i);
+        } else {
+            i++;
+        }
+    }
+    rangesDepth.extend(msg->ranges);
+    anglesDepth.extend(msg->angles);
+    confDepth.extend(vecotor<float>(msg->ranges.size(),1.0));
+    */
+}
+
+void LocalPathPlanner::transform(float &r, float &a, float &dr) {
+    // cosine law
+    r = pow(pow(r,2) + pow(dr,2) - 2*dr*r*cos(a),0.5);
+    // sine law
+    a += asin(sin(a)*dr/r);
 }
 
 void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -264,11 +293,21 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     locY = locY_new;
     locTheta = locTheta_new;
 
-    double r = pow(dx*dx+dy*dy,0.5);
-    //for (int i = 0; i < rangesDepth.size(); i++) {
-    //    anglesDepth[i] -= dtheta;
-    //    rangesDepth[i]
-    //}
+    // check if robot moved forward
+    double diff = atan2(dy,dx) - locTheta_new;
+    while (diff> M_PI) {
+        diff -= 2*M_PI ;
+    }
+    while (diff <= - M_PI) {
+        diff += 2*M_PI;
+    }
+    if (diff < M_PI/3.0) {
+        float dr = pow(dx*dx+dy*dy,0.5);
+        for (int i = 0; i < rangesDepth.size(); i++) {
+            anglesDepth[i] -= dtheta;
+            transform(rangesDepth[i], anglesDepth[i], dr);
+        }
+    }
 }
 
 bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,

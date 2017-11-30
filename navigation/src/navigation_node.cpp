@@ -180,6 +180,9 @@ int main(int argc, char **argv)
   shared_ptr<Location> loc = make_shared<Location>(0.215,0.224, M_PI/2.0);
   ros::Subscriber locationSub = n.subscribe("/odom", 1, &Location::callback, loc.get());
 
+  // Map update
+  ros::Subscriber mapUpdateSub = n.subscribe("/wall_finder_walls_array", 1, &GlobalPathPlanner::newWallCallback, gpp.get());
+
   // Path
   double pathRad = 0.25;
   double distanceTol = 0.10;

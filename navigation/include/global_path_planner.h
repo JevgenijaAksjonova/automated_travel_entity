@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <std_msgs/Bool.h>
+#include "std_msgs/Float32MultiArray.h"
+
 
 using namespace std;
 
@@ -55,6 +57,12 @@ public:
     vector<pair<int, int> > nodeMarks;
     void explorationCallback(bool start_exploration, double x, double y);
     void explorationUpdate(double x, double y, double theta, int pathSize);
+
+    // wall adding
+    void updateMap(vector<double> wall);
+    void newWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array);
+    void addRobotRadiusToPoint(pair<int, int> xy);
+
 
 private:
     float robotRad;
