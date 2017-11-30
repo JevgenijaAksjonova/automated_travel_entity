@@ -20,7 +20,7 @@ from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
-from maze import MazeMap, MazeObject, tf_transform_point_stamped
+from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
 
 
@@ -52,6 +52,8 @@ class Mother:
             "camera/evidence", RAS_Evidence, queue_size=1)
         #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         self.speak_pub = rospy.Publisher("espeak/string", String, queue_size=1)
+
+        self.trap_pub = rospy.Publisher("mother/trap",PointStamped,queue_size=1)
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
@@ -202,6 +204,12 @@ class Mother:
                 rospy.logwarn(nan_coord)
             return
         self.maze_map.add_object(obj_cand)
+        if obj_cand.class_id == TRAP_CLASS_ID:
+            trap_msg = PointStamped()
+            trap_msg.header.frame_id = MOTHER_WORKING_FRAME
+            trap_msg.header.stamp = rospy.Time.now()
+            trap_msg.point = Point(obj_cand.pos[0],obj_cand.pos[1],obj_cand.height)
+            self.trap_pub.publish(trap_msg)
 
     def go_to_twist(self,twist,distance_tol=0.05,angle_tol=0.1):
         if USING_PATH_PLANNING:
