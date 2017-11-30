@@ -513,7 +513,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         Node startNode(cell.first,cell.second,0);
         nodes.insert(nodes.begin(),startNode);
         computeExplorationPath();
-
+        mapChanged = false;
     }
 }
 
