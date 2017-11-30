@@ -222,32 +222,36 @@ class FilterPublisher
 
         calculateVelocityAndNoise();
 
-        //update according to odom
-        for (int m = 0; m < particles.size(); m++)
+        if (linear_v != 0 || angular_w != 0)
         {
-            sample_motion_model(particles[m]);
-        }
-        //update weights according to measurements
 
-        measurement_model(map);
+            //update according to odom
+            for (int m = 0; m < particles.size(); m++)
+            {
+                sample_motion_model(particles[m]);
+            }
+            //update weights according to measurements
 
-        float weight_sum = 0.0;
-        for (int m = 0; m < particles.size(); m++)
-        {
-            weight_sum += particles[m].weight;
-        }
+            measurement_model(map);
 
-        // Normalize weights here
-        for (int i = 0; i < particles.size(); i++)
-        {
-            particles[i].weight = particles[i].weight / weight_sum;
-        }
+            float weight_sum = 0.0;
+            for (int m = 0; m < particles.size(); m++)
+            {
+                weight_sum += particles[m].weight;
+            }
 
-        if(_using_random_particles){
-            resampleParticlesWithRandomParticles();
-        }else{
-            resampleParticlesWithGaussianNoise();
+            // Normalize weights here
+            for (int i = 0; i < particles.size(); i++)
+            {
+                particles[i].weight = particles[i].weight / weight_sum;
+            }
 
+            if(_using_random_particles){
+                resampleParticlesWithRandomParticles();
+            }else{
+                resampleParticlesWithGaussianNoise();
+
+            }
         }
 
 
