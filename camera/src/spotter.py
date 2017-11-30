@@ -130,20 +130,21 @@ class ObjectDetector:
         obj_cand_msg.pos.y = -point[0]
         obj_cand_msg.pos.z = -point[1]
         obj_cand_msg.image = bridge.cv2_to_imgmsg(oc.img)
-        obj_cand_msg.area = oc.contour_area
         obj_cand_msg.centered = oc.adjusted
-        if oc is ColoredObjectCandidate:
+        obj_cand_msg.area = -1
+        if type(oc) is ColoredObjectCandidate:
             color_msg = String_msg(data=oc.color)
             obj_cand_msg.color = color_msg
             obj_cand_msg.score = oc.score
             obj_cand_msg.type = PosAndImage.TYPE_COLORED_OBJECT
             obj_cand_msg.is_trap = False
-        elif oc is QRCodeDetection:
+            obj_cand_msg.area = oc.contour_area
+        elif type(oc) is QRCodeDetection:
             obj_cand_msg.message = String_msg(data=oc.message)
             obj_cand_msg.is_trap = oc.is_trap
             obj_cand_msg.type = PosAndImage.TYPE_QR_CODE
         else:
-            raise Exception("unexpected message type")
+            raise Exception("unexpected message type {0}".format(type(oc)))
 
         return obj_cand_msg
 
