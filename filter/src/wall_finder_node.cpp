@@ -120,6 +120,10 @@ class WallFinder
             ROS_ERROR("wf failed to detect parameter 8");
             exit(EXIT_FAILURE);
         }
+        if(!n.getParam("/wall_finder/ANGULAR_VELOCITY_TRESHOLD",ANGULAR_VELOCITY_TRESHOLD)){
+            ROS_ERROR("wf failed to detect parameter 9");
+            exit(EXIT_FAILURE);
+        }
 
 
         ROS_INFO("Running wall finder with parameters:");
@@ -171,8 +175,12 @@ class WallFinder
     
     void lookForWalls(LocalizationGlobalMap map){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
+            ROS_INFO("angular_v ok, %f", _angular_velocity);
+
             vector<pair<float, float>> measurements = mapMeasurementsToAngles();
             getOutliers(map, measurements);
+        }else{
+            ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
         }
     }
 
