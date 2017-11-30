@@ -1,8 +1,9 @@
 obstacle_detection:
     thresholds:
-        HEIGHT_LOWER_THRESHOLD : 0.02
-        HEIGHT_UPPER_THRESHOLD : 0.04
+        HEIGHT_LOWER_THRESHOLD : 0.045
+        HEIGHT_UPPER_THRESHOLD : 0.065
         DISTANCE_THRESHOLD : 0.4
+        CONNECTION_THRESHOLD : 0.04
         BIN_THRESHOLD : 100
     visual:
         PUBLISH_MARKERS : true
