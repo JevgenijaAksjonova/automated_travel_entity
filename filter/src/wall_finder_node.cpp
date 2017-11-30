@@ -51,7 +51,7 @@ class WallFinder
     std::vector<pair<float, float>> outliers;
     float _begunMoving;
     float _angular_velocity;
-
+    bool _wasTurning;
     struct Outlier{
         float xPos;
         float yPos;
@@ -176,11 +176,15 @@ class WallFinder
     void lookForWalls(LocalizationGlobalMap map){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
             ROS_INFO("angular_v ok, %f", _angular_velocity);
-
+            if(_wasTurning){
+                _wasTurning = false;
+            }else{
             vector<pair<float, float>> measurements = mapMeasurementsToAngles();
             getOutliers(map, measurements);
+            }
         }else{
             ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
+            _wasTurning = true;
         }
     }
 
