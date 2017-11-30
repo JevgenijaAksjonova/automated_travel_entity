@@ -311,7 +311,7 @@ int main(int argc, char **argv)
     msg.angular.y = 0.0;
     msg.angular.z = path->angVel;
 
-    if ( (path->move==true && path->onlyTurn == false) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
+    if ( (path->move==true /*&& path->onlyTurn == false*/) && ((path->linVel != 0.0) || (path->angVel != 0.0)) ) {
         history.push_back(pair<double,double>(path->linVel, path->angVel));
     }
     if (history.size() > maxHistorySize) {
