@@ -50,6 +50,7 @@ class WallFinder
     float _thetaPos;
     std::vector<pair<float, float>> outliers;
     float _begunMoving;
+    float _angular_velocity;
 
     struct Outlier{
         float xPos;
@@ -161,14 +162,18 @@ class WallFinder
 
         geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
         _thetaPos = tf::getYaw(odom_quat);
+
         if(msg->twist.twist.linear.x > 0.0 || msg->twist.twist.linear.y > 0 ){
             _begunMoving = true;
         }
+        _angular_velocity = abs(msg->twist.twist.angular.z);
     }
     
     void lookForWalls(LocalizationGlobalMap map){
-        vector<pair<float, float>> measurements = mapMeasurementsToAngles();
-        getOutliers(map, measurements);
+        if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
+            vector<pair<float, float>> measurements = mapMeasurementsToAngles();
+            getOutliers(map, measurements);
+        }
     }
 
     vector<pair<float, float>> mapMeasurementsToAngles()
@@ -550,6 +555,7 @@ class WallFinder
     float MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS;
     int MIN_POINTS;
     float MAX_DISTANCE_TO_OUTLIER;
+    float ANGULAR_VELOCITY_TRESHOLD;
 
 };
 
