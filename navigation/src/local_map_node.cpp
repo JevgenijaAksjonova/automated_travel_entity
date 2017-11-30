@@ -37,6 +37,7 @@ class LocalPathPlanner {
                                     mapRad(p_mapRad),
                                     localMap(360,0),
                                     distance(360,0),
+                                    distanceDepth(360,0),
                                     dConf(0.02),
                                     useDepth(true){};
 
@@ -61,6 +62,7 @@ class LocalPathPlanner {
     vector<float> rangesDepth;
     vector<float> anglesDepth;
     vector<float> confDepth;
+    vector<double> distanceDepth;
     double dConf;
 
     //location
@@ -98,6 +100,9 @@ void LocalPathPlanner::addRobotRadius(vector<double>& localMap){
         if (localMap[i] > 0) {
 
             double d = distance[i];
+            if (distanceDepth[i]>0) {
+                d = min(d, distanceDepth[i]);
+            }
             int angAddMax = (asin((robotRad)/max(d,robotRad))/2.0/M_PI*360);
             int angAddMin = (asin((robotRad-0.05)/max(d,robotRad-0.05))/2.0/M_PI*360);
             //cout << "(" << angAddMin << ":"<<angAddMax << ")" ;
@@ -140,6 +145,7 @@ void LocalPathPlanner::filterNoise(vector<double>& localMap){
 void LocalPathPlanner::addDepth(vector<double>& localMap){
 
     vector<double> localMapNew(localMap);
+    distanceDepth = vector<double>(360,0);
     int l = anglesDepth.size();
     for (int i = 0; i < l; i++) {
         double r = rangesDepth[i];
@@ -147,7 +153,7 @@ void LocalPathPlanner::addDepth(vector<double>& localMap){
         if (r <= mapRad) {
             localMapNew[ind] = max(localMapNew[ind], 1.0);
         }
-        distance[ind] = min(distance[ind], r);
+        distanceDepth[ind] = r;
         //cout << ind << " " << r << " "<< distance[ind]<< endl;
     }
     localMap = localMapNew;
