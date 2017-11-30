@@ -72,8 +72,6 @@ void MapVisualization::publishMap() {
 
     loadMap();
     grid_pub.publish(grid);
-    publishNodes();
-    publishPath(gpp->explorationPath);
 }
 
 void MapVisualization::publishPath(vector<pair<double, double> >& globalPath) {
