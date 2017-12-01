@@ -250,13 +250,13 @@ void GlobalPathPlanner::addRobotRadiusToPoint(pair<int, int> xy){
 
     int startX = max(xy.first - radCell, 0);
     int startY = max(xy.second - radCell, 0);
-    int endX = min(xy.first + radCell, maxX);
-    int endY = min(xy.second + radCell, maxY);
+    int endX = min(xy.first + radCell, maxX-1);
+    int endY = min(xy.second + radCell, maxY-1);
     float distance;
 
     for (int i = startX; i <=endX; i++){
         for (int j = startY; j <=endY; j++){
-            if(pow(i*cellSize,2) + pow(j*cellSize,2) <= pow(robotRad,2)){
+            if(pow((i-xy.first)*cellSize,2) + pow((j-xy.second)*cellSize,2) <= pow(robotRad,2)){
                 map[i][j] = 1;
                 ROS_INFO("Added wall cell to map at x = %d, y = %d", i , j);
             }
