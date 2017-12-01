@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import rospy
+from geometry_msgs.msg import Point
 from uarm.srv import MoveToJoints, MoveToJointsRequest, PumpRequest, Pump
 from uarm_controller.srv import armPickupService, armPickupServiceRequest
 from math import sqrt, pow, atan2,acos,pi
@@ -72,10 +73,18 @@ def ArmController(object):
             resp = False
     
 
+    
 
 def main():
     rospy.init_node("recognizer_server")
     armController = ArmController()
+    
+    def test_handle_arm_service_request(msg):
+        req = armPickupServiceRequest()
+        req.pos = msg
+        req.requestType = armPickupServiceRequest.requestTypeLift
+        armController.handle_arm_service_request(req)
+    rospy.SubscribeListener("uarm/debug/test_handle_arm_service_request",Point,test_handle_arm_service_request,queue_size=1)
     service_handle = rospy.Service("uarm/arm_controller_service",armPickupService,armController.handle_arm_service_request)
     rospy.spin()
 if __name__ == "__main__":
