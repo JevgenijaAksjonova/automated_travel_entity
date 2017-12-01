@@ -371,6 +371,13 @@ bool LocalPathPlanner::amendDirection(project_msgs::direction::Request  &req,
            abs(angleIndRight - angleInd) <= 180) {
         angleIndRight++;
     }
+    if (abs(angleIndLeft - angleInd) > 90 &&
+            abs(angleIndRight - angleInd) > 90 &&
+            abs(angleIndRight - angleInd) + abs(angleIndLeft - angleInd) > 190) {
+         cout << "DEVIATION FROM A PATH - ANGLE" << endl;
+         stop(4);
+    }
+
     if (abs(angleIndLeft - angleInd) > 180 && abs(angleIndRight - angleInd) > 180) {
         angleIndLeft = angleInd;
         angleIndRight = angleInd;
