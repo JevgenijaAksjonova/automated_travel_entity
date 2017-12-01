@@ -6,7 +6,8 @@ import sys
 import rospkg
 rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
-
+from os import path
+from os import remove as remove_file
 import rospy
 from geometry_msgs.msg import TransformStamped
 from tf import TransformListener, ExtrapolationException
@@ -92,10 +93,7 @@ class MazeMap:
         objs_to_remove = set()
         for obj in self.maze_objects.copy():
             if not obj.classified:
-                print("self.p_loss_rate =",self.p_loss_rate)
-                print("obj.p before =",obj.p)
                 obj.p = obj.p - self.p_loss_rate if obj.class_id != TRAP_CLASS_ID else 1
-                print("obj.p after =",obj.p)
                 
             obj._update_marker()
             if obj.p <= 0:
@@ -113,8 +111,8 @@ class MazeMap:
             obj.p = min(obj.p + self.p_increse_rate, 1)
         self.maze_objects.add(obj)
         if obj.visulisation_publisher is None:
-            print("setting vis pub")
-            print("vis pub =",self.visulisation_publisher)
+            #print("setting vis pub")
+            #print("vis pub =",self.visulisation_publisher)
             obj.visulisation_publisher = self.visulisation_publisher
         return obj
 
@@ -157,6 +155,8 @@ class MazeMap:
         ]
     
     def save(self,fn="maze_map.p"):
+        if path.isfile(fn):
+            remove_file(fn)
         with open(fn,"w") as save_file:
             pickle.dump(self.maze_objects,save_file)
 
@@ -166,7 +166,7 @@ class MazeMap:
         with open(fn,"rb") as load_file:
             maze_objects = pickle.load(load_file)
         for maze_object in maze_objects:
-            obj.add_object(maze_object)
+            obj.add_object(maze_object) 
         return obj
 
 def tf_transform_point_stamped(pose_stamped_msg,max_iter = 3000):
@@ -332,13 +332,13 @@ class MazeObject(object):
         state = self.__dict__.copy()
         del state["_marker"]
         del state["_vis_pub"]
-        print("__getstate__: state[\"p\"] =",state["p"])
+        #print("__getstate__: state[\"p\"] =",state["p"])
         return state
 
     def __setstate__(self,state):
         state["_vis_pub"] = None
         state["_marker"] = None
-        print("__setstate__: state[\"p\"] =",state["p"])        
+        #print("__setstate__: state[\"p\"] =",state["p"])        
         self.__dict__.update(state)
 
     def __str__(self):

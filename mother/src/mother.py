@@ -461,11 +461,15 @@ class Mother:
             self.i += 1
 
             self.maze_map.update()
+
+            rospy.loginfo("\tdetected objects adter update = {0}".format(self.maze_map.maze_objects))
+            
             self.rate.sleep()
             #if self.i % 1 == 0:
-            self.maze_map.save()
-            self.maze_map = MazeMap.load([self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE])
-
+            #self.maze_map.save()
+            #self.maze_map = MazeMap.load([self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE])
+            rospy.loginfo("\tdetected objects after reload= {0}".format(self.maze_map.maze_objects))
+            
 
 if __name__ == "__main__":
     try:
