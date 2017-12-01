@@ -310,10 +310,12 @@ class WallFinder
     void addWall(Wall w, LocalizationGlobalMap &map){
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
+        bool robotInsideWall = false;
         int i = 0;
         ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
-        while(wallIsNew && i < _wallsFound.size()){
+        while(wallIsNew && !robotInsideWall && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
+            robotInsideWall = checkIfRobotInsideWall(w);
             i++;
         }
         if(w.xStart < map.xMin || w.xStart > map.xMax || w.yStart < map.yMin || w.yStart > map.yMax){
@@ -328,13 +330,6 @@ class WallFinder
         }
     }
     void forgetWalls(){
-        /*
-        for(int i = 0; i<_wallsFound.size(); i++){
-            if(!_wallsFound[i].published && _wallsFound[i].nrAgreeingPoints > 0){ // if not published, start forgetting
-                _wallsFound[i].nrAgreeingPoints -= 1;
-            }
-        }
-        */
 
         vector<Wall>::iterator iter = _wallsFound.begin();
             while (iter != _wallsFound.end() && !(*iter).published){
@@ -415,6 +410,16 @@ class WallFinder
         }
         // ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
+
+    }
+
+    bool checkIfRobotInsideWall(Wall w){
+    	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
+    	if(distace > 0.1){
+    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd),
+    		return true;
+    	}
+    	return false;
 
     }
 
