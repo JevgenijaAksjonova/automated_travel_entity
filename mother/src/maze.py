@@ -153,7 +153,7 @@ class MazeMap:
     def _same_color_neighbors(self, obj):
         return [
             maze_obj for maze_obj in self.maze_objects.copy()
-            if obj.is_close_and_same_color(maze_obj,tol=0.15)
+            if obj.is_close_and_same_color(maze_obj,tol=0.2)
         ]
     
     def save_maze_objs(self,fn="maze_map.p"):
