@@ -425,6 +425,8 @@ void GlobalPathPlanner::sampleNodesToExplore() {
 
 void GlobalPathPlanner::computeExplorationPath() {
 
+    cout << "Compute exploration path " << endl;
+
     auto start = chrono::high_resolution_clock::now();
     // the first node should be a starting location
     // remove all other nodes, which cant be reached from it
@@ -543,6 +545,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         vector<pair<double, double> > path = getPath(location, pathStart);
         explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
     } else {
+        cout << "Recalculate exploration, map changed" << endl;
         // delete nodes, which are already visited
         int pathSize = explorationPath.size();
         int i = 0;
@@ -557,7 +560,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         }
         explorationPath.clear();
         nodeMarks.clear();
-
+        cout << "nodes left "<< nodes.size() << endl;
         pair<int, int> cell = getCell(x,y);
         Node startNode(cell.first,cell.second,0);
         nodes.insert(nodes.begin(),startNode);
