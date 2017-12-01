@@ -48,7 +48,7 @@ def extract_object_image(middle_point, top_left, bot_right, image):
     (x_max, y_max) = bot_right
     #Calculate the width of the window
     window_width = max(x_max - x_min, y_max - y_min)
-    alignment = int((window_width // 2) * 2)
+    alignment = int((window_width // 2) * 2.1)
 
     #Create preliminary new window
     new_x_min = x_mid - alignment

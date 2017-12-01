@@ -315,7 +315,7 @@ class WallFinder
         ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
         while(wallIsNew && !robotInsideWall && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
-            robotInsideWall = checkIfRobotInsideWall(w);
+           robotInsideWall = checkIfRobotInsideWall(w);
             i++;
         }
         if(w.xStart < map.xMin || w.xStart > map.xMax || w.yStart < map.yMin || w.yStart > map.yMax){
@@ -324,7 +324,7 @@ class WallFinder
         if(w.xEnd < map.xMin || w.xEnd > map.xMax || w.yEnd < map.yMin || w.yEnd > map.yMax){
             wallIsInsideMap = false;
         }
-        if(wallIsNew && wallIsInsideMap){
+        if(wallIsNew && wallIsInsideMap && !robotInsideWall){
             ROS_INFO("*****************Found new wall!***********************");
             _wallsFound.push_back(w);
         }
@@ -415,8 +415,8 @@ class WallFinder
 
     bool checkIfRobotInsideWall(Wall w){
     	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
-    	if(distace > 0.1){
-    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd),
+    	if(distance < 0.1){
+    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
     		return true;
     	}
     	return false;
@@ -429,9 +429,7 @@ class WallFinder
         float centre_y = (yStart + yEnd) / 2;
 
         float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        if(rotation < 0){
-            rotation += 2*M_PI;
-        }
+        rotation = fmod(rotation,M_PI);
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;

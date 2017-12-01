@@ -81,9 +81,9 @@ class MazeMap:
     # Add any type of object to the map.
     # Returns a reference to the object in the map
     # as it may not be the same object as was added, eventhough it is equivilent
-    def add_object(self, obj):
+    def add_object(self, obj,was_observed=True):
         if type(obj) is MazeObject:
-            return self._add_maze_obj(obj)
+            return self._add_maze_obj(obj,was_observed)
         else:
             raise Exception("tried to add invalid object to map")
 
@@ -101,14 +101,16 @@ class MazeMap:
                 objs_to_remove.add(obj)
         self.maze_objects.difference_update(objs_to_remove)
 
-    def _add_maze_obj(self, obj):
+    def _add_maze_obj(self, obj,was_observed=True):
         neighs = self._same_color_neighbors(obj)
-        obj.p = self.p_increse_rate
         obj.last_seen = rospy.Time.now().to_sec()
         if len(neighs) > 0:
             neighs.append(obj)
             obj = self._merge_maze_objects(neighs)
+        
+        if was_observed:
             obj.p = min(obj.p + self.p_increse_rate, 1)
+        
         self.maze_objects.add(obj)
         if obj.visulisation_publisher is None:
             #print("setting vis pub")
@@ -154,20 +156,18 @@ class MazeMap:
             if obj.is_close_and_same_color(maze_obj)
         ]
     
-    def save(self,fn="maze_map.p"):
-        if path.isfile(fn):
-            remove_file(fn)
+    def save_maze_objs(self,fn="maze_map.p"):
         with open(fn,"w") as save_file:
             pickle.dump(self.maze_objects,save_file)
 
-    @classmethod
-    def load(cls,args,fn="maze_map.p"):
-        obj = cls(*args)
+    def load_maze_objs(self,fn="maze_map.p"):
+        for maze_obj in self.maze_objects:
+            maze_obj.visulisation_publisher = None
         with open(fn,"rb") as load_file:
             maze_objects = pickle.load(load_file)
         for maze_object in maze_objects:
-            obj.add_object(maze_object) 
-        return obj
+            print("maze_object.p =",maze_object.p)
+            self.add_object(maze_object,was_observed=False)
 
 def tf_transform_point_stamped(pose_stamped_msg,max_iter = 3000):
     i = 0
@@ -230,6 +230,7 @@ class MazeObject(object):
         self._marker = None
         self._vis_pub = None
         self.visulisation_publisher = vis_pub
+        self.p = 0
         if obj_cand_msg.is_trap:
             self.class_label = "trap"
             self.class_id = TRAP_CLASS_ID
