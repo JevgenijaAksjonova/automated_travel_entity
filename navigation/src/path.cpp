@@ -98,7 +98,7 @@ void Path::followPath(double x, double y, double theta) {
     //cout << "Global path first el = "<< globalPath[0].first << " " << globalPath[0].second << endl;
     if (globalPath.size() > 1 ||
         (globalPath.size()==1 && distance(globalPath[0],loc) >= pathRad)) {
-        //linVel = distance(globalPath[0],loc);
+        linVel = distance(globalPath[0],loc);
         //cout << "LIN VEL = " << linVel << endl;
         cout << x << " "<< y<< endl;
         if (linVel > 1.4*pathRad) {
