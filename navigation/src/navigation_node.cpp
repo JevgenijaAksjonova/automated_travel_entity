@@ -335,8 +335,8 @@ int main(int argc, char **argv)
         mapViz.publishMap(count);
     }
     mapViz.publishNodes();
-    //mapViz.publishPath(gpp->explorationPath);
-    mapViz.publishPath(path->globalPath);
+    mapViz.publishPath(gpp->explorationPath);
+    //mapViz.publishPath(path->globalPath);
     mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();
     loop_rate.sleep();
