@@ -326,9 +326,15 @@ int main(int argc, char **argv)
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);
 
+<<<<<<< HEAD
+    //if (count % 100 == 0) {
+        mapViz.publishMap();
+    //}
+=======
     if (count % 10 == 0) {
         mapViz.publishMap(count);
     }
+>>>>>>> 3610ea5c559132187d05a44603cae9fd0c99f5ba
     mapViz.publishNodes();
     //mapViz.publishPath(gpp->explorationPath);
     mapViz.publishPath(path->globalPath);
