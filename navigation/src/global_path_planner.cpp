@@ -234,7 +234,6 @@ void GlobalPathPlanner::updateMap(vector<double> wall){
     }
     for (size_t c = 0; c < pow(2,count)+1; c++) {
         pair<int, int> cell = getCell(x1 + c*dx, y1 + c*dy);
-        ROS_INFO("Wall cell at %d %d", cell.first, cell.second);
         addRobotRadiusToPoint(cell);
     }
     mapChanged = true;
@@ -258,7 +257,6 @@ void GlobalPathPlanner::addRobotRadiusToPoint(pair<int, int> xy){
         for (int j = startY; j <=endY; j++){
             if(pow((i-xy.first)*cellSize,2) + pow((j-xy.second)*cellSize,2) <= pow(robotRad,2)){
                 map[i][j] = 1;
-                ROS_INFO("Added wall cell to map at x = %d, y = %d", i , j);
             }
         }
     }

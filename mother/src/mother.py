@@ -24,17 +24,17 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
-    attempts = 0
-    while attempts < max_attempts:
-        try:
-            return serviceHandle(request)
-        except ServiceException as se:
-            rospy.logerr(se)
-            rospy.sleep(rospy.Duration(secs=retry_delay_secs))
+    #attempts = 0
+    #while attempts < max_attempts:
+    #    try:
+    return serviceHandle(request)
+    #    except ServiceException as se:
+    #        rospy.logerr(se)
+    #        rospy.sleep(rospy.Duration(secs=retry_delay_secs))
 
 class Mother:
 
@@ -59,9 +59,11 @@ class Mother:
             with open(MOTHER_STATE_FILE,"r") as state_file:
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
+                print("loaded has_started = ",self.has_started)
                 if self.has_started:
                     self.maze_map.load_maze_objs()
-    
+        else:
+            print("No state file found")    
     def write_state(self):
         state_dict = {
             "has_started":self.has_started
@@ -292,18 +294,21 @@ class Mother:
 
     def try_classify(self):
         rospy.loginfo("Trying to classify")
+        print("---------------classifying object---------------")
+        print(self.classifying_obj)
+        
         if self.classifying_obj is not None:
             resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
                 resp.probability.data))
-            rospy.loginfo("resp.probability > .75 = {0}".format(
-                resp.probability.data > .75))
+            rospy.loginfo("resp.probability > {min_p} = {p}".format(p=
+                resp.probability.data > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
-            if resp.probability.data > .75 and self.classifying_obj.color.lower() in resp.class_name.data.lower():
+            if resp.probability.data > RECOGNITION_MIN_P and self.classifying_obj.color.lower() in resp.class_name.data.lower():
                 
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
-                rospy.loginfo("returning tru from try classify")
+                rospy.loginfo("returning true from try classify")
                 return True
             return False
 
@@ -321,6 +326,7 @@ class Mother:
             # send a command to generate and follow an exploration path
             request = explorationRequest()
             request.req = True
+            print("calling exploration_path_service")
             response = call_srv(self.exploration_path_service,request)
 
     def set_waiting_for_main_goal(self):
@@ -436,6 +442,7 @@ class Mother:
                         #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
                     if ROUND == 1:
                         rospy.loginfo("Following an exploration path")
+                        self.has_started = True
                         self.set_following_an_exploration_path()
                     
                     else:
@@ -499,7 +506,7 @@ class Mother:
             self.maze_map.update()
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
-                self.maze_map.save_maze_objs()
+                self.write_state()
             self.rate.sleep()
             
 
