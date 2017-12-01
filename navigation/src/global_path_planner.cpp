@@ -539,11 +539,13 @@ void GlobalPathPlanner::getExplorationPath(double x, double y) {
 
 void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
     if (!mapChanged) {
-        cout << "Recalculate exploration, map did not change" << endl;
         pair<double, double>  pathStart = explorationPath[0];
         pair<double, double> location(x,y);
+        cout << "Recalculate exploration, map did not change "<< x << " "<< y << " to "<< pathStart.first << " " << pathStart.second << endl;
         vector<pair<double, double> > path = getPath(location, pathStart);
+        cout << "Path size " << path.size();
         explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
+        cout << "Exploration path size " << explorationPath.size();
     } else {
         cout << "Recalculate exploration, map changed" << endl;
         // delete nodes, which are already visited
