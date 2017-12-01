@@ -28,6 +28,7 @@
 #include "project_msgs/direction.h"
 #include "project_msgs/global_path.h"
 #include "project_msgs/exploration.h"
+#include "project_msgs/distance.h"
 
 using namespace std;
 
@@ -49,6 +50,8 @@ class GoalPosition {
 
     bool explorationCallback(project_msgs::exploration::Request &request,
                              project_msgs::exploration::Response &response);
+    bool distanceServiceCallback(project_msgs::distance::Request &request,
+                                 project_msgs::distance::Response &response);
   private:
     shared_ptr<GlobalPathPlanner> gpp;
     shared_ptr<Location> loc;
@@ -153,6 +156,14 @@ bool GoalPosition::explorationCallback(project_msgs::exploration::Request &reque
     return true;
 }
 
+bool GoalPosition::distanceServiceCallback(project_msgs::distance::Request &request,
+                                           project_msgs::distance::Response &response){
+    pair<double, double> startCoord(request.startPose.linear.x, request.startPose.linear.y);
+    pair<double, double> goalCoord(request.goalPose.linear.x, request.goalPose.linear.y);
+    int dist = gpp->getDistance(startCoord, goalCoord);
+    response.distance = dist;
+    return true;
+}
 
 string getHomeDir() {
     passwd* pw = getpwuid(getuid());
@@ -170,6 +181,7 @@ int main(int argc, char **argv)
   double gridCellSize = 0.01;
   double robotRadius = 0.17;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
+  ros::ServiceServer distanceService = n.advertiseService("navigation/distance", &GoalPosition::distanceServiceCallback, &goal);
 
   MapVisualization mapViz(gpp);
   stringstream s;

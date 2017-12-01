@@ -9,7 +9,7 @@ import rospy
 from rospy.service import ServiceException
 from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist,PointStamped
 from std_msgs.msg import Bool, String
-from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
+from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest, distance, distanceRequest
 from project_msgs.msg import stop
 from nav_msgs.msg import Odometry
 from tf import TransformListener, ExtrapolationException
@@ -24,7 +24,7 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
@@ -131,6 +131,11 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
+            rospy.loginfo(
+                "Waiting for service {0}".format(NAVIGATION_DISTANCE_TOPIC))
+            rospy.wait_for_service(NAVIGATION_DISTANCE_TOPIC)
+            self.navigation_distance_service = rospy.ServiceProxy(
+                NAVIGATION_DISTANCE_TOPIC, distance, persistent=True)
             #("after nave goal topic")
             if ROUND == 1:
                 rospy.loginfo(
@@ -291,6 +296,15 @@ class Mother:
         else:
             self.nav_goal_acchieved = True
             return True
+
+    def navigation_get_distance(self, startPose, goalPose):
+        request = distanceRequest()
+        request.startPose.linear.x = startPose.pose.position.x
+        request.startPose.linear.y = startPose.pose.position.y
+        request.goalPose.linear.x = goalPose.pose.position.x
+        request.goalPose.linear.y = goalPose.pose.position.y
+        response = call_srv(self.navigation_distance_service,request)
+        return response.distance
 
     def try_classify(self):
         rospy.loginfo("Trying to classify")

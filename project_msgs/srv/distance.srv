@@ -1,0 +1,4 @@
+geometry_msgs/Twist startPose
+geometry_msgs/Twist goalPose
+---
+int32 distance
