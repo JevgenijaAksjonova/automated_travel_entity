@@ -102,8 +102,10 @@ void MapVisualization::loadMap2() {
 void MapVisualization::publishMap(int count) {
 
     if(count % 20 == 0){
+        ROS_INFO("****PUBLISHING NORMAL");
         loadMap();
     }else{
+        ROS_INFO("****PUBLISHING BLACK");
         loadMap2();
     }
     grid_pub.publish(grid);
