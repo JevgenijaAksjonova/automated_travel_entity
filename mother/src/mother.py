@@ -305,9 +305,7 @@ class Mother:
                 resp.probability.data > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
             if resp.probability.data > RECOGNITION_MIN_P and self.classifying_obj.color.lower() in resp.class_name.data.lower():
-                
-                self.classifying_obj.class_label = resp.class_name.data
-                self.classifying_obj.class_id = resp.class_id.data
+                self.classifying_obj.classify(resp.class_name.data,resp.class_id.data)
                 rospy.loginfo("returning true from try classify")
                 return True
             return False
@@ -373,7 +371,7 @@ class Mother:
         
         if self.nav_goal_acchieved is not None:
             if self.nav_goal_acchieved:
-                rospy.Rate(0.35).sleep() 
+                rospy.Rate(1).sleep() 
                 if self.try_classify():
                     classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                         x=np.round(self.classifying_obj.pos[0], 2),
@@ -504,7 +502,7 @@ class Mother:
             rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
-            self.maze_map.update()
+            self.maze_map.update(exclude_set={self.classifying_obj})
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
                 self.write_state()

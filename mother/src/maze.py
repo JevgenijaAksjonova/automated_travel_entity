@@ -89,7 +89,7 @@ class MazeMap:
 
     #Update the map once every loop,
     #Removes inprobable objects from map
-    def update(self):
+    def update(self,exclude_set={}):
         objs_to_remove = set()
         for obj in self.maze_objects.copy():
             if not obj.classified:
@@ -99,6 +99,7 @@ class MazeMap:
             if obj.p <= 0:
                 obj.visulisation_publisher = None
                 objs_to_remove.add(obj)
+        objs_to_remove.difference_update(exclude_set)
         self.maze_objects.difference_update(objs_to_remove)
 
     def _add_maze_obj(self, obj,was_observed=True):
@@ -343,13 +344,15 @@ class MazeObject(object):
         self.__dict__.update(state)
 
     def __str__(self):
-        return "{color} {label} at {pos}, id {id}, p {p}, is trap: {trap}".format(
+        return "{color}, {class_id}:{label} at {pos}, id {id}, p {p}, is trap: {trap}, is classified: {classified}".format(
             color=self.color,
             label=self.class_label,
+            class_id = self.class_id,
             pos=self._pos,
             id=self.id,
             p=self.p,
-            trap=self.class_id == TRAP_CLASS_ID)
+            trap=self.class_id == TRAP_CLASS_ID,
+            classified=self.classified)
 
     def __repr__(self):
         return self.__str__()
