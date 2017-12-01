@@ -24,7 +24,7 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
@@ -294,18 +294,21 @@ class Mother:
 
     def try_classify(self):
         rospy.loginfo("Trying to classify")
+        print("---------------classifying object---------------")
+        print(self.classifying_obj)
+        
         if self.classifying_obj is not None:
             resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
                 resp.probability.data))
-            rospy.loginfo("resp.probability > .75 = {0}".format(
-                resp.probability.data > .75))
+            rospy.loginfo("resp.probability > {min_p} = {p}".format(p=
+                resp.probability.data > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
-            if resp.probability.data > .75 and self.classifying_obj.color.lower() in resp.class_name.data.lower():
+            if resp.probability.data > RECOGNITION_MIN_P and self.classifying_obj.color.lower() in resp.class_name.data.lower():
                 
                 self.classifying_obj.class_label = resp.class_name.data
                 self.classifying_obj.class_id = resp.class_id.data
-                rospy.loginfo("returning tru from try classify")
+                rospy.loginfo("returning true from try classify")
                 return True
             return False
 
