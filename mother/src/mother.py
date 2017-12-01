@@ -502,7 +502,7 @@ class Mother:
             rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
-            self.maze_map.update(exclued_set={self.classifying_obj})
+            self.maze_map.update(exclude_set={self.classifying_obj})
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
                 self.write_state()
