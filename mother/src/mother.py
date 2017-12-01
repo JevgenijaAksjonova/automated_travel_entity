@@ -6,6 +6,7 @@ rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
 import rospy
+from rospy.service import ServiceException
 from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist,PointStamped
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
@@ -23,6 +24,15 @@ from math import atan2
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS
 from pprint import pprint
+
+def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            return serviceHandle(request)
+        except ServiceException as se:
+            rospy.logerr(se)
+            rospy.sleep(rospy.Duration(secs=retry_delay_secs))
 
 class Mother:
 
@@ -225,7 +235,7 @@ class Mother:
             request.pose = twist
             request.distanceTol = distance_tol
             request.angleTol = angle_tol
-            response = self.global_path_service(request)
+            response = call_srv(self.global_path_service,request)
             return response.path_found
         else:
             self.nav_goal_acchieved = True
@@ -252,7 +262,7 @@ class Mother:
             request.pose.linear.y = pose.pose.position.y
             request.distanceTol = distance_tol
             request.angleTol = angle_tol
-            response = self.global_path_service(request)
+            response = call_srv(self.global_path_service,request)
             return response.path_found
         else:
             self.nav_goal_acchieved = True
@@ -261,7 +271,7 @@ class Mother:
     def try_classify(self):
         rospy.loginfo("Trying to classify")
         if self.classifying_obj is not None:
-            resp = self.recognizer_srv(self.classifying_obj.image)
+            resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
                 resp.probability.data))
             rospy.loginfo("resp.probability > .75 = {0}".format(
@@ -289,7 +299,7 @@ class Mother:
             # send a command to generate and follow an exploration path
             request = explorationRequest()
             request.req = True
-            response = self.exploration_path_service(request)
+            response = call_srv(self.exploration_path_service,request)
 
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
