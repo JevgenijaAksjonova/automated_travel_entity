@@ -211,6 +211,7 @@ int main(int argc, char **argv)
   ros::ServiceServer explorationService = n.advertiseService("navigation/exploration_path", &GoalPosition::explorationCallback, &goal);
   ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
   ros::ServiceServer distanceService = n.advertiseService("navigation/distance", &GoalPosition::distanceServiceCallback, &goal);
+  ros::Publisher explorationStatusPub = n.advertise<std_msgs::Bool>("navigation/exploration_status", 1);
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
@@ -240,6 +241,14 @@ int main(int argc, char **argv)
         stringstream s;
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
+
+        if (path->globalPath.size()==0 && gpp->explorationStatus ==1 ) {
+            // Exploration Completed
+            gpp->explorationStatus = 3;
+            std_msgs::Bool msg;
+            msg.data = 1;
+            explorationStatusPub.publish(msg);
+        }
 
         if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
             // make sure that the robot turned enough (if sign differ, this is the case)
