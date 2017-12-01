@@ -243,7 +243,7 @@ class MazeObject(object):
 
     def classify(self, class_label, class_id):
         if self.class_label != TRAP_CLASS_ID:
-            self._class_label = class_label
+            self.class_label = class_label
             self.class_id = class_id
             self.p = 1
         else:
