@@ -500,7 +500,8 @@ void GlobalPathPlanner::getExplorationPath(double x, double y) {
 
 void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
     if (!mapChanged) {
-        pair<double, double>  pathStart = explorationPath.front();
+        cout << "Recalculate exploration, map did not change" << endl;
+        pair<double, double>  pathStart = explorationPath[0];
         pair<double, double> location(x,y);
         vector<pair<double, double> > path = getPath(location, pathStart);
         explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
