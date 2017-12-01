@@ -463,11 +463,11 @@ void GlobalPathPlanner::computeExplorationPath() {
     //        }
     //    }
     //}*/
-    auto end= chrono::high_resolution_clock::now();
-    chrono::duration<double> elapsed = end-start;
-    stringstream s;
-    s << "Time to compute the distance matrix = " << elapsed.count()<< endl;
-    ROS_INFO("%s/n", s.str().c_str());
+    //auto end= chrono::high_resolution_clock::now();
+    //chrono::duration<double> elapsed = end-start;
+    //stringstream s;
+    //s << "Time to compute the distance matrix = " << elapsed.count()<< endl;
+    //ROS_INFO("%s/n", s.str().c_str());
 
     vector<int> visited(nodes.size(),0);
     vector<int> path;
@@ -497,7 +497,7 @@ void GlobalPathPlanner::computeExplorationPath() {
         path.push_back(i);
         visited[i] = 1;
     }
-    end= chrono::high_resolution_clock::now();
+    auto end= chrono::high_resolution_clock::now();
     elapsed = end-start;
     s.str("") ;
     s << "Time to find greedy path = " << elapsed.count()<< endl;
