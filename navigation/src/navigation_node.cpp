@@ -216,6 +216,8 @@ int main(int argc, char **argv)
     path->linVel = 0;
     path->angVel = 0;
 
+    cout << "STATES: "<< path->move << " " << path->rollback << " " << path->replan << " "<< gpp->explorationStatus <<endl;
+
     if (path->move) {
 
         if (gpp->explorationStatus > 0) {

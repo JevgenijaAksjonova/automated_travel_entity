@@ -135,10 +135,12 @@ void Path::followPath(double x, double y, double theta) {
 
 void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
     bool stop = msg->stop;
+    // if stop = true, handle stop logic
     if (stop && move &&(!onlyTurn)) {
         move = false;
         string msg = "STOP!";
         ROS_INFO("%s/n", msg.c_str());
+    // if stop = false, handle start logic
     } else if (stop == false && move == false) {
         if (msg->rollback) {
             rollback = true;

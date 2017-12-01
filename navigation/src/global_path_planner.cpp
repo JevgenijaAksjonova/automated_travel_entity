@@ -508,9 +508,14 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         // delete nodes, which are already visited
         int pathSize = explorationPath.size();
         int i = 0;
+        vector<int> nodesToErase;
         while (nodeMarks[i].second > pathSize) {
-            nodes.erase(nodes.begin()+ nodeMarks[i].first);
+            nodesToErase.push_back(nodeMarks[i].first);
             i++;
+        }
+        sort(nodesToErase.begin(), nodesToErase.end());
+        for(int  i = nodesToErase.size()-1; i>=0; i--) {
+            nodes.erase(nodes.begin()+ nodesToErase[i]);
         }
         explorationPath.clear();
         nodeMarks.clear();
