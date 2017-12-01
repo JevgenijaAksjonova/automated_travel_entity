@@ -1,7 +1,7 @@
 <launch>
     	<rosparam  file="$(find filter)/filter_params.yaml" command="load"/>
-	<node name="filter_node" pkg="filter" type="filter_node" output="log"/>
+	<node name="filter_node" pkg="filter" type="filter_node" output="log" respawn="True" respawn_delay="5"/>
 	<rosparam  file="$(find filter)/wall_finder_params.yaml" command="load"/>
-	<node name="wall_finder_node" pkg="filter" type="wall_finder_node" output="log"/>
+	<node name="wall_finder_node" pkg="filter" type="wall_finder_node" output="log" respawn="True" respawn_delay="5"/>
 	<include file="$(find odometry)/launch/odometry_node.launch"/>
 </launch>
