@@ -85,21 +85,21 @@ void Path::followPath(double x, double y, double theta) {
     directionChange = 0;
     double targetAng = goalAng;
 
-    cout << "Global path size = " << globalPath.size()<< endl;
-    cout << "Global path first el = "<< globalPath[0].first << " " << globalPath[0].second << endl;
+    //cout << "Global path size = " << globalPath.size()<< endl;
+    //cout << "Global path first el = "<< globalPath[0].first << " " << globalPath[0].second << endl;
     while (globalPath.size() > 1 &&
                (distance(globalPath[0],loc) < pathRad ||
                 distance(globalPath[1], loc) < distance(globalPath[0], loc))
            ) {
         globalPath.erase(globalPath.begin());
     }
-    cout << "Global path size after reduction= " << globalPath.size()<< endl;
-    cout << "Path rad "<< pathRad << endl;
-    cout << "Global path first el = "<< globalPath[0].first << " " << globalPath[0].second << endl;
+    //cout << "Global path size after reduction= " << globalPath.size()<< endl;
+    //cout << "Path rad "<< pathRad << endl;
+    //cout << "Global path first el = "<< globalPath[0].first << " " << globalPath[0].second << endl;
     if (globalPath.size() > 1 ||
         (globalPath.size()==1 && distance(globalPath[0],loc) >= pathRad)) {
-        linVel = distance(globalPath[0],loc);
-        cout << "LIN VEL = " << linVel << endl;
+        //linVel = distance(globalPath[0],loc);
+        //cout << "LIN VEL = " << linVel << endl;
         cout << x << " "<< y<< endl;
         if (linVel > 1.4*pathRad) {
             move = false;
