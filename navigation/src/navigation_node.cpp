@@ -220,7 +220,7 @@ int main(int argc, char **argv)
 
     if (path->move) {
 
-        if (gpp->explorationStatus > 0) {
+        if (gpp->explorationStatus == 1) {
             gpp->explorationUpdate(loc->x,loc->y,loc->theta, path->globalPath.size());
         }
 
