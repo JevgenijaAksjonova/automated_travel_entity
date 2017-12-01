@@ -310,12 +310,12 @@ class WallFinder
     void addWall(Wall w, LocalizationGlobalMap &map){
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
-        bool robotInsideWall = false;
+        //bool robotInsideWall = false;
         int i = 0;
         ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
-        while(wallIsNew && !robotInsideWall && i < _wallsFound.size()){
+        while(wallIsNew && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
-            robotInsideWall = checkIfRobotInsideWall(w);
+           // robotInsideWall = checkIfRobotInsideWall(w);
             i++;
         }
         if(w.xStart < map.xMin || w.xStart > map.xMax || w.yStart < map.yMin || w.yStart > map.yMax){
@@ -415,8 +415,8 @@ class WallFinder
 
     bool checkIfRobotInsideWall(Wall w){
     	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
-    	if(distace > 0.1){
-    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd),
+    	if(distance > 0.1){
+    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
     		return true;
     	}
     	return false;
