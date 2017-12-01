@@ -14,6 +14,10 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
 
+#include "std_msgs/Float32MultiArray.h"
+#include "std_msgs/MultiArrayLayout.h"
+#include "std_msgs/MultiArrayDimension.h"
+
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
@@ -35,6 +39,8 @@ class FilterPublisher
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
     ros::Subscriber initalPose_subscriber;
+    ros::Subscriber addedWall_subscriber;
+
     float pi;
     std::vector<float> dphi_dt;
     tf::TransformBroadcaster odom_broadcaster;
@@ -54,10 +60,11 @@ class FilterPublisher
     float _start_theta;
     int _nr_particles;
     bool RUN_WHILE_STANDING_STILL;
+    LocalizationGlobalMap map;
 
     //LocalizationGlobalMap map;
 
-    FilterPublisher(float frequency)
+    FilterPublisher(float frequency, LocalizationGlobalMap newMap)
     {
         control_frequency = frequency;
         dt = 1/control_frequency;
@@ -72,6 +79,7 @@ class FilterPublisher
         bool using_random_particles = false;
         float gaussian_particle_noise_spread = 0.1;
          _intitialPoseReceived = false;
+         map = newMap;
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
@@ -147,6 +155,9 @@ class FilterPublisher
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
         initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
+        addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
+
+
 
         _wheel_r = 0.04;
         _base_d = 0.2;
@@ -194,6 +205,19 @@ class FilterPublisher
         ROS_INFO("Initial pose theta [%f] ", _start_theta);
     }
 
+    void addedWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array){
+	    vector<double> wall;
+	    for(std::vector<float>::const_iterator it = array->data.begin(); it != array->data.end(); ++it){
+	        wall.push_back(*it);
+	    }
+	    if(wall.size() != 4){
+	        ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wall.size());
+	    }else{
+	    	ROS_INFO("ADDING WALL TO FILTER MAP");
+	    	//map.walls.push_back(wall);
+	    }
+    }
+
     void initializeParticles()
     {
         ROS_INFO("intitializing particles!");
@@ -216,7 +240,7 @@ class FilterPublisher
         }
 }
 
-    Particle localize(LocalizationGlobalMap map)
+    Particle localize()
     {
 
         //Reset weights
@@ -237,7 +261,7 @@ class FilterPublisher
             }
             //update weights according to measurements
 
-            measurement_model(map);
+            measurement_model();
 
             float weight_sum = 0.0;
             for (int m = 0; m < particles.size(); m++)
@@ -402,7 +426,7 @@ class FilterPublisher
         // One alternative would be to se TF Matrix to translate p to lidar_link
     }
 
-    void measurement_model(LocalizationGlobalMap map)
+    void measurement_model()
     {
         //Sample the measurements
         float lidar_x = -0.03;
@@ -490,7 +514,7 @@ class FilterPublisher
 
     }
 
-    void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements, LocalizationGlobalMap map)
+    void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements)
     {
         int nr_measurements_used = 8;
         int step_size = (ranges.size() / nr_measurements_used);
@@ -530,11 +554,11 @@ class FilterPublisher
 
         if (sampled_measurements.size() > 3000)
         {
-            run_calibrations(map, sampled_measurements);
+            run_calibrations(sampled_measurements);
         }
     }
 
-    void run_calibrations(LocalizationGlobalMap map, std::vector<std::pair<float, float>> &sampled_measurements)
+    void run_calibrations(std::vector<std::pair<float, float>> &sampled_measurements)
     {
         float max_distance = 3.0;
         float pos_x = 0.205;
@@ -642,11 +666,13 @@ int main(int argc, char **argv)
     float cellSize = 0.01;
 
     ros::init(argc, argv, "filter_publisher");
-
-
-    FilterPublisher filter(frequency);
-
+    ROS_INFO("Creating map");
     LocalizationGlobalMap map(_filename_map, cellSize);
+    ROS_INFO("Map created!");
+
+
+    FilterPublisher filter(frequency, map);
+
 
     ros::Rate loop_rate(frequency);
 
@@ -676,7 +702,7 @@ int main(int argc, char **argv)
         }
 
 
-        most_likely_position = filter.localize(map);
+        most_likely_position = filter.localize();
         most_likely_position_prev = most_likely_position;
         filter.publishPosition(most_likely_position, most_likely_position_prev);
         filter.publish_rviz_particles();

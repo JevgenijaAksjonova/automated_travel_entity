@@ -52,13 +52,15 @@ class Mother:
     def init_default_state(self):
             self.has_started = False
             self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
-    
+            self.exploration_completed = False
+
     def load_state(self):
         self.init_default_state()
         if path.isfile(MOTHER_STATE_FILE):
             with open(MOTHER_STATE_FILE,"r") as state_file:
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
+                self.exploration_completed = state_dict["exploration_completed"]
                 print("loaded has_started = ",self.has_started)
                 if self.has_started:
                     self.maze_map.load_maze_objs()
@@ -66,7 +68,8 @@ class Mother:
             print("No state file found")    
     def write_state(self):
         state_dict = {
-            "has_started":self.has_started
+            "has_started":self.has_started,
+            "exploration_completed":self.exploration_completed,
         }
         with open(MOTHER_STATE_FILE,"w") as state_file:
             yaml.dump(state_dict,state_file)
@@ -92,7 +95,7 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.load_state()  
+        self.load_state()
 
         #Subscribers
         if USING_VISION:
@@ -100,6 +103,11 @@ class Mother:
                 OBJECT_CANDIDATES_TOPIC,
                 PosAndImage,
                 callback=self._obj_cand_callback)
+        
+        rospy.Subscriber(
+            NAVIGATION_EXPLORATION_STATUS_TOPIC,
+            Bool,
+            callback=self._exploration_status_callback)
 
         rospy.Subscriber(
             GOAL_POSE_TOPIC, PoseStamped, callback=self._goal_pose_callback)
@@ -147,7 +155,6 @@ class Mother:
                 NAVIGATION_STOP_TOPIC, stop, callback=self._navigation_stop_callback, queue_size=1)
             #print("after navigation stop topic")
             self.stop_pub = rospy.Publisher(NAVIGATION_STOP_TOPIC, stop,queue_size=1)
-            
 
         if USING_ARM:
             rospy.loginfo(
@@ -184,6 +191,10 @@ class Mother:
         else:
             self.nav_goal_acchieved = False
             #rospy.loginfo("navigation status = false")
+    
+    def _exploration_status_callback(self,status_msg):
+        self.exploration_completed = status_msg.data
+        
 
     def _navigation_stop_callback(self, stop_msg):
         if stop_msg.stop and (self.mode == "following_an_exploration_path" or self.mode == "following_path_to_object_classification" or self.mode == "following_path_to_main_goal"):
@@ -219,7 +230,7 @@ class Mother:
             else :
                 msg.replan = True
                 msg.rollback = True
-            self.stop_pub.publish(msg) 
+            self.stop_pub.publish(msg)
 
     @property
     def pos(self):
@@ -432,6 +443,21 @@ class Mother:
             self.mode = "lift_up_object"
         else:
             activate_next_state()
+
+    #Returns true if the mother mode has been changed.
+    def classify_if_close(self,set_continue_state):
+        self.object_classification_queue = list(
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
+        if len(self.object_classification_queue) > 0:
+            classifying_obj = self.object_classification_queue.pop()
+            #print("setting turning towards object")
+            if not self.set_turning_towards_object(classifying_obj):
+                set_continue_state()
+            else
+                return True
+                #self.set_following_an_exploration_path()
+        return False
+        
     # Main mother loop
     def mother_forever(self, rate=5):
         self.rate = rospy.Rate(rate)
@@ -447,6 +473,10 @@ class Mother:
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None or self.has_started:
+                    while True:
+                        self.initial_pose = self.pos
+                        if self.initial_pose is not None:
+                            break
                     #robot_pos = self.pos 
                     #if robot_pos is not None:
                         #msg = Twist()
@@ -463,22 +493,17 @@ class Mother:
                         self.set_following_path_to_main_goal()
 
             elif self.mode == "following_path_to_main_goal":
-                self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(self.pos,3))
-                if len(self.object_classification_queue) > 0:
-                    classifying_obj = self.object_classification_queue.pop()
-                    self.set_following_path_to_object_classification(
-                        classifying_obj)
+                changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
+                if self.nav_goal_acchieved and not changed_mode:
+                    self.set_waiting_for_main_goal()
 
             elif self.mode == "following_an_exploration_path":
-                self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
-                if len(self.object_classification_queue) > 0:
-                    classifying_obj = self.object_classification_queue.pop()
-                    #print("setting turning towards object")
-                    if not self.set_turning_towards_object(classifying_obj):
-                        self.set_following_an_exploration_path()
-                        #print("was not able to find path to turn")
+                changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
+                if self.exploration_completed and not changed_mode:
+                    self.exploration_completed = False
+                    self.goal_pose = self.initial_pose
+                    self.set_following_path_to_main_goal()
+
 
             elif self.mode == "following_path_to_object_classification":
                 if self.nav_goal_acchieved:
@@ -505,7 +530,6 @@ class Mother:
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
-
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
