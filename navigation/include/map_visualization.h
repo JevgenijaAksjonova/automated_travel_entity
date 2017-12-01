@@ -30,7 +30,8 @@ class MapVisualization {
   public:
     MapVisualization(shared_ptr<GlobalPathPlanner> _gpp);
     void loadMap();
-    void publishMap();
+    void loadMap2();
+    void publishMap(int count);
     void publishPath(vector<pair<double, double> >& globalPath);
     void publishDirection(double linVel, double angVel);
     void publishNodes();

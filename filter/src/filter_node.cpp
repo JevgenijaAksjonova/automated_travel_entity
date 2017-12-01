@@ -53,6 +53,7 @@ class FilterPublisher
     float _start_y;
     float _start_theta;
     int _nr_particles;
+    bool RUN_WHILE_STANDING_STILL;
 
     //LocalizationGlobalMap map;
 
@@ -108,6 +109,10 @@ class FilterPublisher
         }
         if(!n.getParam("/filter/odom_noise/k_W",k_W)){
             ROS_ERROR("Filter failed to detect parameter 7");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/general/RUN_WHILE_STANDING_STILL",RUN_WHILE_STANDING_STILL)){
+            ROS_ERROR("Filter failed to detect parameter 8");
             exit(EXIT_FAILURE);
         }
 
@@ -222,7 +227,7 @@ class FilterPublisher
 
         calculateVelocityAndNoise();
 
-        if (linear_v != 0 || angular_w != 0)
+        if ( (linear_v != 0 || angular_w != 0) || RUN_WHILE_STANDING_STILL )
         {
 
             //update according to odom
