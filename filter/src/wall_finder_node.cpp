@@ -382,7 +382,7 @@ class WallFinder
         return sqrt(dx * dx + dy * dy);
     }
 
-    bool checkIfNewWall(Wall &wNew, Wall wOld, int i){
+    bool checkIfNewWall(Wall wNew, Wall wOld, int i){
 
         float x1 = wOld.xStart;
         float x2 = wOld.xEnd;
@@ -395,13 +395,10 @@ class WallFinder
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
         ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
         ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
-        if(centerDistance > 0.05 && angleDifference > M_PI/8){
+        if(centerDistance > 0.05 && angleDifference > M_PI/4){
             return true;
         }
         if(centerDistance > 0.15){
-            return true;
-        }
-        if(angleDifference > M_PI/5){
             return true;
         }
         ROS_INFO("Wall is the same angle difference : %f", angleDifference);
