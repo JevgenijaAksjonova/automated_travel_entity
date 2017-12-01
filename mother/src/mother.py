@@ -21,8 +21,10 @@ from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
+import yaml
+from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
@@ -47,6 +49,27 @@ class Mother:
     stop_info = stop()
     mode = "waiting_for_main_goal"
 
+    def init_default_state(self):
+            self.has_started = False
+            self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
+    
+    def load_state(self):
+        self.init_default_state()
+        if path.isfile(MOTHER_STATE_FILE):
+            with open(MOTHER_STATE_FILE,"r") as state_file:
+                state_dict = yaml.load(state_file.read())
+                self.has_started = state_dict["has_started"]
+                if self.has_started:
+                    self.maze_map.load_maze_objs()
+    
+    def write_state(self):
+        state_dict = {
+            "has_started":self.has_started
+        }
+        with open(MOTHER_STATE_FILE,"w") as state_file:
+            yaml.dump(state_dict,state_file)
+        self.maze_map.save_maze_objs()
+
     def __init__(self):
         # A dictionary of all spotted objects.
         # form (x,y):"type"
@@ -67,9 +90,7 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
-        if ROUND == 2:
-            self.maze_map.load_maze_objs()
+        self.load_state()  
 
         #Subscribers
         if USING_VISION:
@@ -129,6 +150,7 @@ class Mother:
                 ARM_PICKUP_SERVICE_NAME, Point, persistent=True)
 
         #Other initialisations
+
 
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
@@ -405,7 +427,7 @@ class Mother:
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if self.goal_pose is not None:
+                if self.goal_pose is not None or self.has_started:
                     #robot_pos = self.pos 
                     #if robot_pos is not None:
                         #msg = Twist()
