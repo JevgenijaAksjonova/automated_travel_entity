@@ -281,8 +281,11 @@ int main(int argc, char **argv)
     } else if (path->replan) {
         if (gpp->explorationStatus == 1) {
             gpp->explorationCallback(true, loc->x, loc->y);
-            pair<double, double> g = gpp->explorationPath.back();
+            pair<double, double> g = gpp->explorationPath[gpp->explorationPath.size()-1];
             path->setPath(g.first, g.second, goal.theta, distanceTol, angleTol, gpp->explorationPath);
+            stringstream s;
+            s << "Path is found, size, first element " << globalPath[0].first << " "<< globalPath[0].second << endl;
+            ROS_INFO("%s/n", s.str().c_str());
         } else {
             string msg = "Recalculate path";
             ROS_INFO("%s/n", msg.c_str());
