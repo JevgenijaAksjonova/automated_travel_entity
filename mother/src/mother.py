@@ -28,13 +28,13 @@ from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
-    attempts = 0
-    while attempts < max_attempts:
-        try:
-            return serviceHandle(request)
-        except ServiceException as se:
-            rospy.logerr(se)
-            rospy.sleep(rospy.Duration(secs=retry_delay_secs))
+    #attempts = 0
+    #while attempts < max_attempts:
+    #    try:
+    return serviceHandle(request)
+    #    except ServiceException as se:
+    #        rospy.logerr(se)
+    #        rospy.sleep(rospy.Duration(secs=retry_delay_secs))
 
 class Mother:
 
@@ -59,9 +59,11 @@ class Mother:
             with open(MOTHER_STATE_FILE,"r") as state_file:
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
+                print("loaded has_started = ",self.has_started)
                 if self.has_started:
                     self.maze_map.load_maze_objs()
-    
+        else:
+            print("No state file found")    
     def write_state(self):
         state_dict = {
             "has_started":self.has_started
@@ -436,6 +438,7 @@ class Mother:
                         #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
                     if ROUND == 1:
                         rospy.loginfo("Following an exploration path")
+                        self.has_started = True
                         self.set_following_an_exploration_path()
                     
                     else:
@@ -499,7 +502,8 @@ class Mother:
             self.maze_map.update()
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
-                self.maze_map.save_maze_objs()
+                print("writing state")
+                self.write_state()
             self.rate.sleep()
             
 
