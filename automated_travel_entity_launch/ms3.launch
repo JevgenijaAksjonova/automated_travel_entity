@@ -6,7 +6,6 @@
 	<include file="$(find filter)/launch/filter_node.launch"/>
 	<include file="$(find obstacle_detection)/launch/obstacle_detection_node.launch"/>
 	<include file="$(find navigation)/launch/navigation_node.launch"/>
-	<include file="$(find world_map)/launch/world_map_node.launch"/>
 	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 -0.03 0.145 1.57 0 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node" respawn="True" respawn_delay="5"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>

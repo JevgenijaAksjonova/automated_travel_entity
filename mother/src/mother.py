@@ -430,7 +430,7 @@ class Mother:
 
             elif self.mode == "following_an_exploration_path":
                 self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.4,max_classification_attempts=0))
+                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
                     #print("setting turning towards object")
