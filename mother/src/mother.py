@@ -296,7 +296,7 @@ class Mother:
         rospy.loginfo("Trying to classify")
         print("---------------classifying object---------------")
         print(self.classifying_obj)
-        
+
         if self.classifying_obj is not None:
             resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
@@ -350,6 +350,7 @@ class Mother:
             return False
         [x,y] = classifying_obj.pos - robot_pos
         theta = atan2(y,x)
+        print("Sending message to turn to angle ",theta)
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
