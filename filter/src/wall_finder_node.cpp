@@ -429,7 +429,7 @@ class WallFinder
         float centre_y = (yStart + yEnd) / 2;
 
         float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        //rotation = rotation % M_PI;
+        rotation = fmod(rotation,M_PI);
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;
