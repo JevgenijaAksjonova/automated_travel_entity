@@ -160,7 +160,7 @@ void LocalPathPlanner::addDepth(vector<double>& localMap){
         if (distanceDepth[ind]> 0) {
             distanceDepth[ind] = min(r,distanceDepth[ind]);
         } else {
-            distanceDepth[ind] = r;
+            distanceDepth[ind];
         }
         //cout <<"Depth affecting lpp :"<< ind << " " << r << endl;
     }
@@ -322,7 +322,13 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     //cout << "Location New " << locX_new << " " << locY_new << " " << locTheta_new << endl;
    // cout << "Deltas "<< dx << " " << dy << " " << dtheta << endl;
 
-    // check if robot moved forward
+    // transform points according to angular movement
+    for (int i = 0; i < rangesDepth.size(); i++) {
+        anglesDepth[i] -= dtheta;
+    }
+
+    // transform points according to linear movement
+    // but first, check if robot moved forward
     double diff = atan2(dy,dx) - locTheta_new;
     while (diff> M_PI) {
         diff -= 2*M_PI ;
@@ -330,12 +336,11 @@ void LocalPathPlanner::locationCallback(const nav_msgs::Odometry::ConstPtr& msg)
     while (diff <= - M_PI) {
         diff += 2*M_PI;
     }
-    //cout << "Diff = "<< diff << endl;
+    cout << "Diff = "<< diff << endl;
     if (fabs(diff) < M_PI/3.0) {
         float dr = pow(dx*dx+dy*dy,0.5);
         cout << "dr = " << dr << endl;
         for (int i = 0; i < rangesDepth.size(); i++) {
-            anglesDepth[i] -= dtheta;
             transform(rangesDepth[i], anglesDepth[i], dr);
         }
     }

@@ -208,7 +208,6 @@ int main(int argc, char **argv)
 
   path->onlyTurn = false;
   double prevAngVel = 0.0;
-  double prev = 0;
 
   int count = 0;
   while (ros::ok())
@@ -228,21 +227,19 @@ int main(int argc, char **argv)
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
 
-        //if (fabs(path->directionChange) > 0.1) {
-        //    path->onlyTurn = true;
-        //} else
         if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
             // make sure that the robot turned enough (if sign differ, this is the case)
             path->onlyTurn = false;
         }
         prevAngVel = path->angVel;
         if (path->onlyTurn) {
-            cout << "ONLY TURN !!!!!!!!!!!!!!!!!!!!!!!!!!!!" <<cout;
+            cout << "Only turning!" << endl;
         }
 
         double c = 0.13; // total velocity
         double r = 0.12; // approximate radius of wheel base
         double k = max(1.0, 25*pow(fabs(path->angVel),2));
+        // maybe check abs(path->directionChange) > 0.1
         if (fabs(path->angVel) > M_PI/2.0 || path->onlyTurn) {
             path->linVel = 0; // sharp turn
         }
@@ -311,11 +308,6 @@ int main(int argc, char **argv)
         path->angVel = 0;
     }
 
-    if (prev * path->angVel <= 0) {
-        cout << "DIRECTION CHANGE - "<< prev << " " << path->angVel << endl ;
-    }
-    prev = path->angVel; 
-
     geometry_msgs::Twist msg;
     msg.linear.x = path->linVel;
     msg.linear.y = 0.0;
@@ -337,7 +329,9 @@ int main(int argc, char **argv)
     if (count % 100 == 0) {
         mapViz.publishMap();
     }
-    //mapViz.publishPath(path->globalPath);
+    mapViz.publishNodes();
+    //mapViz.publishPath(gpp->explorationPath);
+    mapViz.publishPath(path->globalPath);
     mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();
     loop_rate.sleep();
