@@ -16,6 +16,9 @@
 
 using namespace std;
 
+LocalizationGlobalMap::LocalizationGlobalMap(){
+}
+
 LocalizationGlobalMap::LocalizationGlobalMap(string _filename_map, float _cellSize) {
     cellSize = _cellSize;
     createMap(_filename_map);
