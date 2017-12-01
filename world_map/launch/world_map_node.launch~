@@ -1,9 +1,0 @@
-<launch>
-
-  <arg name="filename_map" default="test.txt" />
-
-  <node name="world_map_node" pkg="world_map" type="world_map_node" >
-	 <param name="filename_map" value="/home/ras/catkin_ws/src/automated_travel_entity/world_map/maps/$(arg filename_map)" type="str"/>
-  </node>
-
-</launch>
