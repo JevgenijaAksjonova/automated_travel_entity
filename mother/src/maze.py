@@ -347,7 +347,7 @@ class MazeObject(object):
         return "{color}, {class_id}:{label} at {pos}, id {id}, p {p}, is trap: {trap}, is classified: {classified}".format(
             color=self.color,
             label=self.class_label,
-            class_id = self.class_id
+            class_id = self.class_id,
             pos=self._pos,
             id=self.id,
             p=self.p,
