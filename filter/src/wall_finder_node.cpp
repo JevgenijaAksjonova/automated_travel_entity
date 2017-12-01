@@ -395,7 +395,7 @@ class WallFinder
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
         ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
         ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
-        if(centerDistance > 0.05 && angleDifference > M_PI/4){
+        if(centerDistance > 0.05 && angleDifference > M_PI/5){
             return true;
         }
         if(centerDistance > 0.15){
