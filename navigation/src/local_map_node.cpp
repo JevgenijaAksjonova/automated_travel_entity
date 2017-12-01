@@ -291,7 +291,7 @@ void LocalPathPlanner::depthCallback(const project_msgs::depth::ConstPtr& msg) {
     anglesDepth.insert(anglesDepth.end(), msg->angles.begin(), msg->angles.end());
     vector<float> newConf(msg->ranges.size(),1.0); 
     confDepth.insert(confDepth.end(), newConf.begin(), newConf.end());
-    //cout << "DATA FROM DEPTH " << endl;
+    cout << "DATA FROM DEPTH "<< rangesDepth.size() << endl;
     //for(int i =0; i < rangesDepth.size(); i++) {
     //    cout << i<< ": "<< rangesDepth[i] << " " << anglesDepth[i] << " "<< confDepth[i]<< endl;
     //}
