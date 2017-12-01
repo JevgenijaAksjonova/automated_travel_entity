@@ -323,6 +323,7 @@ class Mother:
             # send a command to generate and follow an exploration path
             request = explorationRequest()
             request.req = True
+            print("calling exploration_path_service")
             response = call_srv(self.exploration_path_service,request)
 
     def set_waiting_for_main_goal(self):
@@ -502,7 +503,6 @@ class Mother:
             self.maze_map.update()
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
-                print("writing state")
                 self.write_state()
             self.rate.sleep()
             
