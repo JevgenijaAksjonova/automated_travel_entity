@@ -257,16 +257,17 @@ int main(int argc, char **argv)
 
 
     } else if (path->rollback){
-        path->onlyTurn = false;
-        if (history.size() == maxHistorySize ) {
-            pair<double, double> vel = history.back();
-            history.pop_back();
-            path->linVel = -vel.first;
-            path->angVel = -vel.second;
-            stringstream s;
-            s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
-            ROS_INFO("%s/n",s.str().c_str());
-        } else {
+        //path->onlyTurn = false;
+        //  rollback logic
+        //if (history.size() > 0 ) {
+        //    pair<double, double> vel = history.back();
+        //    history.pop_back();
+        //    path->linVel = -vel.first;
+        //    path->angVel = -vel.second;
+        //    stringstream s;
+        //    s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
+        //    ROS_INFO("%s/n",s.str().c_str());
+        //} else {
             history.clear();
             path->rollback = false;
             path->onlyTurn = true;
@@ -274,7 +275,7 @@ int main(int argc, char **argv)
             if (!path->replan) {
                 path->move = true;
             }
-        }
+        //}
     } else if (path->replan) {
         if (gpp->explorationStatus == 1) {
             gpp->explorationCallback(true, loc->x, loc->y);
@@ -300,6 +301,8 @@ int main(int argc, char **argv)
                 path->setPath(goal.x, goal.y, goal.theta, goal.distanceTol, goal.angleTol, globalPath);
             }
         }
+        path->replan = false;
+        path->move = true;
     }
 
     // precaution (if emergency stop appeared while doing computations)
