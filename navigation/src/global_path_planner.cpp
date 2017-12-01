@@ -442,27 +442,27 @@ void GlobalPathPlanner::computeExplorationPath() {
     }
 
     // find distance between all reachable nodes
-    vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
+    //vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
     // fill in known values
-    edges[0] = edges1;
-    for (int i = 1; i < nodes.size(); i++) {
-        edges[i][0] = edges[0][i];
-    }
+    //edges[0] = edges1;
+    //for (int i = 1; i < nodes.size(); i++) {
+    //    edges[i][0] = edges[0][i];
+    //}
     // compute others
-    for (int i = 1; i < nodes.size(); i++) {
-        for (int j = i; j < nodes.size(); j++) {
-            if (nodes[i].x == nodes[j].x && nodes[i].y == nodes[j].y ) {
-                edges[i][j] = 1;
-                edges[j][i] = 1;
-            } else /*if (abs(nodes[i].x-nodes[j].x) < 2*cellSize && abs(nodes[i].y - nodes[j].y) < 2*cellSize) */{
-                vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
-                if (path.size() > 0) {
-                    edges[i][j] = path.size();
-                    edges[j][i] = path.size();
-                }
-            }
-        }
-    }
+    //for (int i = 1; i < nodes.size(); i++) {
+    //    for (int j = i; j < nodes.size(); j++) {
+    //        if (nodes[i].x == nodes[j].x && nodes[i].y == nodes[j].y ) {
+    //            edges[i][j] = 1;
+    //            edges[j][i] = 1;
+    //        } else /*if (abs(nodes[i].x-nodes[j].x) < 2*cellSize && abs(nodes[i].y - nodes[j].y) < 2*cellSize) */{
+    //            vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
+    //            if (path.size() > 0) {
+    //                edges[i][j] = path.size();
+    //                edges[j][i] = path.size();
+    //            }
+    //        }
+    //    }
+    //}*/
     auto end= chrono::high_resolution_clock::now();
     chrono::duration<double> elapsed = end-start;
     stringstream s;
@@ -477,10 +477,18 @@ void GlobalPathPlanner::computeExplorationPath() {
     visited[i] = 1;
     while (count < nodes.size()) {
         int jMin = -1;
+        vector<int> edges(nodes.size(),-1);
+        if (i ==0) {
+            edges = edges1;
+        }
         for (int j = 0; j < nodes.size(); j++) {
-            if (visited[j] ==0 && edges[i][j] != -1) {
-                if (jMin == -1 || edges[i][j] < edges[i][jMin]) {
-                    jMin = j;
+            if (visited[j] ==0) {
+                vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
+                if (path.size() > 0) {
+                    edges[j] = path.size();
+                    if (jMin == -1 || edges[j] < edges[jMin]) {
+                        jMin = j;
+                    }
                 }
             }
         }
