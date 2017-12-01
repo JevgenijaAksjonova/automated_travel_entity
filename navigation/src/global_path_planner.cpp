@@ -554,9 +554,12 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
             nodesToErase.push_back(nodeMarks[i].first);
             i++;
         }
-        sort(nodesToErase.begin(), nodesToErase.end());
-        for(int i = nodesToErase.size()-1; i>=0; i--) {
-            nodes.erase(nodes.begin()+ nodesToErase[i]);
+        cout << "Nodes to erase " << nodesToErase.size() << endl;
+        if (nodesToErase.size()>0) {
+            sort(nodesToErase.begin(), nodesToErase.end());
+            for(int i = nodesToErase.size()-1; i>=0; i--) {
+                nodes.erase(nodes.begin()+ nodesToErase[i]);
+            }
         }
         explorationPath.clear();
         nodeMarks.clear();
