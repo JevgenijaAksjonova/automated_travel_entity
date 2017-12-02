@@ -16,6 +16,7 @@ add_service_files(
     direction.srv
     global_path.srv
     exploration.srv
+    distance.srv
 )
 
 generate_messages(
