@@ -216,9 +216,11 @@ int main(int argc, char **argv)
     path->linVel = 0;
     path->angVel = 0;
 
+    cout << "STATES: "<< path->move << " " << path->rollback << " " << path->replan << " "<< gpp->explorationStatus <<endl;
+
     if (path->move) {
 
-        if (gpp->explorationStatus > 0) {
+        if (gpp->explorationStatus == 1) {
             gpp->explorationUpdate(loc->x,loc->y,loc->theta, path->globalPath.size());
         }
 
@@ -227,15 +229,19 @@ int main(int argc, char **argv)
         s << "Follow path " << path->linVel << " " << path->angVel << ", Location " << loc->x << " " << loc->y << " " << loc->theta;
         ROS_INFO("%s/n", s.str().c_str());
 
-        // make sure that the robot turned enough (if sign differ, this is the case)
         if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
+            // make sure that the robot turned enough (if sign differ, this is the case)
             path->onlyTurn = false;
         }
         prevAngVel = path->angVel;
+        if (path->onlyTurn) {
+            cout << "Only turning!" << endl;
+        }
 
         double c = 0.13; // total velocity
         double r = 0.12; // approximate radius of wheel base
         double k = max(1.0, 25*pow(fabs(path->angVel),2));
+        // maybe check abs(path->directionChange) > 0.1
         if (fabs(path->angVel) > M_PI/2.0 || path->onlyTurn) {
             path->linVel = 0; // sharp turn
         }
@@ -253,28 +259,33 @@ int main(int argc, char **argv)
 
 
     } else if (path->rollback){
-        path->onlyTurn = false;
-        if (history.size() > 0 ) {
-            pair<double, double> vel = history.back();
-            history.pop_back();
-            path->linVel = -vel.first;
-            path->angVel = -vel.second;
-            stringstream s;
-            s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
-            ROS_INFO("%s/n",s.str().c_str());
-        } else {
+        //path->onlyTurn = false;
+        //  rollback logic
+        //if (history.size() > 0 ) {
+        //    pair<double, double> vel = history.back();
+        //    history.pop_back();
+        //    path->linVel = -vel.first;
+        //    path->angVel = -vel.second;
+        //    stringstream s;
+        //    s << "ROLLING BACK " << path->linVel << " " << path->angVel<< " "<< history.size();
+        //    ROS_INFO("%s/n",s.str().c_str());
+        //} else {
+            history.clear();
             path->rollback = false;
             path->onlyTurn = true;
             prevAngVel = 0.0;
             if (!path->replan) {
                 path->move = true;
             }
-        }
+        //}
     } else if (path->replan) {
         if (gpp->explorationStatus == 1) {
             gpp->explorationCallback(true, loc->x, loc->y);
-            pair<double, double> g = gpp->explorationPath.back();
+            pair<double, double> g = gpp->explorationPath[gpp->explorationPath.size()-1];
             path->setPath(g.first, g.second, goal.theta, distanceTol, angleTol, gpp->explorationPath);
+            stringstream s;
+            s << "Path is found, size, first element " << path->globalPath[0].first << " "<< path->globalPath[0].second << endl;
+            ROS_INFO("%s/n", s.str().c_str());
         } else {
             string msg = "Recalculate path";
             ROS_INFO("%s/n", msg.c_str());
@@ -295,6 +306,8 @@ int main(int argc, char **argv)
                 path->setPath(goal.x, goal.y, goal.theta, goal.distanceTol, goal.angleTol, globalPath);
             }
         }
+        path->replan = false;
+        path->move = true;
     }
 
     // precaution (if emergency stop appeared while doing computations)
@@ -321,9 +334,11 @@ int main(int argc, char **argv)
     //ROS_INFO("%s", msg.data.c_str());
     pub.publish(msg);
 
-    if (count % 100 == 0) {
-        mapViz.publishMap();
+    if (count % 10 == 0) {
+        mapViz.publishMap(count);
     }
+    mapViz.publishNodes();
+    mapViz.publishPath(gpp->explorationPath);
     //mapViz.publishPath(path->globalPath);
     mapViz.publishDirection(path->linVel,path->angVel);
     ros::spinOnce();

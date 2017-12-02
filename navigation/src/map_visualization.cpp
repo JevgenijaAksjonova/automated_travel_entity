@@ -68,12 +68,12 @@ void MapVisualization::loadMap() {
 
 }
 
-void MapVisualization::publishMap() {
+
+
+void MapVisualization::publishMap(int count) {
 
     loadMap();
     grid_pub.publish(grid);
-    publishNodes();
-    publishPath(gpp->explorationPath);
 }
 
 void MapVisualization::publishPath(vector<pair<double, double> >& globalPath) {

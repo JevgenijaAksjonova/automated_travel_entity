@@ -31,6 +31,7 @@ color_2_rgb = {
     "yellow": (255, 255, 0),
     "purple": (128, 0, 128),
     "orange": (255, 165, 0),
+    "gray": (128,128,128),
     "error": (128, 128, 128),
 }
 
@@ -38,3 +39,8 @@ color_2_rgb = {
 
 VISION_VERBOSE = True
 DETECTION_VERBOSE = False
+MAP_P_INCREASE = 0.05
+MAP_P_DECREASE = 0.0005
+SAVE_PERIOD_SECS = 3
+MOTHER_STATE_FILE = "mother_state.yaml"
+RECOGNITION_MIN_P = 0.6

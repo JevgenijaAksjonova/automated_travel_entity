@@ -18,7 +18,7 @@ import rospkg
 from os import path
 rospack = rospkg.RosPack()
 sys.path.insert(0, path.join(rospack.get_path("camera"), "src"))
-from colorSegment import color_segment_image
+from colorSegment import color_segment_image, ColoredObjectCandidate, QRCodeDetection
 bridge = CvBridge()
 DEBUGGING = True
 
@@ -96,20 +96,22 @@ class ObjectDetector:
                 apply_checks=False)
 
             if DEBUGGING:
-                object_candidates, debug_img = ret_val
+                object_candidates, bar_codes, debug_img = ret_val
+                object_candidates_and_barcodes = object_candidates + bar_codes
                 debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
                 dbg_msg = CompressedImage()
                 dbg_msg.header.stamp = rospy.Time.now()
                 dbg_msg.format = "jpeg"
-                dbg_msg.data = np.array(cv2.imencode(".jpg",debug_img)[1]).tostring()
+                dbg_msg.data = np.array(cv2.imencode(".jpg",
+                                                     debug_img)[1]).tostring()
                 self.dbg_img_pub.publish(dbg_msg)
-                if len(object_candidates) > 0:
+                if len(object_candidates_and_barcodes) > 0:
                     self.dbg_object_image.publish(
-                        bridge.cv2_to_imgmsg(object_candidates[0].img, "rgb8"))
+                        bridge.cv2_to_imgmsg(object_candidates_and_barcodes[0].img, "rgb8"))
             else:
-                object_candidates = ret_val
+                object_candidates, bar_codes = ret_val
             print("object_candidates = {0}".format(object_candidates))
-            for oc in object_candidates:
+            for oc in object_candidates + bar_codes:
                 print("sending oc = {0}".format(oc))
                 oc_msg = self.get_oc_message(oc)
                 self.obj_cand_pub.publish(oc_msg)
@@ -129,11 +131,23 @@ class ObjectDetector:
         obj_cand_msg.pos.y = -point[0]
         obj_cand_msg.pos.z = -point[1]
         obj_cand_msg.image = bridge.cv2_to_imgmsg(oc.img)
-        obj_cand_msg.area = oc.contour_area
         obj_cand_msg.centered = oc.adjusted
-        color_msg = String_msg()
-        color_msg.data = oc.color
-        obj_cand_msg.color = color_msg
+        obj_cand_msg.area = -1
+        if type(oc) is ColoredObjectCandidate:
+            color_msg = String_msg(data=oc.color)
+            obj_cand_msg.color = color_msg
+            obj_cand_msg.score = oc.score
+            obj_cand_msg.type = PosAndImage.TYPE_COLORED_OBJECT
+            obj_cand_msg.is_trap = False
+            obj_cand_msg.area = oc.contour_area
+        elif type(oc) is QRCodeDetection:
+            obj_cand_msg.message = String_msg(data=oc.message)
+            obj_cand_msg.is_trap = oc.is_trap
+            obj_cand_msg.type = PosAndImage.TYPE_QR_CODE
+            obj_cand_msg.color = String_msg(data="gray")
+        else:
+            raise Exception("unexpected message type {0}".format(type(oc)))
+
         return obj_cand_msg
 
     #Detects objects untill shutdown. Permanently blocking.

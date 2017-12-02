@@ -50,7 +50,8 @@ class WallFinder
     float _thetaPos;
     std::vector<pair<float, float>> outliers;
     float _begunMoving;
-
+    float _angular_velocity;
+    int _wasTurning;
     struct Outlier{
         float xPos;
         float yPos;
@@ -85,6 +86,7 @@ class WallFinder
         _yPos = 0;
         _thetaPos = 0;
         _begunMoving = false;
+        _wasTurning = 0;
 
 
         if(!n.getParam("/wall_finder/nr_measurements",nr_measurements)){
@@ -117,6 +119,10 @@ class WallFinder
         }
         if(!n.getParam("/wall_finder/MAX_DISTANCE_TO_OUTLIER",MAX_DISTANCE_TO_OUTLIER)){
             ROS_ERROR("wf failed to detect parameter 8");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/wall_finder/ANGULAR_VELOCITY_TRESHOLD",ANGULAR_VELOCITY_TRESHOLD)){
+            ROS_ERROR("wf failed to detect parameter 9");
             exit(EXIT_FAILURE);
         }
 
@@ -161,14 +167,26 @@ class WallFinder
 
         geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
         _thetaPos = tf::getYaw(odom_quat);
+
         if(msg->twist.twist.linear.x > 0.0 || msg->twist.twist.linear.y > 0 ){
             _begunMoving = true;
         }
+        _angular_velocity = abs(msg->twist.twist.angular.z);
     }
     
     void lookForWalls(LocalizationGlobalMap map){
-        vector<pair<float, float>> measurements = mapMeasurementsToAngles();
-        getOutliers(map, measurements);
+        if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
+            ROS_INFO("angular_v ok, %f", _angular_velocity);
+            if(_wasTurning >0){
+                _wasTurning --;
+            }else{
+            vector<pair<float, float>> measurements = mapMeasurementsToAngles();
+            getOutliers(map, measurements);
+            }
+        }else{
+            ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
+            _wasTurning = 3;
+        }
     }
 
     vector<pair<float, float>> mapMeasurementsToAngles()
@@ -279,6 +297,7 @@ class WallFinder
                     addWall(w, map);
                 }
             }
+            forgetWalls();
             if(_wallsFound.size() > 0){
                 publish_rviz_walls();
                 publish_array_walls();
@@ -291,19 +310,38 @@ class WallFinder
     void addWall(Wall w, LocalizationGlobalMap &map){
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
+        bool robotInsideWall = false;
         int i = 0;
-        // ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
-        while(wallIsNew && i < _wallsFound.size()){
+        ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
+        while(wallIsNew && !robotInsideWall && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
+           robotInsideWall = checkIfRobotInsideWall(w);
             i++;
         }
-        if(w.xCenter < map.xMin || w.xCenter > map.xMax || w.yCenter < map.yMin || w.yCenter > map.yMax){
+        if(w.xStart < map.xMin || w.xStart > map.xMax || w.yStart < map.yMin || w.yStart > map.yMax){
             wallIsInsideMap = false;
         }
-        if(wallIsNew && wallIsInsideMap){
+        if(w.xEnd < map.xMin || w.xEnd > map.xMax || w.yEnd < map.yMin || w.yEnd > map.yMax){
+            wallIsInsideMap = false;
+        }
+        if(wallIsNew && wallIsInsideMap && !robotInsideWall){
             ROS_INFO("*****************Found new wall!***********************");
             _wallsFound.push_back(w);
         }
+    }
+    void forgetWalls(){
+
+        vector<Wall>::iterator iter = _wallsFound.begin();
+            while (iter != _wallsFound.end() && !(*iter).published){
+                if((*iter).nrAgreeingPoints < 1){
+                    iter = _wallsFound.erase(iter);
+                }
+                else
+                {
+                    (*iter).nrAgreeingPoints --;
+                    ++iter;
+                }
+            }
     }
 
     float calculateLinePointDistance(float &x, float &y, float &x1, float &y1, float &x2, float &y2 ){
@@ -339,7 +377,7 @@ class WallFinder
         return sqrt(dx * dx + dy * dy);
     }
 
-    bool checkIfNewWall(Wall &wNew, Wall wOld, int i){
+    bool checkIfNewWall(Wall wNew, Wall wOld, int i){
 
         float x1 = wOld.xStart;
         float x2 = wOld.xEnd;
@@ -350,19 +388,16 @@ class WallFinder
 
         float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
         float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
-        // ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
-        // ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
-        if(centerDistance > 0.05 && angleDifference > M_PI/8){
+        ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
+        ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
+        if(centerDistance > 0.05 && angleDifference > M_PI/5){
             return true;
         }
         if(centerDistance > 0.15){
             return true;
         }
-        if(angleDifference > M_PI/4){
-            return true;
-        }
-        // ROS_INFO("Wall is the same angle difference : %f", angleDifference);
-        // ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
+        ROS_INFO("Wall is the same angle difference : %f", angleDifference);
+        ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
         if(wNew.length >wOld.length){ //Assume longer is better.
             ROS_INFO("Updating wall %d", i);
             ROS_INFO("Published before = %d", _wallsFound[i].published);
@@ -372,10 +407,19 @@ class WallFinder
             ROS_INFO("Published = %d", _wallsFound[i].published);
         }else{
             _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
-
         }
         // ROS_INFO("updated to %d",_wallsFound[i].nrAgreeingPoints);
         return false;
+
+    }
+
+    bool checkIfRobotInsideWall(Wall w){
+    	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
+    	if(distance < 0.1){
+    		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
+    		return true;
+    	}
+    	return false;
 
     }
 
@@ -385,9 +429,7 @@ class WallFinder
         float centre_y = (yStart + yEnd) / 2;
 
         float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        if(rotation < 0){
-            rotation += 2*M_PI;
-        }
+        rotation = fmod(rotation,M_PI);
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;
@@ -526,7 +568,7 @@ class WallFinder
                 array.data.push_back(w.yEnd);
                 wall_array_publisher.publish(array);
                 _wallsFound[i].published = true;
-                ROS_INFO("Published wall %d [%f] [%f] [%f] [%f]", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
+                ROS_INFO("*********************Published wall %d [%f] [%f] [%f] [%f]******************'", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
 
 
             }
@@ -550,6 +592,7 @@ class WallFinder
     float MAX_EUCLIDEAN_DISTANCE_BETWEEN_OUTLIERS;
     int MIN_POINTS;
     float MAX_DISTANCE_TO_OUTLIER;
+    float ANGULAR_VELOCITY_TRESHOLD;
 
 };
 

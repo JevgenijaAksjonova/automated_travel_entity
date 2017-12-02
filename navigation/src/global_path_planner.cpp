@@ -249,13 +249,13 @@ void GlobalPathPlanner::addRobotRadiusToPoint(pair<int, int> xy){
 
     int startX = max(xy.first - radCell, 0);
     int startY = max(xy.second - radCell, 0);
-    int endX = min(xy.first + radCell, maxX);
-    int endY = min(xy.second + radCell, maxY);
+    int endX = min(xy.first + radCell, maxX-1);
+    int endY = min(xy.second + radCell, maxY-1);
     float distance;
 
     for (int i = startX; i <=endX; i++){
         for (int j = startY; j <=endY; j++){
-            if(pow(i*cellSize,2) + pow(j*cellSize,2) <= pow(robotRad,2)){
+            if(pow((i-xy.first)*cellSize,2) + pow((j-xy.second)*cellSize,2) <= pow(robotRad,2)){
                 map[i][j] = 1;
             }
         }
@@ -275,7 +275,7 @@ double GlobalPathPlanner::distanceHeuristic(const Node &a, const Node &b){
 }
 
 
-// return distance to the closest free cell
+// return distance to the closest free cell, changes goal to that cell
 double GlobalPathPlanner::findClosestFreeCell(Node& goal,int maxD){
     priority_queue<Node> cells;
     //cout << "Cell values " << endl;
@@ -301,6 +301,7 @@ double GlobalPathPlanner::findClosestFreeCell(Node& goal,int maxD){
     }
 }
 
+
 vector<pair<double,double> > GlobalPathPlanner::getPath(pair<double,double> startCoord, pair<double,double> goalCoord) {
     pair<int, int> startGrid = getCell(startCoord.first, startCoord.second);
     pair<int, int> goalGrid = getCell(goalCoord.first, goalCoord.second);
@@ -315,6 +316,7 @@ vector<pair<double,double> > GlobalPathPlanner::getPath(pair<double,double> star
 }
 
 /* A* algorithm */
+// will return empty vector if path not found, and vector of length 1 if start == goal
 vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, pair<int,int> goalCoord) {
 
     size_t nx = gridSize.first;
@@ -322,19 +324,32 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     Node start = Node(startCoord.first, startCoord.second, 0);
     Node goal = Node(goalCoord.first, goalCoord.second, 0);
 
+    // handle situations, when startCoord or goalCoord are in non-empty positions
+    int maxD = ceil(robotRad/cellSize);
+    if (map[start.x][start.y] == 1) {
+       // cell is not empty, find the closest, which is within robotRad
+       double dist = findClosestFreeCell(start, maxD);
+       if (dist*cellSize > robotRad) {
+           return vector<pair<int,int> >();
+       } else {
+           stringstream s;
+           s << "Search path FROM the closest point within the distance = " << dist << endl;
+           ROS_INFO("%s/n", s.str().c_str());
+       }
+    }
+
     //cout <<"GPP started, goal cell: "<< goal.x <<  " " <<goal.y << endl;
     double distanceTol = 0;
     if (map[goal.x][goal.y] == 1) {
        //cout <<"Cell is not empty! " << robotRad <<endl;
        // cell is not empty, find the closest, which is within robotRad
-       int maxD = ceil(robotRad/cellSize);
        Node newGoal = goal;
        distanceTol = findClosestFreeCell(newGoal, maxD);
        if (distanceTol*cellSize > robotRad) {
            return vector<pair<int,int> >();
        } else {
            stringstream s;
-           s << "Search path to the closest point within the distance = " << distanceTol << endl;
+           s << "Search path TO the closest point within the distance = " << distanceTol << endl;
            ROS_INFO("%s/n", s.str().c_str());
        }
     }
@@ -398,7 +413,7 @@ void GlobalPathPlanner::sampleNodesToExplore() {
             pair<int, int> coord = getCell((i+0.5)*cellSizeL,(j+0.5)*cellSizeL);
             Node cell(coord.first,coord.second,0);
             int maxD = round(cellSizeL/cellSize);
-            int distance = findClosestFreeCell(cell,maxD);
+            double distance = findClosestFreeCell(cell,maxD);
             if (distance <= maxD) {
                 nodes.push_back(cell);
             }
@@ -408,13 +423,37 @@ void GlobalPathPlanner::sampleNodesToExplore() {
 
 void GlobalPathPlanner::computeExplorationPath() {
 
+    cout << "Compute exploration path " << endl;
+
     auto start = chrono::high_resolution_clock::now();
+    // the first node should be a starting location
+    // remove all other nodes, which cant be reached from it
+    vector<int> edges1;
+    edges1.push_back(0);
+    int i = 1;
+    while(i < nodes.size()) {
+        vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[0].x,nodes[0].y), pair<int,int>(nodes[i].x,nodes[i].y));
+        if (path.size()>0) {
+            edges1.push_back(path.size());
+            i++;
+        } else {
+            nodes.erase(nodes.begin()+i);
+        }
+    }
+
+    // find distance between all reachable nodes
     vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
-    for (int i = 0; i < nodes.size(); i++) {
+    // fill in known values
+    edges[0] = edges1;
+    for (int i = 1; i < nodes.size(); i++) {
+        edges[i][0] = edges[0][i];
+    }
+    // compute others
+    for (int i = 1; i < nodes.size(); i++) {
         for (int j = i; j < nodes.size(); j++) {
             if (nodes[i].x == nodes[j].x && nodes[i].y == nodes[j].y ) {
-                edges[i][j] = 0;
-                edges[j][i] = 0;
+                edges[i][j] = 1;
+                edges[j][i] = 1;
             } else /*if (abs(nodes[i].x-nodes[j].x) < 2*cellSize && abs(nodes[i].y - nodes[j].y) < 2*cellSize) */{
                 vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
                 if (path.size() > 0) {
@@ -433,7 +472,7 @@ void GlobalPathPlanner::computeExplorationPath() {
     vector<int> visited(nodes.size(),0);
     vector<int> path;
     int count = 1;
-    int i = 0;
+    i = 0;
     path.push_back(i);
     visited[i] = 1;
     while (count < nodes.size()) {
@@ -498,20 +537,45 @@ void GlobalPathPlanner::getExplorationPath(double x, double y) {
 
 void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
     if (!mapChanged) {
-        pair<double, double>  pathStart = explorationPath.front();
+        pair<double, double>  pathStart = explorationPath[0];
         pair<double, double> location(x,y);
+        cout << "Recalculate exploration, map did not change "<< x << " "<< y << " to "<< pathStart.first << " " << pathStart.second << endl;
         vector<pair<double, double> > path = getPath(location, pathStart);
+        cout << "Path size " << path.size() << endl;
         explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
+        cout << "Exploration path size " << explorationPath.size() << endl;
     } else {
+        cout << "Recalculate exploration, map changed" << endl;
         // delete nodes, which are already visited
         int pathSize = explorationPath.size();
         int i = 0;
+        vector<int> nodesToErase;
         while (nodeMarks[i].second > pathSize) {
-            nodes.erase(nodes.begin()+ nodeMarks[i].first);
+            nodesToErase.push_back(nodeMarks[i].first);
             i++;
+        }
+        // move and possibly delete nodes which were influenced by wall adding
+        int maxD = round(robotRad/cellSize);
+        for (int i = 0; i < nodes.size(); i++) {
+            Node n = nodes[i];
+            double distance = findClosestFreeCell(n,maxD);
+            if (distance > maxD) {
+                nodesToErase.push_back(i);
+            } else {
+                nodes[i] = n;
+            }
+        }
+
+        cout << "Nodes to erase " << nodesToErase.size() << endl;
+        if (nodesToErase.size()>0) {
+            sort(nodesToErase.begin(), nodesToErase.end());
+            for(int i = nodesToErase.size()-1; i>=0; i--) {
+                nodes.erase(nodes.begin()+ nodesToErase[i]);
+            }
         }
         explorationPath.clear();
         nodeMarks.clear();
+        cout << "nodes left "<< nodes.size() << endl;
 
         pair<int, int> cell = getCell(x,y);
         Node startNode(cell.first,cell.second,0);

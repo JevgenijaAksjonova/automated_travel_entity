@@ -6,6 +6,7 @@ rospack = rospkg.RosPack()
 sys.path.insert(0, rospack.get_path("mother"))
 
 import rospy
+from rospy.service import ServiceException
 from geometry_msgs.msg import PoseStamped, Quaternion, Point, Pose, Vector3,Twist,PointStamped
 from std_msgs.msg import Bool, String
 from project_msgs.srv import global_path, exploration, global_pathRequest, explorationRequest
@@ -20,9 +21,20 @@ from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
 import numpy as np
 from math import atan2
-from maze import MazeMap, MazeObject, tf_transform_point_stamped
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND
+import yaml
+from os import path
+from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
+from pprint import pprint
 
+def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
+    #attempts = 0
+    #while attempts < max_attempts:
+    #    try:
+    return serviceHandle(request)
+    #    except ServiceException as se:
+    #        rospy.logerr(se)
+    #        rospy.sleep(rospy.Duration(secs=retry_delay_secs))
 
 class Mother:
 
@@ -36,6 +48,29 @@ class Mother:
     nav_goal_acchieved = True
     stop_info = stop()
     mode = "waiting_for_main_goal"
+
+    def init_default_state(self):
+            self.has_started = False
+            self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
+    
+    def load_state(self):
+        self.init_default_state()
+        if path.isfile(MOTHER_STATE_FILE):
+            with open(MOTHER_STATE_FILE,"r") as state_file:
+                state_dict = yaml.load(state_file.read())
+                self.has_started = state_dict["has_started"]
+                print("loaded has_started = ",self.has_started)
+                if self.has_started:
+                    self.maze_map.load_maze_objs()
+        else:
+            print("No state file found")    
+    def write_state(self):
+        state_dict = {
+            "has_started":self.has_started
+        }
+        with open(MOTHER_STATE_FILE,"w") as state_file:
+            yaml.dump(state_dict,state_file)
+        self.maze_map.save_maze_objs()
 
     def __init__(self):
         # A dictionary of all spotted objects.
@@ -53,10 +88,12 @@ class Mother:
         #self.navigation_goal_pub = rospy.Publisher(NAVIGATION_GOAL_TOPIC, Twist ,queue_size=1)
         self.speak_pub = rospy.Publisher("espeak/string", String, queue_size=1)
 
+        self.trap_pub = rospy.Publisher("mother/trap",PointStamped,queue_size=1)
+
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
-        self.maze_map = MazeMap(self.map_pub, 0.11, 0.005)
-        print("hello")
+        self.load_state()  
+
         #Subscribers
         if USING_VISION:
             rospy.Subscriber(
@@ -94,7 +131,7 @@ class Mother:
             rospy.wait_for_service(NAVIGATION_GOAL_TOPIC)
             self.global_path_service = rospy.ServiceProxy(
                 NAVIGATION_GOAL_TOPIC, global_path, persistent=True)
-            print("after nave goal topic")
+            #("after nave goal topic")
             if ROUND == 1:
                 rospy.loginfo(
                     "Waiting for service {0}".format(NAVIGATION_EXPLORATION_TOPIC))
@@ -103,7 +140,7 @@ class Mother:
                     NAVIGATION_EXPLORATION_TOPIC, exploration, persistent=True)
             rospy.Subscriber(
                 NAVIGATION_STOP_TOPIC, stop, callback=self._navigation_stop_callback, queue_size=1)
-            print("after navigation stop topic")
+            #print("after navigation stop topic")
             self.stop_pub = rospy.Publisher(NAVIGATION_STOP_TOPIC, stop,queue_size=1)
             
 
@@ -115,6 +152,7 @@ class Mother:
                 ARM_PICKUP_SERVICE_NAME, Point, persistent=True)
 
         #Other initialisations
+
 
     # Define your callbacks bellow like _obj_cand_callback.
     # The callback must return fast.
@@ -134,31 +172,36 @@ class Mother:
         self.goal_pose = goal_pose_msg
 
     def _navigation_status_callback(self, status_msg):
-        rospy.loginfo("navigation status callback")
+        #rospy.loginfo("navigation status callback")
         status = status_msg.data
         if status:
             self.nav_goal_acchieved = True
         else:
             self.nav_goal_acchieved = False
-            rospy.loginfo("navigation status = false")
+            #rospy.loginfo("navigation status = false")
 
     def _navigation_stop_callback(self, stop_msg):
-        if stop_msg.stop :
+        if stop_msg.stop and (self.mode == "following_an_exploration_path" or self.mode == "following_path_to_object_classification" or self.mode == "following_path_to_main_goal"):
             #if (self.mode != "handling_emergency_stop"):
-            rospy.loginfo("navigation stop callback")
+            #rospy.loginfo("navigation stop callback")
             self.stop_info = stop_msg
             #self.mode = "handling_emergency_stop"
             if stop_msg.stop:
                 if stop_msg.reason == 1:
-                    rospy.loginfo("EMERGENCY STOP, LIDAR")
+                    pass
+            #        rospy.loginfo("EMERGENCY STOP, LIDAR")
                 elif stop_msg.reason == 2:
-                    rospy.loginfo("EMERGENCY STOP, DEPTH")
+                    pass
+             #       rospy.loginfo("EMERGENCY STOP, DEPTH")
                 elif stop_msg.reason == 3:
-                    rospy.loginfo("EMERGENCY STOP, LPP: NO WAY")
+                    pass
+              #      rospy.loginfo("EMERGENCY STOP, LPP: NO WAY")
                 elif stop_msg.reason == 4:
-                    rospy.loginfo("EMERGENCY STOP, DEVIATION FROM A PATH")
+                    pass
+               #     rospy.loginfo("EMERGENCY STOP, DEVIATION FROM A PATH")
                 else:
-                    rospy.loginfo("EMERGENCY STOP, REASON NOT SPECIFIED")
+                    pass
+                #    rospy.loginfo("EMERGENCY STOP, REASON NOT SPECIFIED")
             # response
             msg = stop()
             msg.stop = False
@@ -202,6 +245,12 @@ class Mother:
                 rospy.logwarn(nan_coord)
             return
         self.maze_map.add_object(obj_cand)
+        if obj_cand.class_id == TRAP_CLASS_ID:
+            trap_msg = PointStamped()
+            trap_msg.header.frame_id = MOTHER_WORKING_FRAME
+            trap_msg.header.stamp = rospy.Time.now()
+            trap_msg.point = Point(obj_cand.pos[0],obj_cand.pos[1],obj_cand.height)
+            self.trap_pub.publish(trap_msg)
 
     def go_to_twist(self,twist,distance_tol=0.05,angle_tol=0.1):
         if USING_PATH_PLANNING:
@@ -210,7 +259,7 @@ class Mother:
             request.pose = twist
             request.distanceTol = distance_tol
             request.angleTol = angle_tol
-            response = self.global_path_service(request)
+            response = call_srv(self.global_path_service,request)
             return response.path_found
         else:
             self.nav_goal_acchieved = True
@@ -237,7 +286,7 @@ class Mother:
             request.pose.linear.y = pose.pose.position.y
             request.distanceTol = distance_tol
             request.angleTol = angle_tol
-            response = self.global_path_service(request)
+            response = call_srv(self.global_path_service,request)
             return response.path_found
         else:
             self.nav_goal_acchieved = True
@@ -245,18 +294,19 @@ class Mother:
 
     def try_classify(self):
         rospy.loginfo("Trying to classify")
+        print("---------------classifying object---------------")
+        print(self.classifying_obj)
+
         if self.classifying_obj is not None:
-            resp = self.recognizer_srv(self.classifying_obj.image)
+            resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             rospy.loginfo("resp.probability = {0}".format(
                 resp.probability.data))
-            rospy.loginfo("resp.probability > .75 = {0}".format(
-                resp.probability.data > .75))
+            rospy.loginfo("resp.probability > {min_p} = {p}".format(p=
+                resp.probability.data > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
-            if resp.probability.data > .75 and self.classifying_obj.color.lower() in resp.class_name.data.lower():
-                
-                self.classifying_obj.class_label = resp.class_name.data
-                self.classifying_obj.class_id = resp.class_id.data
-                rospy.loginfo("returning tru from try classify")
+            if resp.probability.data > RECOGNITION_MIN_P and self.classifying_obj.color.lower() in resp.class_name.data.lower():
+                self.classifying_obj.classify(resp.class_name.data,resp.class_id.data)
+                rospy.loginfo("returning true from try classify")
                 return True
             return False
 
@@ -274,7 +324,8 @@ class Mother:
             # send a command to generate and follow an exploration path
             request = explorationRequest()
             request.req = True
-            response = self.exploration_path_service(request)
+            print("calling exploration_path_service")
+            response = call_srv(self.exploration_path_service,request)
 
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
@@ -282,7 +333,7 @@ class Mother:
         rospy.loginfo("Waiting for main goal")
 
     def set_following_path_to_object_classification(self, classifying_obj):
-
+        
         classification_pose = classifying_obj.pose_stamped
         if self.go_to_pose(classification_pose,angle_tol=2 * np.pi):
             self.mode = "following_path_to_object_classification"
@@ -297,6 +348,7 @@ class Mother:
             return False
         [x,y] = classifying_obj.pos - robot_pos
         theta = atan2(y,x)
+        print("Sending message to turn to angle ",theta)
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
@@ -310,9 +362,16 @@ class Mother:
             return False
 
     def turning_towards_object_update(self):
+        if ROUND == 1:
+            activate_next_state = self.set_following_an_exploration_path
+        elif ROUND == 0:
+            activate_next_state = self.set_following_path_to_main_goal
+        else:
+            raise NotImplementedError()
+        
         if self.nav_goal_acchieved is not None:
             if self.nav_goal_acchieved:
-                rospy.Rate(0.35).sleep() 
+                rospy.Rate(1).sleep() 
                 if self.try_classify():
                     classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                         x=np.round(self.classifying_obj.pos[0], 2),
@@ -328,26 +387,21 @@ class Mother:
                     if "Cube" in self.classifying_obj.class_label:
                         rospy.loginfo("Object {0} is liftable".format(
                             self.classifying_obj.class_label))
-                        self.set_lift_up_object(self.classifying_obj)
+                        self.set_lift_up_object(self.classifying_obj,activate_next_state)
                     else:
                         rospy.loginfo("{0} is not liftable".format(
                             self.classifying_obj.class_label))
-                        if ROUND == 1:
-                            self.set_following_an_exploration_path()
-                        else:
-                            self.set_following_path_to_main_goal()
+                        activate_next_state()
+                            
                     self.classifying_obj = None
                 else:
+                    activate_next_state()
                     self.classifying_obj.classification_attempts += 1
-                    self.set_following_an_exploration_path()
                     self.classifying_obj = None
             else:
-                if ROUND == 1:
-                    self.set_following_an_exploration_path()
-                else:
-                    self.following_path_to_main_goal()
+                activate_next_state()
 
-    def set_lift_up_object(self, lifting_obj):
+    def set_lift_up_object(self, lifting_obj,activate_next_state):
         if USING_ARM:
             self.lifting_object = lifting_obj
             rospy.log("lifting object at {0}".format(lifting_obj))
@@ -363,8 +417,7 @@ class Mother:
                 rospy.loginfo("requested position out of arm range")
             self.mode = "lift_up_object"
         else:
-            self.set_following_path_to_main_goal()
-
+            activate_next_state()
     # Main mother loop
     def mother_forever(self, rate=5):
         self.rate = rospy.Rate(rate)
@@ -372,13 +425,14 @@ class Mother:
 
         self.set_waiting_for_main_goal()
         rospy.loginfo("Entering mother loop")
-        
+    
+        last_save_secs = rospy.Time.now().to_sec()
         
         
         while not rospy.is_shutdown():
 
             if self.mode == "waiting_for_main_goal":
-                if self.goal_pose is not None:
+                if self.goal_pose is not None or self.has_started:
                     #robot_pos = self.pos 
                     #if robot_pos is not None:
                         #msg = Twist()
@@ -387,6 +441,7 @@ class Mother:
                         #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
                     if ROUND == 1:
                         rospy.loginfo("Following an exploration path")
+                        self.has_started = True
                         self.set_following_an_exploration_path()
                     
                     else:
@@ -403,13 +458,13 @@ class Mother:
 
             elif self.mode == "following_an_exploration_path":
                 self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.4,max_classification_attempts=0))
+                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
                 if len(self.object_classification_queue) > 0:
                     classifying_obj = self.object_classification_queue.pop()
-                    print("setting turning towards object")
+                    #print("setting turning towards object")
                     if not self.set_turning_towards_object(classifying_obj):
                         self.set_following_an_exploration_path()
-                        print("was not able to find path to turn")
+                        #print("was not able to find path to turn")
 
             elif self.mode == "following_path_to_object_classification":
                 if self.nav_goal_acchieved:
@@ -434,8 +489,8 @@ class Mother:
                         rospy.loginfo("Arm movement failed")
 
             elif self.mode == "handling_emergency_stop":
-
-                rospy.loginfo("Handling emergency stop")
+                pass
+                #rospy.loginfo("Handling emergency stop")
 
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
@@ -443,15 +498,16 @@ class Mother:
             #rospy.loginfo("mother iter {i}\n".format(i = self.i))
             #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            #rospy.loginfo("\tdetected objects = {0}".format(self.maze_map.maze_objects))
+            rospy.loginfo("\tdetected objects = \n{0}".format(self.maze_map.maze_objects))
             rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
-            self.i += 1
+            self.maze_map.update(exclude_set={self.classifying_obj})
 
-            self.maze_map.update()
+            if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
+                self.write_state()
             self.rate.sleep()
-
+            
 
 if __name__ == "__main__":
     try:
