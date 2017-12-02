@@ -27,6 +27,9 @@ from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC
 from pprint import pprint
 
+import random
+import math
+
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
     #attempts = 0
     #while attempts < max_attempts:
@@ -400,6 +403,8 @@ class Mother:
             activate_next_state = self.set_following_an_exploration_path
         elif ROUND == 0:
             activate_next_state = self.set_following_path_to_main_goal
+        elif ROUND == 10:
+            activate_next_state = self.set_waiting_for_main_goal
         else:
             raise NotImplementedError()
         
@@ -453,6 +458,9 @@ class Mother:
         else:
             activate_next_state()
 
+    def set_testing_turning(self):
+        self.mode = "testing_turning"
+
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
@@ -496,6 +504,11 @@ class Mother:
                         rospy.loginfo("Following an exploration path")
                         self.has_started = True
                         self.set_following_an_exploration_path()
+
+                    if ROUND == 10:
+                        rospy.loginfo("Testing turning")
+                        self.has_started = True
+                        self.set_testing_turning()
                     
                     else:
                         rospy.loginfo("Main goal received")
@@ -540,6 +553,19 @@ class Mother:
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
+
+            elif self.mode == "testing_turning":
+                robot_pos = self.pos
+                angle = random.randint(0,360) 
+                print("TURN TO THE ANGLE ", angle)
+                dx = 0.5*math.cos(math.radians(angle))
+                dy = 0.5*math.sin(math.radians(angle))
+                msg = PosAndImage()
+                msg.pos.x = robot_pose.x +dx
+                msg.pos.y = robot_pose.y +dy
+                classifying_obj = MazeObject(msg)
+                self.set_turning_towards_object(classifying_obj)
+
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
