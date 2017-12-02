@@ -2,6 +2,7 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #include <math.h>
 
@@ -50,6 +51,7 @@ public:
   ros::Publisher bin_publisher;
   ros::Publisher obstacle_wall_pub;
 
+  ros::Publisher batteries_publisher;
 
   // Sent vector for obstacle avoidance
   //std::vector<std::pair<float, float>> obstacles;
@@ -72,6 +74,8 @@ public:
 
     bin_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_bins", 1);
     obstacle_wall_pub = n.advertise<visualization_msgs::MarkerArray>("/visual_obstacle_walls", 1);
+
+    batteries_publisher = n.advertise<std_msgs::Float32MultiArray>("/batteries_found", 1);
 
     HEIGHT_LOWER_THRESHOLD = 0.02;
     HEIGHT_UPPER_THRESHOLD = 0.04;
@@ -138,20 +142,22 @@ public:
     // Publish the data
     removeUnwantedData();
 
-    if (PUBLISH_MARKERS)
+    if(PUBLISH_MARKERS)
     {
       visualizeBins();
+
+      if(obstacles_found.ranges.size() > 1)
+      {
+        detectWallSegment();
+        visualizeWalls();
+      }
     }
 
     pub.publish(transformed_pc);
 
     obstacle_publisher.publish(obstacles_found);
 
-    if (obstacles_found.ranges.size() > 1)
-    {
-      detectWallSegment();
-      visualizeWalls();
-    }
+    sendBatteries();
   }
 
   void removeUnwantedData()
@@ -287,6 +293,45 @@ public:
     bin_publisher.publish(all_bins);
   }
 
+  void sendBatteries() {
+
+    std_msgs::Float32MultiArray batteries;
+
+    geometry_msgs::PointStamped ptStart_trans;
+    geometry_msgs::PointStamped ptEnd_trans;
+
+    geometry_msgs::PointStamped ptStart;
+    geometry_msgs::PointStamped ptEnd;
+
+    ptStart.header.stamp = ros::Time::now();
+    ptEnd.header.stamp = ros::Time::now();
+
+    ptStart.header.frame_id = "/base_link";
+    ptEnd.header.frame_id = "/base_link";
+
+    tf::TransformListener listener_2;
+
+    for(int i = 0; i < wall_segments.size(); i++) {
+
+      ptStart.point.x = wall_segments[i].first.first;
+      ptStart.point.y = wall_segments[i].first.second;
+      ptEnd.point.x = wall_segments[i].second.first;
+      ptEnd.point.y = wall_segments[i].second.second;
+
+      listener_2.transformPoint("/odom", ptStart, ptStart_trans);
+      listener_2.transformPoint("/odom", ptEnd, ptEnd_trans);
+
+      batteries.data.clear();
+        
+      batteries.data.push_back(ptStart_trans.point.x);
+      batteries.data.push_back(ptStart_trans.point.y);
+      batteries.data.push_back(ptEnd_trans.point.x);
+      batteries.data.push_back(ptEnd_trans.point.y);
+
+      batteries_publisher.publish(batteries);
+    }
+  }
+
   void detectWallSegment()
   {
 
@@ -332,18 +377,22 @@ public:
         std::pair<float, float> first_connection = connected_points.front();
         std::pair<float, float> last_connection = connected_points.back();
 
-        wall_segments.push_back(make_pair(first_connection, first_connection));
+        wall_segments.push_back(make_pair(first_connection, last_connection));
+
+        //std::vector<float> points(first_connection.first, first_connection.second, last_connection.first, last_connection.second);
 
         connected_points.clear();
       }
     }
 
-    std::pair<float, float> first_connection = connected_points.front();
-    std::pair<float, float> last_connection = connected_points.back();
+    if(connected_points.size() > 0) {
+      std::pair<float, float> first_connection = connected_points.front();
+      std::pair<float, float> last_connection = connected_points.back();
 
-    ROS_INFO("first [%f][%f] , second [%f][%f]", first_connection.first, first_connection.second, last_connection.first, last_connection.second);
+      ROS_INFO("first [%f][%f] , second [%f][%f]", first_connection.first, first_connection.second, last_connection.first, last_connection.second);
 
-    wall_segments.push_back(make_pair(first_connection, last_connection));
+      wall_segments.push_back(make_pair(first_connection, last_connection));
+    } 
   }
 
   void visualizeWalls()
