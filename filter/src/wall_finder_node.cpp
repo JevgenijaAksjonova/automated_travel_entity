@@ -131,6 +131,10 @@ class WallFinder
             ROS_ERROR("wf failed to detect parameter 9");
             exit(EXIT_FAILURE);
         }
+        if(!n.getParam("/wall_finder/TRUST_IN_CAMERA",TRUST_IN_CAMERA)){
+            ROS_ERROR("wf failed to detect parameter 10");
+            exit(EXIT_FAILURE);
+        }
 
 
         ROS_INFO("Running wall finder with parameters:");
@@ -164,7 +168,7 @@ class WallFinder
     if(wallVec.size() != 4){
         ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wallVec.size());
     }
-    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 5, false, FromCamera);
+    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], TRUST_IN_CAMERA, false, FromCamera);
     addWall(w);
 
 }
@@ -621,6 +625,7 @@ class WallFinder
     int MIN_POINTS;
     float MAX_DISTANCE_TO_OUTLIER;
     float ANGULAR_VELOCITY_TRESHOLD;
+    int TRUST_IN_CAMERA;
 
 };
 
