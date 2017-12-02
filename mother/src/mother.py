@@ -345,12 +345,17 @@ class Mother:
                 class_p > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("class_label = {0}".format(class_label))
             if class_p > RECOGNITION_MIN_P:
-                if CLASSIFYING_BASED_ON_COLOR:
-                    if self.classifying_obj.color.lower() in class_label.lower():
-                        self.classifying_obj.classify(class_label,class_id)
+                if class_label == "Nothing":
+                    self.classifying_obj.classify(class_label,class_id)
                 else:
-                    if self.classifying_obj.color.lower() in shape_2_allowed_colors[class_label]:
-                        self.classifying_obj.classify(self.classifying_obj.color + class_label,class_id)
+                    if CLASSIFYING_BASED_ON_COLOR:
+                        if self.classifying_obj.color.lower() in class_label.lower():
+                            self.classifying_obj.classify(class_label,class_id)
+                    else:
+                        if self.classifying_obj.color.lower() in shape_2_allowed_colors[class_label]:
+                            self.classifying_obj.classify(self.classifying_obj.color + class_label,class_id)
+                        else:
+                            return False  
                 rospy.loginfo("returning true from try classify")
                 return True
             return False
@@ -397,7 +402,7 @@ class Mother:
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
-        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.1):
+        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.2):
             self.mode = "turning_towards_object"
             self.classifying_obj = classifying_obj
             rospy.loginfo("We were able to find a way to turn")
@@ -472,7 +477,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.7,max_classification_attempts=0))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
@@ -513,11 +518,6 @@ class Mother:
                         self.has_started = True
                         self.set_following_an_exploration_path()
 
-                    if ROUND == 10:
-                        rospy.loginfo("Testing turning")
-                        self.has_started = True
-                        self.set_testing_turning()
-                    
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal()
@@ -525,12 +525,15 @@ class Mother:
             elif self.mode == "following_path_to_main_goal":
                 changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
                 if self.nav_goal_acchieved and not changed_mode:
+                    self.has_started = False
                     self.set_waiting_for_main_goal()
+                    
 
             elif self.mode == "following_an_exploration_path":
                 changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
                 if self.exploration_completed and not changed_mode:
                     self.exploration_completed = False
+                    self.goal_pose = None
                     self.goal_pose = self.initial_pose
                     self.set_following_path_to_main_goal()
 
@@ -560,19 +563,6 @@ class Mother:
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
-
-            elif self.mode == "testing_turning":
-                robot_pos = self.pos
-                angle = random.randint(0,360) 
-                print("TURN TO THE ANGLE ", angle)
-                dx = 0.5*math.cos(math.radians(angle))
-                dy = 0.5*math.sin(math.radians(angle))
-                msg = PosAndImage()
-                msg.pos.x = robot_pose.x +dx
-                msg.pos.y = robot_pose.y +dy
-                classifying_obj = MazeObject(msg)
-                self.set_turning_towards_object(classifying_obj)
-
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
@@ -587,6 +577,7 @@ class Mother:
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
                 self.write_state()
+                latest_save_secs = rospy.Time.now().to_sec()
             self.rate.sleep()
             
 

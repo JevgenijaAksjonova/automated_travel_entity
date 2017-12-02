@@ -21,9 +21,9 @@ ODOMETRY_TOPIC = "/odometry_node/odom"
 NAVIGATION_DISTANCE_TOPIC = "navigation/distance"
 USING_PATH_PLANNING = True
 USING_ARM = False
-USING_VISION = False
+USING_VISION = True
 
-ROUND = 10 # 1 - the first raund of the contest, 2 - the second raund of the contest
+ROUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
 
 color_2_rgb = {
     "green": (0, 255, 0),
@@ -56,4 +56,4 @@ MAP_P_DECREASE = 0.0005
 SAVE_PERIOD_SECS = 3
 MOTHER_STATE_FILE = "mother_state.yaml"
 RECOGNITION_MIN_P = 0.6
-CLASSIFYING_BASED_ON_COLOR = True
+CLASSIFYING_BASED_ON_COLOR = False
