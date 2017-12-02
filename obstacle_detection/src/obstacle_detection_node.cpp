@@ -163,9 +163,9 @@ public:
     std::vector<float> found_ranges;
     std::vector<float> found_angles;
 
-    for (int i = depth.width - 1; i > 0; i--)
+    for (int i = depth.width - 1; i > 0; i-=5)
     {
-      for (int j = 0; j < depth.height; j++)
+      for (int j = 0; j < depth.height; j+=5)
       {
         pcl::PointXYZ depth_point = depth.at(i, j);
 
