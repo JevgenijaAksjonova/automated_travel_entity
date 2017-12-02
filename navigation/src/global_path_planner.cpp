@@ -478,14 +478,17 @@ void GlobalPathPlanner::computeExplorationPath() {
     while (count < nodes.size()) {
         int jMin = -1;
         vector<int> edges(nodes.size(),-1);
-        if (i ==0) {
-            edges = edges1;
-        }
         for (int j = 0; j < nodes.size(); j++) {
             if (visited[j] ==0) {
-                vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
-                if (path.size() > 0) {
-                    edges[j] = path.size();
+                if (i == 0) {
+                    edges[j] = edges1[j];
+                } else {
+                    vector<pair<int, int> > path = getPathGrid(pair<int,int>(nodes[i].x,nodes[i].y), pair<int,int>(nodes[j].x,nodes[j].y));
+                    if (path.size()>0) {
+                        edges[j] = path.size();
+                    }
+                }
+                if (edges[j] != -1) {
                     if (jMin == -1 || edges[j] < edges[jMin]) {
                         jMin = j;
                     }

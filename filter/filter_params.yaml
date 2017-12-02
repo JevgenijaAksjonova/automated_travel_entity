@@ -1,6 +1,6 @@
 filter:
     particle_params:
-        nr_particles : 1000
+        nr_particles : 500
         nr_measurements : 8
         using_random_particles : false
         nr_random_particles : 50

@@ -24,7 +24,7 @@ def save_classification(class_label, bgr_image):
 
 def main():
     rospy.init_node("recognizer_server")
-    model_path = path.join(camera_base, "data/models/ManyFri Nov 24 15:23:00 2017")
+    model_path = path.join(camera_base, "data/models/No color based classes")
     rec = Recognizer(model_path)
 
 

@@ -4,12 +4,12 @@
 	<include file="$(find automated_travel_entity_launch)/motor_drivers.launch"/>
 	<include file="$(find rplidar_ros)/launch/rplidar.launch"/>
 	<include file="$(find filter)/launch/filter_node.launch"/>
-	<include file="$(find obstacle_detection)/launch/obstacle_detection_node.launch"/>
 	<include file="$(find navigation)/launch/navigation_node.launch"/>
 	<node pkg="tf" type="static_transform_publisher" name="laser_static_transform" args="0 -0.03 0.145 1.57 0 0 base_link laser 100" />
 	<node name="motor_controller" pkg="robot_motor_controller" type="robot_motor_controller_node" respawn="True" respawn_delay="5"/>
 	<node name="keyop" pkg="keyboard_input" type="keyboard_input_node" output="screen"/>
 	<node name="speaker" pkg="ras_espeak" type="espeak_node"/>
 	<include file="$(find camera)/vision.launch" pass_all_args="True"/>
+	<include file="$(find obstacle_detection)/launch/obstacle_detection_node.launch"/>
 	<node name="mother" pkg="mother" type="mother.py" output="screen" respawn="True" respawn_delay="5"/>
 </launch>
