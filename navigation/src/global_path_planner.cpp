@@ -498,8 +498,8 @@ void GlobalPathPlanner::computeExplorationPath() {
         visited[i] = 1;
     }
     auto end= chrono::high_resolution_clock::now();
-    elapsed = end-start;
-    s.str("") ;
+    chrono::duration<double> elapsed = end-start;
+    stringstream s;
     s << "Time to find greedy path = " << elapsed.count()<< endl;
     ROS_INFO("%s/n", s.str().c_str());
 
