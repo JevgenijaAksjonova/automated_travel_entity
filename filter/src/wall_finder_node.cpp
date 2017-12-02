@@ -164,7 +164,7 @@ class WallFinder
     if(wallVec.size() != 4){
         ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wallVec.size());
     }
-    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 1000, false, FromCamera);
+    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 10, false, FromCamera);
     addWall(w);
 
 }
@@ -196,7 +196,6 @@ class WallFinder
     
     void lookForWalls(){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
-            ROS_INFO("angular_v ok, %f", _angular_velocity);
             if(_wasTurning >0){
                 _wasTurning --;
             }else{
@@ -204,7 +203,6 @@ class WallFinder
             getOutliers(measurements);
             }
         }else{
-            ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
             _wasTurning = 3;
         }
     }

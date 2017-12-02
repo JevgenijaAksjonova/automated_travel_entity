@@ -21,11 +21,10 @@ def main():
     rospy.init_node("hsv_tuner")
     global image
     def image_callback(image_msg):
-        print("setting image")
         global image
         image = bridge.imgmsg_to_cv2(image_msg)
 
-    rospy.Subscriber("/camera/depth_registered/sw_registered/image_rect",ImageMsg,image_callback)
+    rospy.Subscriber("/camera/rgb/image_rect_color",ImageMsg,image_callback)
     rospy.Rate(1).sleep()
     param_file_path = path.join(rospack.get_path("camera"),"param.yaml")
     with open(param_file_path,"r") as param_file:
@@ -56,6 +55,7 @@ def main():
             hsv_thresh[current_color] = (np.array(lower),np.array(upper))
             if not (0 <= lower and lower <= 255) or not (0 <= upper and upper <= 255):
                 continue
+            print("debug_simage.shape =",image.shape)
             _,_,debug_image = color_segment_image(image,return_debug_image=True,hsv_thresholds=hsv_thresh)
             cv2.imshow("wheeh",debug_image)
         

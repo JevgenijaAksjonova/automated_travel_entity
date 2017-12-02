@@ -1,0 +1,4 @@
+<launch>
+    <arg name="running_on_robot" default="True" />
+	<include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch" if="$(arg running_on_robot)"/>
+</launch>

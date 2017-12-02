@@ -21,7 +21,7 @@ ODOMETRY_TOPIC = "/odometry_node/odom"
 NAVIGATION_DISTANCE_TOPIC = "navigation/distance"
 USING_PATH_PLANNING = True
 USING_ARM = False
-USING_VISION = True
+USING_VISION = False
 
 ROUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
 

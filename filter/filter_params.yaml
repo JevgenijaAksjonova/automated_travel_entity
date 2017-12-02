@@ -11,4 +11,4 @@ filter:
         k_V : 0.5
         k_W : 0.5
     general:
-        RUN_WHILE_STANDING_STILL : false
+        RUN_WHILE_STANDING_STILL : true
