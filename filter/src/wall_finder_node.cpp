@@ -38,6 +38,8 @@ class WallFinder
     ros::Publisher outlier_publisher;
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
+    ros::Subscriber goalSet_subscriber;
+    ros::Subscriber 
 
 
 
@@ -142,7 +144,7 @@ class WallFinder
         outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
         wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls_visual", 1);
         wall_array_publisher= n.advertise<std_msgs::Float32MultiArray>("/wall_finder_walls_array", 100);
-        battery_wall_subcriber = n.subscribe("/rickard", 100, &WallFinder::batteryWallCallback, this);
+        battery_wall_subcriber = n.subscribe("/batteries_found", 100, &WallFinder::batteryWallCallback, this);
 
         _nr_measurements = nr_measurements;
 
@@ -553,10 +555,19 @@ class WallFinder
                 wall.scale.z = 0.3;
 
                 // Set the color -- be sure to set alpha to something non-zero!
-                wall.color.r = 1.0f;
-                wall.color.g = 0.0f;
-                wall.color.b = 0.0f;
-                wall.color.a = 1.0;
+                if(w.source == FromLidar){
+                	wall.color.r = 1.0f;
+                	wall.color.g = 0.0f;
+                	wall.color.b = 0.0f;
+            		wall.color.a = 1.0;
+                }
+                if(w.source == FromCamera){
+                	wall.color.r = 0.0f;
+                	wall.color.g = 0.0f;
+                	wall.color.b = 1.0f;
+            		wall.color.a = 1.0;
+                }
+                
 
 
                 wall.pose.position.x = w.xCenter;

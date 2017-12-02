@@ -213,8 +213,8 @@ class FilterPublisher
 	    if(wall.size() != 4){
 	        ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wall.size());
 	    }else{
-	    	ROS_INFO("ADDED WALL TO FILTER MAP");
-	    	map.walls.push_back(wall);
+	    	ROS_INFO("ADDING WALL TO FILTER MAP");
+	    	//map.walls.push_back(wall);
 	    }
     }
 
