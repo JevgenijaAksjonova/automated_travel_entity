@@ -181,10 +181,7 @@ class Mother:
             #rospy.loginfo("navigation status = false")
 
     def _navigation_stop_callback(self, stop_msg):
-        if stop_msg.stop and
-            (self.mode == "following_an_exploration_path" or
-            self.mode == "following_path_to_object_classification" or
-            self.mode == "following_path_to_main_goal"):
+        if stop_msg.stop and (self.mode == "following_an_exploration_path" or self.mode == "following_path_to_object_classification" or self.mode == "following_path_to_main_goal"):
             #if (self.mode != "handling_emergency_stop"):
             #rospy.loginfo("navigation stop callback")
             self.stop_info = stop_msg
