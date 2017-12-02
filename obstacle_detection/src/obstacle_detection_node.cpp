@@ -25,6 +25,7 @@ public:
   float HEIGHT_UPPER_THRESHOLD;
   float DISTANCE_THRESHOLD;
   float CONNECTION_THRESHOLD;
+  float WALL_LENGTH_THRESHOLD;
 
   float NBINS;
 
@@ -87,6 +88,7 @@ public:
     HEIGHT_UPPER_THRESHOLD = 0.04;
     DISTANCE_THRESHOLD = 0.4;
     CONNECTION_THRESHOLD = 0.04;
+    WALL_LENGTH_THRESHOLD = 0.05;
 
     NBINS = 180;
 
@@ -128,6 +130,11 @@ public:
       ROS_ERROR("Obstacle detection failed to detect thresholds parameter 5");
       exit(EXIT_FAILURE);
     }
+    if (!n.getParam("/obstacle_detection/thresholds/WALL_LENGTH_THRESHOLD", WALL_LENGTH_THRESHOLD))
+    {
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 6");
+      exit(EXIT_FAILURE);
+    }
 
     if (!n.getParam("/obstacle_detection/visual/PUBLISH_MARKERS", PUBLISH_MARKERS))
     {
@@ -163,9 +170,9 @@ public:
     std::vector<float> found_ranges;
     std::vector<float> found_angles;
 
-    for (int i = depth.width - 1; i > 0; i--)
+    for (int i = depth.width - 1; i > 0; i-= 5)
     {
-      for (int j = 0; j < depth.height; j++)
+      for (int j = 0; j < depth.height; j+=5)
       {
         pcl::PointXYZ depth_point = depth.at(i, j);
 
@@ -304,8 +311,7 @@ public:
       ptEnd.point.y = wall_segments[i].second.second;
       ros::Time now = ros::Time::now();
       try {
-        listener_2.waitForTransform("odom", "base_link",
-                                now, ros::Duration(3.0));
+        listener_2.waitForTransform("odom", "base_link", now, ros::Duration(0.1));
 
         ptEnd.header.stamp = now;
         ptStart.header.stamp = now;
@@ -372,21 +378,23 @@ public:
         std::pair<float, float> first_connection = connected_points.front();
         std::pair<float, float> last_connection = connected_points.back();
 
-        wall_segments.push_back(make_pair(first_connection, last_connection));
-
-        //std::vector<float> points(first_connection.first, first_connection.second, last_connection.first, last_connection.second);
-
-        connected_points.clear();
+        float length_wall = sqrt(pow(first_connection.first - last_connection.first, 2) + pow(first_connection.second - last_connection.second, 2));
+        if(length_wall > WALL_LENGTH_THRESHOLD) {
+          wall_segments.push_back(make_pair(first_connection, last_connection));
+          connected_points.clear();
+        }
       }
     }
 
     if(connected_points.size() > 0) {
       std::pair<float, float> first_connection = connected_points.front();
       std::pair<float, float> last_connection = connected_points.back();
+      float length_wall = sqrt(pow(first_connection.first - last_connection.first, 2) + pow(first_connection.second - last_connection.second, 2));
 
-      ROS_INFO("first [%f][%f] , second [%f][%f]", first_connection.first, first_connection.second, last_connection.first, last_connection.second);
-
-      wall_segments.push_back(make_pair(first_connection, last_connection));
+      if(length_wall > WALL_LENGTH_THRESHOLD) {
+        wall_segments.push_back(make_pair(first_connection, last_connection));
+        connected_points.clear();
+      }
     } 
   }
 
@@ -433,10 +441,6 @@ public:
       float rotation = atan2((y2 - y1), (x2 - x1));
       float length = sqrt(pow(y2 - y1, 2) + pow(x2 - x1, 2));
 
-      
-
-      ROS_INFO("Center [%f][%f] , Size [%f]", centre_x, centre_y, length);
-
       wall.scale.x = length;
 
       tf::Quaternion q;
@@ -482,7 +486,7 @@ int main(int argc, char **argv)
   {
     ros::spinOnce();
 
-    if(obs.angular_vel < 0.7 && obs.point_cloud_received) {
+    if(obs.point_cloud_received) {
       // Transform cloud
       listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), obs.transform);
       pcl_ros::transformPointCloud("/camera_depth_optical_frame", obs.original_pc, obs.transformed_pc, listener);
@@ -505,7 +509,10 @@ int main(int argc, char **argv)
 
       obstacle_publisher.publish(obs.obstacles_found);
 
-      obs.sendBatteries();
+      /*
+      if(obs.angular_vel < 0.7) {
+        obs.sendBatteries();
+      }*/
     }
 
     loop_rate.sleep();

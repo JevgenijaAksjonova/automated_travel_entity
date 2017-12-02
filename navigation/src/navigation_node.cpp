@@ -259,7 +259,7 @@ int main(int argc, char **argv)
             cout << "Only turning!" << endl;
         }
 
-        double c = 0.20; // total velocity
+        double c = 0.13; // total velocity
         double r = 0.12; // approximate radius of wheel base
         double k = max(1.0, 25*pow(fabs(path->angVel),2));
         // maybe check abs(path->directionChange) > 0.1
