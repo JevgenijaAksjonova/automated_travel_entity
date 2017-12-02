@@ -164,7 +164,7 @@ class WallFinder
     if(wallVec.size() != 4){
         ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wallVec.size());
     }
-    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 5, false, FromCamera);
+    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 10, false, FromCamera);
     addWall(w);
 
 }
