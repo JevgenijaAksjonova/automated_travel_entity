@@ -58,6 +58,7 @@ public:
   sensor_msgs::PointCloud2 transformed_pc;
   sensor_msgs::PointCloud2 original_pc;
 
+  tf::TransformListener listener_2;
   project_msgs::depth obstacles_found;
 
   std::vector<std::pair<std::pair<float, float>, std::pair<float, float> > > wall_segments;
@@ -303,13 +304,10 @@ public:
     geometry_msgs::PointStamped ptStart;
     geometry_msgs::PointStamped ptEnd;
 
-    ptStart.header.stamp = ros::Time::now();
-    ptEnd.header.stamp = ros::Time::now();
 
-    ptStart.header.frame_id = "/base_link";
-    ptEnd.header.frame_id = "/base_link";
+    ptStart.header.frame_id = "base_link";
+    ptEnd.header.frame_id = "base_link";
 
-    tf::TransformListener listener_2;
 
     for(int i = 0; i < wall_segments.size(); i++) {
 
@@ -317,9 +315,15 @@ public:
       ptStart.point.y = wall_segments[i].first.second;
       ptEnd.point.x = wall_segments[i].second.first;
       ptEnd.point.y = wall_segments[i].second.second;
+      ros::Time now = ros::Time::now();
+      try{
+      listener_2.waitForTransform("odom", "base_link",
+                              now, ros::Duration(3.0));
 
-      listener_2.transformPoint("/odom", ptStart, ptStart_trans);
-      listener_2.transformPoint("/odom", ptEnd, ptEnd_trans);
+      ptEnd.header.stamp = now;
+      ptStart.header.stamp = now;
+      listener_2.transformPoint("odom", ptStart, ptStart_trans);
+      listener_2.transformPoint("odom", ptEnd, ptEnd_trans);
 
       batteries.data.clear();
         
@@ -329,7 +333,11 @@ public:
       batteries.data.push_back(ptEnd_trans.point.y);
 
       batteries_publisher.publish(batteries);
+     }catch(tf::TransformException ex){
+     ROS_ERROR("Unable to transform");
+     continue;
     }
+  }
   }
 
   void detectWallSegment()
