@@ -23,7 +23,7 @@ USING_PATH_PLANNING = True
 USING_ARM = False
 USING_VISION = False
 
-ROUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
+ROUND = 10 # 1 - the first raund of the contest, 2 - the second raund of the contest
 
 color_2_rgb = {
     "green": (0, 255, 0),
