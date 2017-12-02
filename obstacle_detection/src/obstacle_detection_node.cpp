@@ -3,6 +3,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <nav_msgs/Odometry.h>
 
 #include <math.h>
 
@@ -41,11 +42,9 @@ public:
   // Create a ROS subscriber for the input point cloud
   ros::Subscriber sub;
 
-  // Create a ROS publisher for the output point cloud
-  ros::Publisher pub;
+  ros::Subscriber filter_subscriber;
 
-  // ROS publisher for obstacles found
-  ros::Publisher obstacle_publisher;
+
 
   // ROS publisher for visualization in rviz
   ros::Publisher bin_publisher;
@@ -53,15 +52,21 @@ public:
 
   ros::Publisher batteries_publisher;
 
-  // Sent vector for obstacle avoidance
-  //std::vector<std::pair<float, float>> obstacles;
-  sensor_msgs::PointCloud2 transformed_pc;
-  sensor_msgs::PointCloud2 original_pc;
-
   tf::TransformListener listener_2;
   project_msgs::depth obstacles_found;
 
   std::vector<std::pair<std::pair<float, float>, std::pair<float, float> > > wall_segments;
+
+  float angular_vel;
+
+  tf::StampedTransform transform;
+
+  pcl::PCLPointCloud2 cloud_filtered;
+
+  // Sent vector for obstacle avoidance
+  //std::vector<std::pair<float, float>> obstacles;
+  sensor_msgs::PointCloud2 transformed_pc;
+  sensor_msgs::PointCloud2 original_pc;
 
   ObstaclePublisher()
   {
@@ -69,9 +74,7 @@ public:
 
     sub = n.subscribe("/camera/depth/points", 1, &ObstaclePublisher::pointCloudCallback, this);
 
-    pub = n.advertise<sensor_msgs::PointCloud2>("obstacle/output", 1);
-
-    obstacle_publisher = n.advertise<project_msgs::depth>("/depth", 1);
+    filter_subscriber = n.subscribe("/filter", 1, &ObstaclePublisher::positionCallback, this);
 
     bin_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_bins", 1);
     obstacle_wall_pub = n.advertise<visualization_msgs::MarkerArray>("/visual_obstacle_walls", 1);
@@ -93,6 +96,8 @@ public:
     END_THETA = -M_PI / 2;
 
     INCREMENT_SIZE = M_PI / NBINS;
+
+    angular_vel = 0;
 
     if (!n.getParam("/obstacle_detection/thresholds/HEIGHT_LOWER_THRESHOLD", HEIGHT_LOWER_THRESHOLD))
     {
@@ -130,35 +135,12 @@ public:
   void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
   {
     // Container for original & filtered data
-    pcl::PCLPointCloud2 *cloud = new pcl::PCLPointCloud2;
-    pcl::PCLPointCloud2ConstPtr cloudPtr(cloud);
-    pcl::PCLPointCloud2 cloud_filtered;
-
     original_pc = *cloud_msg;
+  }
 
-    // Transform cloud
-    listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), transform);
-    pcl_ros::transformPointCloud("/camera_depth_optical_frame", *cloud_msg, transformed_pc, listener);
-
-    // Publish the data
-    removeUnwantedData();
-
-    if(PUBLISH_MARKERS)
-    {
-      visualizeBins();
-
-      if(obstacles_found.ranges.size() > 1)
-      {
-        detectWallSegment();
-        visualizeWalls();
-      }
-    }
-
-    pub.publish(transformed_pc);
-
-    obstacle_publisher.publish(obstacles_found);
-
-    sendBatteries();
+  void positionCallback(const nav_msgs::Odometry::ConstPtr& msg) 
+  {
+    angular_vel = abs(msg->twist.twist.angular.z);
   }
 
   void removeUnwantedData()
@@ -316,28 +298,28 @@ public:
       ptEnd.point.x = wall_segments[i].second.first;
       ptEnd.point.y = wall_segments[i].second.second;
       ros::Time now = ros::Time::now();
-      try{
-      listener_2.waitForTransform("odom", "base_link",
-                              now, ros::Duration(3.0));
+      try {
+        listener_2.waitForTransform("odom", "base_link",
+                                now, ros::Duration(3.0));
 
-      ptEnd.header.stamp = now;
-      ptStart.header.stamp = now;
-      listener_2.transformPoint("odom", ptStart, ptStart_trans);
-      listener_2.transformPoint("odom", ptEnd, ptEnd_trans);
+        ptEnd.header.stamp = now;
+        ptStart.header.stamp = now;
+        listener_2.transformPoint("odom", ptStart, ptStart_trans);
+        listener_2.transformPoint("odom", ptEnd, ptEnd_trans);
 
-      batteries.data.clear();
-        
-      batteries.data.push_back(ptStart_trans.point.x);
-      batteries.data.push_back(ptStart_trans.point.y);
-      batteries.data.push_back(ptEnd_trans.point.x);
-      batteries.data.push_back(ptEnd_trans.point.y);
+        batteries.data.clear();
+          
+        batteries.data.push_back(ptStart_trans.point.x);
+        batteries.data.push_back(ptStart_trans.point.y);
+        batteries.data.push_back(ptEnd_trans.point.x);
+        batteries.data.push_back(ptEnd_trans.point.y);
 
-      batteries_publisher.publish(batteries);
-     }catch(tf::TransformException ex){
-     ROS_ERROR("Unable to transform");
-     continue;
+        batteries_publisher.publish(batteries);
+      } catch(tf::TransformException ex) {
+        ROS_ERROR("Unable to transform");
+        continue;
+      }
     }
-  }
   }
 
   void detectWallSegment()
@@ -466,8 +448,6 @@ public:
   }
 
 private:
-  tf::TransformListener listener;
-  tf::StampedTransform transform;
 
   std::vector<int> answer_bins;
   std::vector<float> distances;
@@ -484,10 +464,44 @@ int main(int argc, char **argv)
   ObstaclePublisher obs;
   ros::Rate loop_rate(10);
 
+  // Create a ROS publisher for the output point cloud
+  ros::Publisher pub = obs.n.advertise<sensor_msgs::PointCloud2>("obstacle/output", 1);
+
+  // ROS publisher for obstacles found
+  ros::Publisher obstacle_publisher = obs.n.advertise<project_msgs::depth>("/depth", 1);
+
+  tf::TransformListener listener;
+
   int count = 0;
   while (obs.n.ok())
   {
     ros::spinOnce();
+
+    if(obs.angular_vel < 0.7) {
+      // Transform cloud
+      listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), obs.transform);
+      pcl_ros::transformPointCloud("/camera_depth_optical_frame", obs.original_pc, obs.transformed_pc, listener);
+
+      // Publish the data
+      obs.removeUnwantedData();
+
+      if(obs.PUBLISH_MARKERS)
+      {
+        obs.visualizeBins();
+
+        if(obs.obstacles_found.ranges.size() > 1)
+        {
+          obs.detectWallSegment();
+          obs.visualizeWalls();
+        }
+      }
+
+      pub.publish(obs.transformed_pc);
+
+      obstacle_publisher.publish(obs.obstacles_found);
+
+      obs.sendBatteries();
+    }
 
     loop_rate.sleep();
     ++count;
