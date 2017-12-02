@@ -34,9 +34,12 @@ class WallFinder
 
     ros::Subscriber lidar_subscriber;
     ros::Subscriber position_subscriber;
+    ros::Subscriber battery_wall_subcriber;
     ros::Publisher outlier_publisher;
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
+    ros::Subscriber goalSet_subscriber;
+    ros::Subscriber 
 
 
 
@@ -52,6 +55,11 @@ class WallFinder
     float _begunMoving;
     float _angular_velocity;
     int _wasTurning;
+    LocalizationGlobalMap map;
+
+    enum WallSource { FromFile, FromCamera, FromLidar };
+
+
     struct Outlier{
         float xPos;
         float yPos;
@@ -70,15 +78,13 @@ class WallFinder
         float length;
         int nrAgreeingPoints;
         bool published;
+        WallSource source;
     };
     vector<Wall> _wallsFound;
 
 
 
-
-    //LocalizationGlobalMap map;
-
-    WallFinder()
+    WallFinder(LocalizationGlobalMap newMap)
     {
         n = ros::NodeHandle("~");
         int nr_measurements = 8;
@@ -86,7 +92,9 @@ class WallFinder
         _yPos = 0;
         _thetaPos = 0;
         _begunMoving = false;
-        _wasTurning = 0;
+        _wasTurning = 3;
+
+        map = newMap;
 
 
         if(!n.getParam("/wall_finder/nr_measurements",nr_measurements)){
@@ -136,18 +144,32 @@ class WallFinder
         outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
         wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls_visual", 1);
         wall_array_publisher= n.advertise<std_msgs::Float32MultiArray>("/wall_finder_walls_array", 100);
+        battery_wall_subcriber = n.subscribe("/batteries_found", 100, &WallFinder::batteryWallCallback, this);
 
         _nr_measurements = nr_measurements;
 
     }
 
-    void addKnownWalls(LocalizationGlobalMap &map){
+    void addKnownWalls(){
         for(int i = 0; i < map.walls.size(); i++){
-            Wall w = createWall(map.walls[i][0], map.walls[i][1], map.walls[i][2], map.walls[i][3], 1000, true);
+            Wall w = createWall(map.walls[i][0], map.walls[i][1], map.walls[i][2], map.walls[i][3], 1000, true, FromFile);
             _wallsFound.push_back(w);
 
         }
     }
+
+    void batteryWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array){
+    vector<double> wallVec;
+    for(std::vector<float>::const_iterator it = array->data.begin(); it != array->data.end(); ++it){
+        wallVec.push_back(*it);
+    }
+    if(wallVec.size() != 4){
+        ROS_INFO("WALL HAS WERID DIMENSIONS %lu", wallVec.size());
+    }
+    Wall w = createWall(wallVec[0],wallVec[1],wallVec[2],wallVec[3], 1000, false, FromCamera);
+    addWall(w);
+
+}
 
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
@@ -174,14 +196,14 @@ class WallFinder
         _angular_velocity = abs(msg->twist.twist.angular.z);
     }
     
-    void lookForWalls(LocalizationGlobalMap map){
+    void lookForWalls(){
         if(_angular_velocity < ANGULAR_VELOCITY_TRESHOLD){
             ROS_INFO("angular_v ok, %f", _angular_velocity);
             if(_wasTurning >0){
                 _wasTurning --;
             }else{
             vector<pair<float, float>> measurements = mapMeasurementsToAngles();
-            getOutliers(map, measurements);
+            getOutliers(measurements);
             }
         }else{
             ROS_INFO("NOT RUNNING DUE TO TOO HIGH ANGULAR VELOCITY, %f", _angular_velocity);
@@ -227,7 +249,7 @@ class WallFinder
     }
 
 
-    void getOutliers(LocalizationGlobalMap map, vector<pair<float, float>> sampled_measurements){
+    void getOutliers(vector<pair<float, float>> sampled_measurements){
 
         pair<float, float> translatedCenters = particleToLidarConversion(_xPos, _yPos, _thetaPos, LIDAR_X, LIDAR_Y);
         float translated_x = translatedCenters.first;
@@ -293,8 +315,8 @@ class WallFinder
 
                     float rowEndX = outlierRows[i].back().xPos;
                     float rowEndY = outlierRows[i].back().yPos;
-                    Wall w = createWall(rowStartX, rowStartY, rowEndX, rowEndY, outlierRows[i].size(), false);
-                    addWall(w, map);
+                    Wall w = createWall(rowStartX, rowStartY, rowEndX, rowEndY, outlierRows[i].size(), false, FromLidar);
+                    addWall(w);
                 }
             }
             forgetWalls();
@@ -307,7 +329,7 @@ class WallFinder
         
         }
     }
-    void addWall(Wall w, LocalizationGlobalMap &map){
+    void addWall(Wall w){
         bool wallIsNew = true;
         bool wallIsInsideMap = true;
         bool robotInsideWall = false;
@@ -423,7 +445,7 @@ class WallFinder
 
     }
 
-    Wall createWall(float xStart, float yStart, float xEnd, float yEnd, int nrPoints, bool published){
+    Wall createWall(float xStart, float yStart, float xEnd, float yEnd, int nrPoints, bool published, WallSource source){
 
         float centre_x = (xStart + xEnd) / 2;
         float centre_y = (yStart + yEnd) / 2;
@@ -443,6 +465,7 @@ class WallFinder
         w.length = length;
         w.nrAgreeingPoints = nrPoints;
         w.published = published;
+        w.source = source;
 
         return w;
 
@@ -532,10 +555,19 @@ class WallFinder
                 wall.scale.z = 0.3;
 
                 // Set the color -- be sure to set alpha to something non-zero!
-                wall.color.r = 1.0f;
-                wall.color.g = 0.0f;
-                wall.color.b = 0.0f;
-                wall.color.a = 1.0;
+                if(w.source == FromLidar){
+                	wall.color.r = 1.0f;
+                	wall.color.g = 0.0f;
+                	wall.color.b = 0.0f;
+            		wall.color.a = 1.0;
+                }
+                if(w.source == FromCamera){
+                	wall.color.r = 0.0f;
+                	wall.color.g = 0.0f;
+                	wall.color.b = 1.0f;
+            		wall.color.a = 1.0;
+                }
+                
 
 
                 wall.pose.position.x = w.xCenter;
@@ -610,11 +642,11 @@ int main(int argc, char **argv)
 
     ros::init(argc, argv, "wall_finder_publisher");
 
+    LocalizationGlobalMap map1(_filename_map, cellSize);
+    
+    WallFinder wf(map1);
 
-    WallFinder wf;
-
-    LocalizationGlobalMap map(_filename_map, cellSize);
-    wf.addKnownWalls(map);
+    wf.addKnownWalls();
 
     ros::Rate loop_rate(frequency);
 
@@ -624,7 +656,7 @@ int main(int argc, char **argv)
     while (wf.n.ok())
     {
         if(wf._begunMoving == true){
-            wf.lookForWalls(map);
+            wf.lookForWalls();
 
         }
         ros::spinOnce();
