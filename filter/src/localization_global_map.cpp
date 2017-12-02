@@ -16,10 +16,18 @@
 
 using namespace std;
 
+LocalizationGlobalMap::LocalizationGlobalMap(){
+}
+
 LocalizationGlobalMap::LocalizationGlobalMap(string _filename_map, float _cellSize) {
+    ROS_INFO("Inside map");
     cellSize = _cellSize;
     createMap(_filename_map);
-    createOccupancyGrid();
+    ROS_INFO("Before OccupancyGrid");
+
+    //createOccupancyGrid();
+    ROS_INFO("After OccupancyGrid");
+
 }
 
 
