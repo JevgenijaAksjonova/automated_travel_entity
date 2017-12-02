@@ -39,8 +39,6 @@ class WallFinder
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
     ros::Subscriber goalSet_subscriber;
-    ros::Subscriber 
-
 
 
     std::vector<float> ranges;
