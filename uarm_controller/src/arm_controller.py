@@ -133,8 +133,10 @@ def ArmController(object):
             retun False
             
     def handle_arm_service_request(self,request):
-        point = request.pos
-        x,y,z = point.x,point.y,point.z
+        point = request.pos  #unit: m; frame: arm (prefer,but base frame is OK)
+        x = point.x *100.0 #unit: cm ; frame: arm
+        y = point.y *100.0 #unit: cm ; frame: arm
+        z = point.z *100.0 #unit: cm ; frame：arm
         if request.requestType == armPickupServiceRequest.requestTypeLift:
             resp = self.handle_lift(x,y,z)  #1 for finishing
         elif request.requestType == armPickupServiceRequest.requestTypeStore:
