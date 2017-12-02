@@ -68,6 +68,8 @@ public:
   sensor_msgs::PointCloud2 transformed_pc;
   sensor_msgs::PointCloud2 original_pc;
 
+  bool point_cloud_received;
+
   ObstaclePublisher()
   {
     n = ros::NodeHandle("~");
@@ -98,6 +100,8 @@ public:
     INCREMENT_SIZE = M_PI / NBINS;
 
     angular_vel = 0;
+
+    point_cloud_received = false;
 
     if (!n.getParam("/obstacle_detection/thresholds/HEIGHT_LOWER_THRESHOLD", HEIGHT_LOWER_THRESHOLD))
     {
@@ -136,6 +140,7 @@ public:
   {
     // Container for original & filtered data
     original_pc = *cloud_msg;
+    point_cloud_received = true;
   }
 
   void positionCallback(const nav_msgs::Odometry::ConstPtr& msg) 
@@ -477,7 +482,7 @@ int main(int argc, char **argv)
   {
     ros::spinOnce();
 
-    if(obs.angular_vel < 0.7) {
+    if(obs.angular_vel < 0.7 && obs.point_cloud_received) {
       // Transform cloud
       listener.lookupTransform("/base_link", "/camera_depth_optical_frame", ros::Time(0), obs.transform);
       pcl_ros::transformPointCloud("/camera_depth_optical_frame", obs.original_pc, obs.transformed_pc, listener);
