@@ -240,10 +240,10 @@ class Mother:
         msg = PointStamped()
         msg.header.frame_id = "base_link"
         msg.header.stamp = rospy.Time.now()
-        msg_new = tf_transform_point_stamped(msg)
         pos = None
         i = 0
         while pos is None and i < 50:
+            msg_new = tf_transform_point_stamped(msg)
             if msg_new is not None:
                 pos = msg_new.point
                 return np.r_[pos.x, pos.y]
@@ -251,14 +251,16 @@ class Mother:
                 return None
             i+=1
     def get_pos_as_PoseStamped(self):
+        
         pos = self.pos
-        msg = PoseStamped()
-        msg.header.frame_id = MOTHER_WORKING_FRAME
-        msg.header.stamp = rospy.Time.now()
-        msg.pose.position = Point(*[pos[0],pos[1],0])
-        msg.pose.orientation = Quaternion(0,0,0,0)
-        return msg
-
+        if pos is not None:
+            msg = PoseStamped()
+            msg.header.frame_id = MOTHER_WORKING_FRAME
+            msg.header.stamp = rospy.Time.now()
+            msg.pose.position = Point(*[pos[0],pos[1],0])
+            msg.pose.orientation = Quaternion(0,0,0,0)
+            return msg
+        return None
     def _handle_object_candidate_msg(self, obj_cand_msg):
         try:
             obj_cand = MazeObject(obj_cand_msg)
@@ -333,7 +335,8 @@ class Mother:
         rospy.loginfo("Trying to classify")
         print("---------------classifying object---------------")
         print(self.classifying_obj)
-
+        if not USING_VISION:
+            return True
         if self.classifying_obj is not None:
             resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
             class_label = resp.class_name.data
@@ -397,7 +400,7 @@ class Mother:
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
-        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.1):
+        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.2):
             self.mode = "turning_towards_object"
             self.classifying_obj = classifying_obj
             rospy.loginfo("We were able to find a way to turn")
@@ -562,14 +565,20 @@ class Mother:
                 #rospy.loginfo("Handling emergency stop")
 
             elif self.mode == "testing_turning":
-                robot_pos = self.pos
+                self.goal_pose = None
+                while True:
+                    robot_pos = self.pos
+                    if robot_pos is not None:
+                        break
                 angle = random.randint(0,360) 
                 print("TURN TO THE ANGLE ", angle)
                 dx = 0.5*math.cos(math.radians(angle))
                 dy = 0.5*math.sin(math.radians(angle))
                 msg = PosAndImage()
-                msg.pos.x = robot_pose.x +dx
-                msg.pos.y = robot_pose.y +dy
+                msg.pos.x = robot_pos[0] +dx
+                msg.pos.y = robot_pos[1] +dy
+                msg.header.frame_id = MOTHER_WORKING_FRAME
+                msg.header.stamp = rospy.Time.now()
                 classifying_obj = MazeObject(msg)
                 self.set_turning_towards_object(classifying_obj)
 
@@ -579,8 +588,8 @@ class Mother:
             #rospy.loginfo("mother iter {i}\n".format(i = self.i))
             #rospy.loginfo("\tClassification queue = {0}".format(self.object_classification_queue))
             #rospy.loginfo("\tclassifying object = {0}".format(self.classifying_obj ))
-            rospy.loginfo("\tdetected objects = \n{0}".format(self.maze_map.maze_objects))
-            rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
+            #rospy.loginfo("\tdetected objects = \n{0}".format(self.maze_map.maze_objects))
+            #rospy.loginfo("\tNew Mother loop, mode = \"{0}\"".format(self.mode))
             #rospy.loginfo("\tGoal pos = {goal}".format(goal = self.goal_pose))
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.maze_map.update(exclude_set={self.classifying_obj})
