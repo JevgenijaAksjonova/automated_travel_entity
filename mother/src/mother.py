@@ -453,7 +453,7 @@ class Mother:
             #print("setting turning towards object")
             if not self.set_turning_towards_object(classifying_obj):
                 set_continue_state()
-            else
+            else:
                 return True
                 #self.set_following_an_exploration_path()
         return False
