@@ -11,15 +11,14 @@ OBJECT_CANDIDATES_TOPIC = "/camera/object_candidates"
 GOAL_POSE_TOPIC = "/move_base_simple/goal"
 NAVIGATION_GOAL_TOPIC = "navigation/set_the_goal"
 NAVIGATION_EXPLORATION_TOPIC = "navigation/exploration_path"
-NAVIGATION_EXPLORATION_COMPLETE_TOPIC = "navigation/exploration_status"
+NAVIGATION_EXPLORATION_STATUS_TOPIC = "navigation/exploration_status"
 NAVIGATION_STOP_TOPIC = "navigation/obstacles"
 GOAL_ACHIEVED_TOPIC = "navigation/status"
-NAVIGATION_DISTANCE_TOPIC = "navigation/distance"
 MOTHER_WORKING_FRAME = "odom"
 ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
 ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 ODOMETRY_TOPIC = "/odometry_node/odom"
-
+NAVIGATION_DISTANCE_TOPIC = "navigation/distance"
 USING_PATH_PLANNING = True
 USING_ARM = False
 USING_VISION = False
@@ -37,6 +36,17 @@ color_2_rgb = {
     "error": (128, 128, 128),
 }
 
+shape_2_allowed_colors = {
+    "Cube": ["blue","green","yellow"]
+    "Hollow Cross": ["orange","purple"]
+    "Hollow Cube": ["red","green"]
+    "Hollow Cylinder":["green","red"]
+    "Hollow Triangle":["blue"]
+    "Nothing":["green","red","blue","yellow","purple","orange"]
+    "Sphere":["yellow","red"]
+    "Star":["purple","orange"]
+}
+
 #Define verboseness of different parts
 
 VISION_VERBOSE = True
@@ -46,3 +56,4 @@ MAP_P_DECREASE = 0.0005
 SAVE_PERIOD_SECS = 3
 MOTHER_STATE_FILE = "mother_state.yaml"
 RECOGNITION_MIN_P = 0.6
+CLASSIFYING_BASED_ON_COLOR = True

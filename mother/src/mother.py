@@ -24,7 +24,7 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
@@ -246,7 +246,8 @@ class Mother:
                 return np.r_[pos.x, pos.y]
             else:
                 return None
-
+            i+=1
+    
     def _handle_object_candidate_msg(self, obj_cand_msg):
         try:
             obj_cand = MazeObject(obj_cand_msg)
@@ -324,13 +325,21 @@ class Mother:
 
         if self.classifying_obj is not None:
             resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
+            class_label = resp.class_name.data
+            class_id = resp.class_id.data
+            class_p = resp.probability.data
             rospy.loginfo("resp.probability = {0}".format(
-                resp.probability.data))
-            rospy.loginfo("resp.probability > {min_p} = {p}".format(p=
-                resp.probability.data > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
-            rospy.loginfo("resp.class_name = {0}".format(resp.class_name.data))
-            if resp.probability.data > RECOGNITION_MIN_P and self.classifying_obj.color.lower() in resp.class_name.data.lower():
-                self.classifying_obj.classify(resp.class_name.data,resp.class_id.data)
+                class_p))
+            rospy.loginfo("class_p > {min_p} = {p}".format(p=
+                class_p > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
+            rospy.loginfo("class_label = {0}".format(class_label))
+            if class_p > RECOGNITION_MIN_P:
+                if CLASSIFYING_BASED_ON_COLOR:
+                    if self.classifying_obj.color.lower() in class_label.lower():
+                        self.classifying_obj.classify(class_label,class_id)
+                else:
+                    if self.classifying_obj.color.lower() in shape_2_allowed_colors[class_label]:
+                        self.classifying_obj.classify(self.classifying_obj.color + class_label,class_id)
                 rospy.loginfo("returning true from try classify")
                 return True
             return False
