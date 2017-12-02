@@ -103,6 +103,11 @@ class Mother:
                 OBJECT_CANDIDATES_TOPIC,
                 PosAndImage,
                 callback=self._obj_cand_callback)
+        
+        rospy.Subscriber(
+            NAVIGATION_EXPLORATION_STATUS_TOPIC,
+            Bool,
+            callback=self._exploration_status_callback)
 
         rospy.Subscriber(
             GOAL_POSE_TOPIC, PoseStamped, callback=self._goal_pose_callback)
@@ -424,6 +429,21 @@ class Mother:
             self.mode = "lift_up_object"
         else:
             activate_next_state()
+
+    #Returns true if the mother mode has been changed.
+    def classify_if_close(self,set_continue_state):
+        self.object_classification_queue = list(
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
+        if len(self.object_classification_queue) > 0:
+            classifying_obj = self.object_classification_queue.pop()
+            #print("setting turning towards object")
+            if not self.set_turning_towards_object(classifying_obj):
+                set_continue_state()
+            else
+                return True
+                #self.set_following_an_exploration_path()
+        return False
+        
     # Main mother loop
     def mother_forever(self, rate=5):
         self.rate = rospy.Rate(rate)
@@ -459,23 +479,13 @@ class Mother:
                         self.set_following_path_to_main_goal()
 
             elif self.mode == "following_path_to_main_goal":
-                self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(self.pos,3))
-                if len(self.object_classification_queue) > 0:
-                    classifying_obj = self.object_classification_queue.pop()
-                    self.set_following_path_to_object_classification(
-                        classifying_obj)
+                changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
+                if self.nav_goal_acchieved and not changed_mode:
+                    self.set_waiting_for_main_goal()
 
             elif self.mode == "following_an_exploration_path":
-                self.object_classification_queue = list(
-                    self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=1,max_classification_attempts=0))
-                if len(self.object_classification_queue) > 0:
-                    classifying_obj = self.object_classification_queue.pop()
-                    #print("setting turning towards object")
-                    if not self.set_turning_towards_object(classifying_obj):
-                        self.set_following_an_exploration_path()
-                        #print("was not able to find path to turn")
-                elif self.exploration_completed:
+                changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
+                if self.exploration_completed and not changed_mode:
                     self.exploration_completed = False
                     self.goal_pose = self.initial_pose
                     self.set_following_path_to_main_goal()
