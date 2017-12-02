@@ -37,14 +37,14 @@ color_2_rgb = {
 }
 
 shape_2_allowed_colors = {
-    "Cube": ["blue","green","yellow"]
-    "Hollow Cross": ["orange","purple"]
-    "Hollow Cube": ["red","green"]
-    "Hollow Cylinder":["green","red"]
-    "Hollow Triangle":["blue"]
-    "Nothing":["green","red","blue","yellow","purple","orange"]
-    "Sphere":["yellow","red"]
-    "Star":["purple","orange"]
+    "Cube": ["blue","green","yellow"],
+    "Hollow Cross": ["orange","purple"],
+    "Hollow Cube": ["red","green"],
+    "Hollow Cylinder":["green","red"],
+    "Hollow Triangle":["blue"],
+    "Nothing":["green","red","blue","yellow","purple","orange"],
+    "Sphere":["yellow","red"],
+    "Star":["purple","orange"],
 }
 
 #Define verboseness of different parts
