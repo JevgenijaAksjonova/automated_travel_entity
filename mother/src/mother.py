@@ -24,7 +24,7 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR
 from pprint import pprint
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
@@ -247,7 +247,15 @@ class Mother:
             else:
                 return None
             i+=1
-    
+    def get_pos_as_PoseStamped(self):
+        pos = self.pos
+        msg = PoseStamped()
+        msg.header.frame_id = MOTHER_WORKING_FRAME
+        msg.header.stamp = rospy.Time.now()
+        msg.pose.position = Point(*[pos[0],pos[1],0])
+        msg.pose.orientation = Quaternion(0,0,0,0)
+        return msg
+
     def _handle_object_candidate_msg(self, obj_cand_msg):
         try:
             obj_cand = MazeObject(obj_cand_msg)
@@ -483,7 +491,7 @@ class Mother:
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None or self.has_started:
                     while True:
-                        self.initial_pose = self.pos
+                        self.initial_pose = self.get_pos_as_PoseStamped()
                         if self.initial_pose is not None:
                             break
                     #robot_pos = self.pos 
@@ -509,7 +517,6 @@ class Mother:
             elif self.mode == "following_an_exploration_path":
                 changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
                 if self.exploration_completed and not changed_mode:
-                    continue
                     self.exploration_completed = False
                     self.goal_pose = self.initial_pose
                     self.set_following_path_to_main_goal()
