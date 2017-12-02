@@ -328,9 +328,7 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
     int maxD = ceil(robotRad/cellSize);
     if (map[start.x][start.y] == 1) {
        // cell is not empty, find the closest, which is within robotRad
-       double dist = 0;
-       Node newStart = start;
-       dist = findClosestFreeCell(newStart, maxD);
+       double dist = findClosestFreeCell(start, maxD);
        if (dist*cellSize > robotRad) {
            return vector<pair<int,int> >();
        } else {
@@ -415,7 +413,7 @@ void GlobalPathPlanner::sampleNodesToExplore() {
             pair<int, int> coord = getCell((i+0.5)*cellSizeL,(j+0.5)*cellSizeL);
             Node cell(coord.first,coord.second,0);
             int maxD = round(cellSizeL/cellSize);
-            int distance = findClosestFreeCell(cell,maxD);
+            double distance = findClosestFreeCell(cell,maxD);
             if (distance <= maxD) {
                 nodes.push_back(cell);
             }
@@ -543,9 +541,9 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         pair<double, double> location(x,y);
         cout << "Recalculate exploration, map did not change "<< x << " "<< y << " to "<< pathStart.first << " " << pathStart.second << endl;
         vector<pair<double, double> > path = getPath(location, pathStart);
-        cout << "Path size " << path.size();
+        cout << "Path size " << path.size() << endl;
         explorationPath.insert(explorationPath.begin(),path.begin(), path.end());
-        cout << "Exploration path size " << explorationPath.size();
+        cout << "Exploration path size " << explorationPath.size() << endl;
     } else {
         cout << "Recalculate exploration, map changed" << endl;
         // delete nodes, which are already visited
@@ -556,6 +554,18 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
             nodesToErase.push_back(nodeMarks[i].first);
             i++;
         }
+        // move and possibly delete nodes which were influenced by wall adding
+        int maxD = round(robotRad/cellSize);
+        for (int i = 0; i < nodes.size(); i++) {
+            Node n = nodes[i];
+            double distance = findClosestFreeCell(n,maxD);
+            if (distance > maxD) {
+                nodesToErase.push_back(i);
+            } else {
+                nodes[i] = n;
+            }
+        }
+
         cout << "Nodes to erase " << nodesToErase.size() << endl;
         if (nodesToErase.size()>0) {
             sort(nodesToErase.begin(), nodesToErase.end());
@@ -566,6 +576,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         explorationPath.clear();
         nodeMarks.clear();
         cout << "nodes left "<< nodes.size() << endl;
+
         pair<int, int> cell = getCell(x,y);
         Node startNode(cell.first,cell.second,0);
         nodes.insert(nodes.begin(),startNode);
