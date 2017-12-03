@@ -476,7 +476,7 @@ class WallFinder
 
     }
 
-    bool checkIfRobotInsideWall(Wall w){
+    bool checkIfRobotInsideWall(Wall &w){
     	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
     	if(distance < 0.1){
     		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
