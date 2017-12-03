@@ -151,6 +151,7 @@ class WallFinder
         battery_wall_subcriber = n.subscribe("/batteries_found", 100, &WallFinder::batteryWallCallback, this);
 
         _nr_measurements = nr_measurements;
+        readSavedWalls();
 
     }
 
@@ -478,7 +479,7 @@ class WallFinder
 
     }
 
-    bool checkIfRobotInsideWall(Wall w){
+    bool checkIfRobotInsideWall(Wall &w){
     	float distance = calculateLinePointDistance(_xPos, _yPos, w.xStart, w.yStart, w.xEnd, w.yEnd);
     	if(distance < 0.1){
     		ROS_INFO("Robot was inside wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
@@ -497,7 +498,7 @@ class WallFinder
         //float det xStart*yEnd - yStart*xEnd;
 
         //float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        rotation = atan2(yStart-yEnd, xStart-xEnd);
+        float rotation = atan2(yStart-yEnd, xStart-xEnd);
 
         if(rotation < 0){
         	rotation += M_PI;
