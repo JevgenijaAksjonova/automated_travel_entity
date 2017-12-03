@@ -1,7 +1,7 @@
 filter:
     particle_params:
         nr_particles : 1000
-        nr_measurements : 7
+        nr_measurements : 16 
         using_random_particles : false
         nr_random_particles : 50
         random_particle_spread : 0.1
@@ -12,5 +12,5 @@ filter:
         k_W : 0.5
     general:
         RUN_WHILE_STANDING_STILL : true
-	STUCK_TRESHOLD_DISTANCE : 0.2
-	STUCK_TRESHOLD_SPEED : 0.1
+        STUCK_TRESHOLD_DISTANCE : 0.2
+        STUCK_TRESHOLD_SPEED : 0.1

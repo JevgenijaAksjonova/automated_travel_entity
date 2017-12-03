@@ -655,11 +655,10 @@ class FilterPublisher
 
         if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
+            ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
         }
 
-        ROS_INFO("Linear V according to position: [%f]", linear_v_calc);
 
-        ROS_INFO("Linear V according to odometry: [%f]", linear_v);
     }
 
 
