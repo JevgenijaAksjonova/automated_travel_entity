@@ -642,7 +642,7 @@ void GlobalPathPlanner::writeNodesToFile() {
 void GlobalPathPlanner::readNodesFromFile() {
 
     string filename = "navigation_nodes.txt";
-
+    cout << "Reading from a file ..." << endl;
     nodes.clear();
     ifstream file(filename);
     if (file.is_open()) {
@@ -662,6 +662,7 @@ void GlobalPathPlanner::recovery() {
     if (nodes.size() > 0) {
         explorationStatus = 2;
     }
+    cout << "Number of nodes " << nodes.size() << endl;
     std_msgs::Bool status_msg;
     status_msg.data = 0;
     statusPub->publish(status_msg);
