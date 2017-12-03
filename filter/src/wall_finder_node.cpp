@@ -498,7 +498,7 @@ class WallFinder
         //float det xStart*yEnd - yStart*xEnd;
 
         //float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        rotation = atan2(yStart-yEnd, xStart-xEnd);
+        float rotation = atan2(yStart-yEnd, xStart-xEnd);
 
         if(rotation < 0){
         	rotation += M_PI;
