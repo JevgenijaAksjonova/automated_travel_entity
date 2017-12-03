@@ -240,10 +240,10 @@ class Mother:
         msg = PointStamped()
         msg.header.frame_id = "base_link"
         msg.header.stamp = rospy.Time.now()
-        msg_new = tf_transform_point_stamped(msg)
         pos = None
         i = 0
         while pos is None and i < 50:
+            msg_new = tf_transform_point_stamped(msg)
             if msg_new is not None:
                 pos = msg_new.point
                 return np.r_[pos.x, pos.y]
@@ -285,7 +285,7 @@ class Mother:
             self.nav_goal_acchieved = None
             request = global_pathRequest()
             request.pose = twist
-            request.distanceTol = distance_tol
+            request.distanceTol = distance_tole
             request.angleTol = angle_tol
             response = call_srv(self.global_path_service,request)
             return response.path_found
