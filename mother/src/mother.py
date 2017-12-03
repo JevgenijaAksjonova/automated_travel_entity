@@ -560,7 +560,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.15,0.7),max_classification_attempts=0,no_attempts_within_secs=6))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.15,0.7),max_classification_attempts=1,no_attempts_within_secs=6))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
@@ -618,7 +618,7 @@ class Mother:
                 if self.exploration_completed is not None and not changed_mode:
                     if self.exploration_completed :
                         robot_pos = self.pos
-                        self.lift_obj = filter(lambda obj: obj.classified and " ".join(obj.class_label.split(" ")[1:]) in liftable_shapes,sorted(
+                        self.lift_obj = filter(lambda obj: obj.shape in liftable_shapes,sorted(
                             self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
                         self.goal_pose = self.lift_obj.pose_stamped
                         self.set_following_path_to_main_goal(
