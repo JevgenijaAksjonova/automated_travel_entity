@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <pwd.h>
 #include <sstream>
+#include <iostream>
+#include <fstream>
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
 
@@ -159,6 +161,44 @@ class WallFinder
 
         }
     }
+
+    void readSavedWalls(){
+    	ifstream file;
+	    file.open(SAVED_WALLS_FILE);
+	    if (!file.is_open()){
+	        return;
+	    }
+	    string line;
+
+	    while (getline(file, line)){
+	        if (line[0] == '#') {
+	            // comment -> skip
+	            continue;
+	        }
+
+	        vector<float> wall;
+	        int enumVal;
+	        WallSource source;
+	        bool published = false;
+
+	        istringstream line_stream(line);
+	        // x1, y1, x2, y2
+	        line_stream >> wall[0] >> wall[1] >> wall[2] >> wall[3] >> enumVal;
+
+	        switch(enumVal){
+	        	case 1 : source = FromFile;
+	        	case 2 : source = FromLidar;
+	        	case 3 : source = FromCamera;
+ 	        }
+ 	        if(FromFile){
+ 	        	published = true;
+ 	        }
+            Wall w = createWall(wall[0], wall[1], wall[2], wall[3], 1000, published, source);
+            _wallsFound.push_back(w);
+ 	    }
+    }
+
+
 
     void batteryWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array){
     vector<double> wallVec;
@@ -602,7 +642,7 @@ class WallFinder
                 _wallsFound[i].published = true;
                 ROS_INFO("*********************Published wall %d [%f] [%f] [%f] [%f]******************'", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
 
-
+                saveWallsToFile();
             }
         }
 
@@ -610,6 +650,39 @@ class WallFinder
 
     float calculateDistanceBetweenOutliers(Outlier &first, Outlier &second){
         return sqrt(pow((second.xPos - first.xPos),2) + pow((second.yPos - first.yPos),2));
+    }
+
+    void saveWallsToFile(){
+    	vector<string> wallsToBeSaved;
+
+    	for(int i = 0; i < _wallsFound.size(); i++){
+    		if(_wallsFound[i].published){
+    			wallsToBeSaved.push_back(wallToString(_wallsFound[i]));
+    		}
+    	}
+    	printWallsToFile(wallsToBeSaved);
+
+    }
+
+    string wallToString(Wall &w){
+    	int enumVal;
+    	switch(w.source){
+    		case FromFile : enumVal =1;
+    		case FromLidar : enumVal = 2;
+    		case FromCamera : enumVal = 3;
+    	}
+    	string wallString = to_string(w.xStart) + " " + to_string(w.yStart) +" "+ to_string(w.xEnd) + " "+ to_string(w.yEnd) + " " + to_string(enumVal);
+    	return wallString;
+    }
+
+    void printWallsToFile(vector<string> &wallsToBeSaved){
+		ofstream file;
+		file.open(SAVED_WALLS_FILE);
+
+    	for(unsigned int i=0; i<wallsToBeSaved.size(); i++){
+			file << wallsToBeSaved[i] << endl;
+		}
+		file.close();
     }
 
   private:
@@ -626,6 +699,7 @@ class WallFinder
     float MAX_DISTANCE_TO_OUTLIER;
     float ANGULAR_VELOCITY_TRESHOLD;
     int TRUST_IN_CAMERA;
+    string SAVED_WALLS_FILE = "saved_walls.txt";
 
 };
 
