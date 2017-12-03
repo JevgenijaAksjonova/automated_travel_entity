@@ -192,7 +192,6 @@ def tf_transform_point_stamped(pose_stamped_msg, max_iter=3000):
     trans.waitForTransform(
         MOTHER_WORKING_FRAME,
         pose_stamped_msg.header.frame_id,
-        rospy.Time(),
         rospy.Duration(secs=3))
     while ros_sucks and i < max_iter:
         try:
@@ -350,6 +349,12 @@ class MazeObject(object):
             self._marker.ns = "MazeObjects"
             self._vis_pub.publish(self._marker)
 
+    @property
+    def shape(self):
+        if self.classified and self.class_id != TRAP_CLASS_ID:
+            return " ".join(self.class_label.split(" ")[1:])
+        else:
+            return None
     def get_evidence_msg(self):
         msg = RAS_Evidence()
         msg.stamp = rospy.Time.now()
