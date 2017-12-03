@@ -181,7 +181,7 @@ int main(int argc, char **argv)
   double gridCellSize = 0.01;
   double robotRadius = 0.17;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
-  gpp->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  gpp->explorationStatusPub = n.advertise<std_msgs::Bool>("navigation/exploration_status", 1);
 
   MapVisualization mapViz(gpp);
   stringstream s;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, path.get());
 
   // status
-  gpp->explorationStatusPub = &path->statusPub;
+  gpp->statusPub = &path->statusPub;
 
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
