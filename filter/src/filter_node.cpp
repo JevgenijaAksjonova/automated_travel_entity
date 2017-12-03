@@ -661,11 +661,11 @@ class FilterPublisher
         if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
             ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
-            //project_msgs::stop msg;
-            //msg.stamp = ros::Time::now();
-            //msg.stop = true;
-            //msg.reason = 4;
-            //stopPub.publish(msg);
+            project_msgs::stop msg;
+            msg.stamp = ros::Time::now();
+            msg.stop = true;
+            msg.reason = 5;
+            stuck_publisher.publish(msg);
         }
 
 
