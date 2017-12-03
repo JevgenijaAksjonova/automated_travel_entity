@@ -353,7 +353,9 @@ class MazeObject(object):
     @property
     def shape(self):
         if self.classified and self.class_id != TRAP_CLASS_ID:
-            return " ".join(self.class_label.split(" ")[1:])
+            split = self.class_label.split(" ")
+            print(split)
+            return " ".join(split[1:])
         else:
             return None
     def get_evidence_msg(self):

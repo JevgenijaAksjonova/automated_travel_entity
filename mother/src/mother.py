@@ -47,7 +47,7 @@ class Mother:
     odometry_msg = None
     classifying_obj = None
     i = 0
-    lifting_object = None
+    lift_object = None
     object_classification_queue = []
     problem_with_path_following = False
     nav_goal_acchieved = True
@@ -526,13 +526,13 @@ class Mother:
 
     def lift_up_object(self,activate_next_state=None):
         if USING_ARM:
-            rospy.log("lifting object at {0}".format(self.lifting_obj))
-            msg = self.lifting_object.pose_stamped
+            rospy.loginfo("lifting object at {0}".format(self.lift_object))
+            msg = self.lift_object.pose_stamped
             j = 0
             while j < 3:
-                initial_height = self.lifting_object.height
+                initial_height = self.lift_object.height
                 i = 0
-                while i < 10:
+                while i < 1000:
                     trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Time(),rospy.Duration(secs=3))
                     try:
                         i+=1
@@ -619,9 +619,9 @@ class Mother:
                 if self.exploration_completed is not None and not changed_mode:
                     if self.exploration_completed :
                         robot_pos = self.pos
-                        self.lift_obj = filter(lambda obj: obj.shape in liftable_shapes,sorted(
+                        self.lift_object = filter(lambda obj: obj.shape in liftable_shapes,sorted(
                             self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
-                        self.goal_pose = self.lift_obj.pose_stamped
+                        self.goal_pose = self.lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
                             activate_next_state=self.lift_up_object)
                         #self.set_following_path_to_main_goal(
