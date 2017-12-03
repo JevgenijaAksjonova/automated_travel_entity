@@ -48,6 +48,8 @@ def compute_joint_angles(end_effector_goal):
 class ArmController(object):
     
     def __init__(self):
+        rospy.wait_for_service("/uarm/move_to_joints")
+        rospy.wait_for_service("/uarm/pump")
         self.uarmService = rospy.ServiceProxy("/uarm/move_to_joints",MoveToJoints,persistent=True)
         self.pumpService = rospy.ServiceProxy("/uarm/pump",Pump,persistent=True)
         self.pump_control(False)
