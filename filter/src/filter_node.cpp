@@ -632,7 +632,7 @@ class FilterPublisher
         float dx = ml_pos.xPos - ml_pos_prev.xPos;
         float dy = ml_pos.yPos - ml_pos_prev.yPos;
 
-        float diff = ml_pos_prev.thetaPos - atan2(dx, dy);
+        float diff = ml_pos_prev.thetaPos - atan2(dy, dx);
 
         float distance = sqrt(pow(ml_pos.xPos - ml_pos_prev.xPos, 2) + pow(ml_pos.yPos - ml_pos_prev.yPos, 2));
         float linear_v_calc = cos(diff)*distance/dt;
