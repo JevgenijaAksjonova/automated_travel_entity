@@ -66,7 +66,7 @@ class ArmController(object):
             #print("Response with offset:joint0:",resp.j0+5.4,"joint1:",resp.j1+8.0,"joint2:",resp.j2+30.0)
             #resp.elapsed
             #resp.error
-            if resp.j0-req.j0+joint0_offset<1.0 and resp.j1-req.j1+joint1_offset<1.0 and resp.j2-req.j2+joint2_offset<1.0: # float equal?
+            if resp.j0-req.j0+joint0_offset<0.5 and resp.j1-req.j1+joint1_offset<0.5 and resp.j2-req.j2+joint2_offset<0.5: # float equal?
                 return 1 #movement_success
             else:
                 return 2 #movement_fail
