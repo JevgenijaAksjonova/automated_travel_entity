@@ -151,6 +151,7 @@ class WallFinder
         battery_wall_subcriber = n.subscribe("/batteries_found", 100, &WallFinder::batteryWallCallback, this);
 
         _nr_measurements = nr_measurements;
+        readSavedWalls();
 
     }
 
