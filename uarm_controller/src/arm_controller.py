@@ -56,7 +56,7 @@ class ArmController(object):
         req.j2 = joint2 + joint2_offset
         req.j3 = 0
         req.move_mode = 0
-        req.movement_duration = rospy.Duration(secs=3)
+        req.movement_duration = rospy.Duration(secs=2.5)
         req.interpolation_type = 1
         req.check_limits = False
         
@@ -108,8 +108,7 @@ class ArmController(object):
             else:
                 rospy.loginfo("Arm movement need to be adjusted")                
         else:
-            rospy.logerr("Arm movement service failed")
-         
+            rospy.logerr("Arm movement service failed")         
         
 
          # From target back to initial position    
