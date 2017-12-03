@@ -342,6 +342,7 @@ vector<pair<int,int> > GlobalPathPlanner::getPathGrid(pair<int,int> startCoord, 
 
     //cout <<"GPP started, goal cell: "<< goal.x <<  " " <<goal.y << endl;
     double distanceTol = 0;
+    maxD = ceil(robotRad/cellSize);
     if (map[goal.x][goal.y] == 1) {
        //cout <<"Cell is not empty! " << robotRad <<endl;
        // cell is not empty, find the closest, which is within robotRad
@@ -520,11 +521,13 @@ void GlobalPathPlanner::computeExplorationPath() {
         pathGrid.insert(pathGrid.end(), part.begin(), part.end());
         nodeMarks.push_back(pair<int,int>(path[i+1], pathGrid.size()-1));
     }
+    cout << "Path size = " << path.size() << endl;
 
     int pathSize = pathGrid.size();
     for (int i = 0; i < nodeMarks.size(); i++) {
         nodeMarks[i].second = pathSize - nodeMarks[i].second;
     }
+    cout << "Node marks size = " << nodeMarks.size() << endl;
 
     for (size_t i = 0; i < pathGrid.size(); i++) {
         double x = mapOffset.first+(pathGrid[i].first+0.5)*cellSize;
@@ -598,6 +601,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         nodes.insert(nodes.begin(),startNode);
         computeExplorationPath();
         mapChanged = false;
+        cout << "Computation finished!! " << endl;
     }
 }
 
