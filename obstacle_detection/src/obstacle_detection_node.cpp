@@ -509,10 +509,9 @@ int main(int argc, char **argv)
 
       obstacle_publisher.publish(obs.obstacles_found);
 
-      /*
       if(obs.angular_vel < 0.7) {
         obs.sendBatteries();
-      }*/
+      }
     }
 
     loop_rate.sleep();
