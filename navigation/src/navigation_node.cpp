@@ -181,7 +181,7 @@ int main(int argc, char **argv)
   double gridCellSize = 0.01;
   double robotRadius = 0.17;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
-  gpp->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  gpp->explorationStatusPub = n.advertise<std_msgs::Bool>("navigation/exploration_status", 1);
 
   MapVisualization mapViz(gpp);
   stringstream s;
@@ -206,13 +206,15 @@ int main(int argc, char **argv)
   // emergency stop
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, path.get());
 
+  // status
+  gpp->statusPub = &path->statusPub;
+
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal_test", 1, &GoalPosition::publisherCallback, &goal);
   ros::ServiceServer explorationService = n.advertiseService("navigation/exploration_path", &GoalPosition::explorationCallback, &goal);
   ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
   ros::ServiceServer distanceService = n.advertiseService("navigation/distance", &GoalPosition::distanceServiceCallback, &goal);
-  ros::Publisher explorationStatusPub = n.advertise<std_msgs::Bool>("navigation/exploration_status", 1);
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
@@ -248,7 +250,7 @@ int main(int argc, char **argv)
             gpp->explorationStatus = 3;
             std_msgs::Bool msg;
             msg.data = 1;
-            explorationStatusPub.publish(msg);
+            gpp->explorationStatusPub.publish(msg);
         }
 
         if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
