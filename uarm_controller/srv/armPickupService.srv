@@ -1,0 +1,9 @@
+#Request
+int8 requestType
+geometry_msgs/Point pos #Only valid for request lift and release
+int8 requestTypeLift=0
+int8 requestTypeStore=1
+int8 reqestTypeRelease=2
+---
+#Response
+bool success
