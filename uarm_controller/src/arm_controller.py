@@ -18,12 +18,12 @@ joint1_init = 30.0
 joint2_init = 60.0
 
 joint0_store = 0.0  #need to be checked
-joint1_store = 30.0 #need to be checked
-joint2_store = 60.0 #need to be checked
+joint1_store = 141.0 #need to be checked
+joint2_store = 27.0 #need to be checked
 
 joint0_release = 0.0 #MUST be design
-joint1_release = 30.0 #need to be check
-joint2_release = 60.0 #need to be check
+joint1_release = -8.0 #need to be check
+joint2_release = 84.0 #need to be check
 
 arm_movement_noise = 1
 
@@ -38,7 +38,7 @@ def compute_joint_angles(end_effector_goal):
     joint0 =  atan2(y,x)*360/(2*pi)
     joint1 = (beta - theta)*360/(2*pi)
     joint2 = (alpha + theta)*360/(2*pi)
-    #print("Target: For x",x,"y",y,"z",z,"joint0:",joint0,"joint1:",joint1,"joint2:",joint2)
+    print("Target: For x",x,"y",y,"z",z,"joint0:",joint0,"joint1:",joint1,"joint2:",joint2)
     return joint0, joint1, joint2 #ignore useless joint3 
 
 class ArmController(object):
@@ -46,6 +46,7 @@ class ArmController(object):
     def __init__(self):
         self.uarmService = rospy.ServiceProxy("/uarm/move_to_joints",MoveToJoints,persistent=True)
         self.pumpService = rospy.ServiceProxy("/uarm/pump",Pump,persistent=True)
+        self.pump_control(False)
         self.move_to_joints(joint0_init, joint1_init, joint2_init)
 
     def move_to_joints(self,joint0, joint1, joint2):
@@ -94,7 +95,7 @@ class ArmController(object):
 
         pump_result = self.pump_control(True) #bool            
         if pump_result:
-            rospy.loginfo("Pump success")
+            rospy.loginfo("Pump succeed")
         else:
             rospy.logerr("Pump service failed")
 
@@ -103,7 +104,7 @@ class ArmController(object):
         step1_result = self.move_arm(x,y,z-2)
         if step1_result != 0:
             if step1_result == 1:
-                rospy.loginfo("Arm movement success")
+                rospy.loginfo("Arm movement succeed")
             else:
                 rospy.loginfo("Arm movement need to be adjusted")                
         else:
@@ -115,7 +116,7 @@ class ArmController(object):
         step2_result = self.move_to_joints(joint0_init, joint1_init, joint2_init)
         if step2_result !=0:
             if step2_result == 1: #1
-                rospy.loginfo("Arm movement success")
+                rospy.loginfo("Arm movement succeed")
             else: #2
                 rospy.loginfo("Arm movement need to be adjusted")                
         else: #0
@@ -137,13 +138,14 @@ class ArmController(object):
     def handle_release(self):#def handle_release(self,pos):
         move_result = self.move_to_joints(joint0_release, joint1_release, joint2_release)
         pump_result = self.pump_control(False) #bool
+        self.move_to_joints(joint0_init, joint1_init, joint2_init)
         if not pump_result:
-            rospy.loginfo("Pump success")
+            rospy.loginfo("Pump succeed")
         else:
             rospy.logerr("Pump service failed") 
                 
         if move_result and not pump_result: 
-            rospy.loginfo("Arm release success")           
+            rospy.loginfo("Arm release succeed")           
             return True
         else:
             rospy.logerr("Arm release failed")  
