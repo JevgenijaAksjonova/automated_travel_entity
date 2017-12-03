@@ -449,7 +449,8 @@ class WallFinder
         float y = wNew.yCenter;
 
         float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
-        float angleDifference =  M_PI - abs(abs(wNew.angle - wOld.angle) - M_PI); 
+        float angleDifference =  (abs(wNew.angle - wOld.angle)); 
+        ROS_INFO("ANGLE DIFFERENCE wnew [%f] wold[%f] diff [%f]", wNew.angle, wOld.angle, angleDifference);
         ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
         ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
         if(centerDistance > 0.05 && angleDifference > M_PI/5){
@@ -490,8 +491,15 @@ class WallFinder
         float centre_x = (xStart + xEnd) / 2;
         float centre_y = (yStart + yEnd) / 2;
 
-        float rotation = atan2((yEnd - yStart), (xEnd - xStart));
-        rotation = fmod(rotation,M_PI);
+        //float dot = xStart * xEnd + yStart*yEnd;
+        //float det xStart*yEnd - yStart*xEnd;
+
+        //float rotation = atan2((yEnd - yStart), (xEnd - xStart));
+        rotation = atan2(yStart-yEnd, xStart-xEnd);
+
+        if(rotation < 0){
+        	rotation += M_PI;
+        }
         float length = sqrt(pow(yEnd - yStart, 2) + pow(xEnd - xStart, 2));
 
         Wall w;
