@@ -23,7 +23,7 @@ pair<float, float> particleToLidarConversion(float x_particle, float y_particle,
 }
 
 
-vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float particle_theta)
+vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap& map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float particle_theta)
 {
 
     float currentAngle = 0;
@@ -64,7 +64,7 @@ float get_dist_value(float mean, float sigma2, float number){
     return base*exponent;
 }
 
-float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta)
+float calculateWeight(LocalizationGlobalMap& map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta)
 {
     if(translated_particle_x <0 || translated_particle_x > 2.4 || translated_particle_y < 0 || translated_particle_y > 2.409){
         return 0;
@@ -152,7 +152,7 @@ float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, fl
     return weight;
 }
 
-void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y)
+void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap& map, vector<pair<float, float>> &laser_data, float max_distance, float lidar_x, float lidar_y)
 {
     float weight = 0;
 

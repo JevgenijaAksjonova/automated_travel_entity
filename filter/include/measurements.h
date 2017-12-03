@@ -19,13 +19,13 @@ struct Particle{
 
 };
 
-void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap map, vector<pair<float, float>> laser_data, float max_distance, float lidar_x, float lidar_y);
-float calculateWeight(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta);
+void getParticlesWeight(vector<Particle> &particles, LocalizationGlobalMap& map, vector<pair<float, float>>& laser_data, float max_distance, float lidar_x, float lidar_y);
+float calculateWeight(LocalizationGlobalMap& map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float max_distance, float particle_theta);
 
 void calculateIntrinsicParameters(LocalizationGlobalMap map, vector<pair<float, float>>, float max_distance, float pos_x, float pos_y, float lidar_orientation, float &z_hit, float &z_short, float &z_max, float &z_random, float &sigma_hit, float &lambda_short);
   
 pair<float, float> particleToLidarConversion(float x_particle, float y_particle, float theta_particle, float lidar_x, float lidar_y);  
 
-vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float lidar_orientation);
+vector<pair<float, float>> calculateRealRange(LocalizationGlobalMap& map, float translated_particle_x, float translated_particle_y, vector<pair<float, float>> laser_data, float lidar_orientation);
 
 #endif
