@@ -623,7 +623,9 @@ class Mother:
                             self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
                         self.goal_pose = self.lift_obj.pose_stamped
                         self.set_following_path_to_main_goal(
-                            activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
+                            activate_next_state=self.lift_up_object)
+                        #self.set_following_path_to_main_goal(
+                        #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
                         self.set_following_an_exploration_path()
 
