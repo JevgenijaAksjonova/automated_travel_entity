@@ -13,6 +13,8 @@
 #include <pwd.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <project_msgs/stop.h>
+
 
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/MultiArrayLayout.h"
@@ -35,6 +37,7 @@ class FilterPublisher
 
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
+    ros::Publisher stuck_publisher;
 
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
@@ -161,6 +164,8 @@ class FilterPublisher
 
         filter_publisher = n.advertise<nav_msgs::Odometry>("/filter", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
+        stuck_publisher = n.advertise<project_msgs::stop>("navigation/obstacles",100);
+
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
@@ -656,6 +661,11 @@ class FilterPublisher
         if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
             ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
+            project_msgs::stop msg;
+            msg.stamp = ros::Time::now();
+            msg.stop = true;
+            msg.reason = 5;
+            stuck_publisher.publish(msg);
         }
 
 
@@ -749,13 +759,11 @@ int main(int argc, char **argv)
 
         linear_v_vec.push_back(filter.linear_v);
 
-        if(count % 10 == 0){
+        if(count % 50 == 0){
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec);
             linear_v_vec.clear();
             most_likely_position_prev = most_likely_position;
 
-
-            
         }
 
         ros::spinOnce();
