@@ -150,14 +150,14 @@ class ArmController(object):
         else:
             rospy.logerr("Arm release failed")  
             return False
-    def check_target_position(self,x,y,z):
+    #def check_target_position(self,x,y,z):
         
     def handle_arm_service_request(self,request):
-        point = request.pos  #unit: m; frame: arm (prefer,but base frame just need to add offset: x:-2;y:0,z:-16)
+        point = request.pos  #unit: m; frame: robot base frame
         if request.requestType == armPickupServiceRequest.requestTypeLift:
-            x = point.x *100.0 #unit: cm ; frame: arm
-            y = point.y *100.0 #unit: cm ; frame: arm
-            z = point.z *100.0
+            x = point.x *100.0 -2.0 #unit: cm ; frame: arm now
+            y = point.y *100.0      #unit: cm ; frame: arm frame
+            z = point.z *100.0 -16.0#unit: cm ; frame: arm frame 
             mode = 0
             noise_variance = 0 # 1 IS A GOOD TRY
             resp = self.handle_lift(x,y,z,mode,noise_variance)  #1 for finishing
