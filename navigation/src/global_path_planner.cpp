@@ -47,6 +47,8 @@ GlobalPathPlanner::GlobalPathPlanner(const string& mapFile, float p_cellSize, fl
     mapChanged = false;
     //getExplorationPath();
 
+    recovery();
+
 }
 
 pair<int, int> GlobalPathPlanner::getCell(double x, double y){
@@ -419,6 +421,8 @@ void GlobalPathPlanner::sampleNodesToExplore() {
             }
         }
     }
+
+    writeNodesToFile();
 }
 
 void GlobalPathPlanner::computeExplorationPath() {
@@ -587,6 +591,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         explorationPath.clear();
         nodeMarks.clear();
         cout << "nodes left "<< nodes.size() << endl;
+        writeNodesToFile();
 
         pair<int, int> cell = getCell(x,y);
         Node startNode(cell.first,cell.second,0);
@@ -617,7 +622,53 @@ void GlobalPathPlanner::explorationCallback(bool start_exploration, double x, do
     }
 }
 
-//vectorexplorationPath(alreadyexplored path)
+/* RECOVERY FUNCTIONS */
+
+#include <fstream>
+
+void GlobalPathPlanner::writeNodesToFile() {
+
+    string filename = "navigation_nodes.txt";
+
+    ofstream file(filename);
+    if (file.is_open()) {
+        for (int i = 0; i < nodes.size(); i++) {
+            file << nodes[i].x << " " << nodes[i].y << endl;
+        }
+        file.close();
+    }
+}
+
+void GlobalPathPlanner::readNodesFromFile() {
+
+    string filename = "navigation_nodes.txt";
+    cout << "Reading from a file ..." << endl;
+    nodes.clear();
+    ifstream file(filename);
+    if (file.is_open()) {
+        string line;
+        while(getline(file,line)) {
+            int x,y;
+            stringstream ss(line);
+            ss >> x >> y;
+            nodes.push_back(Node(x,y,0));
+        }
+        file.close();
+    }
+}
+
+void GlobalPathPlanner::recovery() {
+    readNodesFromFile();
+    if (nodes.size() > 0) {
+        explorationStatus = 2;
+    }
+    cout << "Number of nodes " << nodes.size() << endl;
+    std_msgs::Bool status_msg;
+    status_msg.data = 0;
+    //statusPub->publish(status_msg);
+    //cout << "publishing failed" << endl;
+    //explorationStatusPub.publish(status_msg);
+}
 
 
 /*

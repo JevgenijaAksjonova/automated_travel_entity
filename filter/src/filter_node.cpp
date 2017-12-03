@@ -155,7 +155,7 @@ class FilterPublisher
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
         initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
-        addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
+        //addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
 
 
 
@@ -470,12 +470,12 @@ class FilterPublisher
         }
     }
 
-    void publishPosition(Particle ml_pos, Particle ml_pos_prev)
+    void publishPosition(Particle ml_pos)
     {
         ros::Time current_time = ros::Time::now();
-        float theta = atan2(sin(ml_pos.thetaPos)+sin(ml_pos_prev.thetaPos), cos(ml_pos_prev.thetaPos) +cos(ml_pos.thetaPos));
-        float x = (ml_pos.xPos + ml_pos_prev.xPos)/2;
-        float y = (ml_pos.yPos + ml_pos_prev.yPos)/2;
+        float theta = ml_pos.thetaPos;
+        float x = ml_pos.xPos;
+        float y = ml_pos.yPos;
 
 
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
@@ -628,6 +628,20 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
+    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev){
+        float dx = ml_pos.xPos - ml_pos_prev.xPos;
+        float dy = ml_pos.yPos - ml_pos_prev.yPos;
+
+        float diff = ml_pos_prev.thetaPos - atan2(dy, dx);
+
+        float distance = sqrt(pow(ml_pos.xPos - ml_pos_prev.xPos, 2) + pow(ml_pos.yPos - ml_pos_prev.yPos, 2));
+        float linear_v_calc = cos(diff)*distance/dt;
+        ROS_INFO("Linear V according to position: [%f]", linear_v_calc);
+
+        ROS_INFO("Linear V according to odometry: [%f]", linear_v);
+    }
+
+
 
   private:
     std::vector<int> encoding_abs_prev;
@@ -679,10 +693,6 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(frequency);
 
     Particle most_likely_position;
-    Particle most_likely_position_prev;
-    most_likely_position_prev.xPos = 0.0;
-    most_likely_position_prev.yPos = 0.0;
-    most_likely_position_prev.thetaPos = 0.0;
     std::vector<std::pair<float, float>> sampled_measurements;
 
 
@@ -690,6 +700,10 @@ int main(int argc, char **argv)
     filter._start_y = 0.230;
     filter._start_theta = M_PI/2;
     filter.initializeParticles();
+    Particle most_likely_position_prev;
+    most_likely_position_prev.xPos = 0;
+    most_likely_position_prev.yPos = 0;
+    most_likely_position_prev.thetaPos = 0;
 
 
 
@@ -705,11 +719,11 @@ int main(int argc, char **argv)
 
 
         most_likely_position = filter.localize();
+        filter.publishPosition(most_likely_position);
+
+        filter.checkIfStuck(most_likely_position, most_likely_position_prev);
         most_likely_position_prev = most_likely_position;
-        filter.publishPosition(most_likely_position, most_likely_position_prev);
         filter.publish_rviz_particles();
-        //filter.collect_measurements(sampled_measurements, map);
-        most_likely_position_prev = most_likely_position;
         ros::spinOnce();
 
         loop_rate.sleep();
