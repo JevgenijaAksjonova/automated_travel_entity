@@ -206,9 +206,6 @@ int main(int argc, char **argv)
   // emergency stop
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, path.get());
 
-  // status
-  gpp->statusPub = &path->statusPub;
-
   // Goal
   GoalPosition goal = GoalPosition(gpp, loc, path);
   ros::Subscriber goalSub = n.subscribe("navigation/set_the_goal_test", 1, &GoalPosition::publisherCallback, &goal);
@@ -224,6 +221,12 @@ int main(int argc, char **argv)
 
   path->onlyTurn = false;
   double prevAngVel = 0.0;
+
+  // recovery
+  std_msgs::Bool status_msg;
+  status_msg.data = 0;
+  path->statusPub.publish(status_msg);
+  gpp->explorationStatusPub.publish(status_msg);
 
   int count = 0;
   while (ros::ok())

@@ -67,7 +67,6 @@ public:
     void writeNodesToFile();
     void readNodesFromFile();
     void recovery();
-    ros::Publisher* statusPub;
     ros::Publisher explorationStatusPub;
 
 private:
