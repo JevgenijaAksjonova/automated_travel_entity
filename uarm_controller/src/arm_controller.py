@@ -17,6 +17,10 @@ joint0_init = 0.0
 joint1_init = 141.0#30.0
 joint2_init = 27.0#60.0
 
+joint0_check = 0.0
+joint1_check = 30.0#30.0
+joint2_check = 60.0#60.0
+
 joint0_store = 0.0  #need to be checked
 joint1_store = 141.0 #need to be checked
 joint2_store = 27.0 #need to be checked
@@ -113,7 +117,7 @@ class ArmController(object):
         
 
          # From target back to initial position    
-        step2_result = self.move_to_joints(joint0_init, joint1_init, joint2_init)
+        step2_result = self.move_to_joints(joint0_check, joint1_check, joint2_check)
         if step2_result !=0:
             if step2_result == 1: #1
                 rospy.loginfo("Arm movement succeed")
