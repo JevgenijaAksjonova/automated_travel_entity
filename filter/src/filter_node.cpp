@@ -514,6 +514,7 @@ class FilterPublisher
 
     }
 
+    /*
     void collect_measurements(std::vector<std::pair<float, float>> &sampled_measurements)
     {
         int nr_measurements_used = 8;
@@ -580,6 +581,7 @@ class FilterPublisher
             ROS_INFO("Parameters found zhit:[%f] zshort:[%f] zmax:[%f], zradom:[%f], sigmahit[%f], lambdashort:[%f] ", z_hit, z_short, z_max, z_random, sigma_hit, lambda_short);
         }
     }
+    */
 
     void publish_rviz_particles()
     {
