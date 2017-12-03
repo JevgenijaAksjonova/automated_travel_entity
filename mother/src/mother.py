@@ -389,6 +389,7 @@ class Mother:
             return True
 
     def navigation_get_distance(self, startPose, goalPose):
+        return 1
         request = distanceRequest()
         request.startPose.linear.x = startPose[0]
         request.startPose.linear.y = startPose[1]
