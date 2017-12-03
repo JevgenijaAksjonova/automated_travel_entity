@@ -14,8 +14,8 @@ joint1_offset = -2.0 -8.0
 joint2_offset = 0   - 30.0
 
 joint0_init = 0.0
-joint1_init = 30.0
-joint2_init = 60.0
+joint1_init = 141.0#30.0
+joint2_init = 27.0#60.0
 
 joint0_store = 0.0  #need to be checked
 joint1_store = 141.0 #need to be checked
