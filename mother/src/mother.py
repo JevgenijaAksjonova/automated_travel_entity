@@ -233,7 +233,8 @@ class Mother:
             else :
                 msg.replan = True
                 msg.rollback = True
-            self.stop_pub.publish(msg)
+            if stop_msg.reason == 1 or stop_msg.reason == 2 or stop_msg.reason == 3 or stop_msg.reason == 4:
+                self.stop_pub.publish(msg)
 
     @property
     def pos(self):
