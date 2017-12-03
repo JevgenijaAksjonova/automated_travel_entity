@@ -183,6 +183,10 @@ int main(int argc, char **argv)
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
   gpp->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
 
+  // status
+  ros::Publisher statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  gpp->explorationStatusPub = statusPub;
+
   MapVisualization mapViz(gpp);
   stringstream s;
   s << "Grid Size " << gpp->gridSize.first <<" "<< gpp->gridSize.second << " Scale "<< gpp->mapScale.first << " cell "<< gpp->cellSize;
@@ -201,7 +205,7 @@ int main(int argc, char **argv)
   double angleTol = 2*M_PI;
   shared_ptr<Path> path = make_shared<Path>(pathRad, distanceTol, angleTol);
   path->lppService = n.serviceClient<project_msgs::direction>("local_path");
-  path->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
+  path->statusPub = statusPub;
   path->stopPub = n.advertise<project_msgs::stop>("navigation/obstacles", 1);
   // emergency stop
   ros::Subscriber subObstacles = n.subscribe("navigation/obstacles", 1000, &Path::obstaclesCallback, path.get());
@@ -212,7 +216,6 @@ int main(int argc, char **argv)
   ros::ServiceServer explorationService = n.advertiseService("navigation/exploration_path", &GoalPosition::explorationCallback, &goal);
   ros::ServiceServer service = n.advertiseService("navigation/set_the_goal", &GoalPosition::serviceCallback, &goal);
   ros::ServiceServer distanceService = n.advertiseService("navigation/distance", &GoalPosition::distanceServiceCallback, &goal);
-  ros::Publisher explorationStatusPub = n.advertise<std_msgs::Bool>("navigation/exploration_status", 1);
 
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
   ros::Rate loop_rate(10);
@@ -248,7 +251,7 @@ int main(int argc, char **argv)
             gpp->explorationStatus = 3;
             std_msgs::Bool msg;
             msg.data = 1;
-            explorationStatusPub.publish(msg);
+            gpp->explorationStatusPub.publish(msg);
         }
 
         if (path->onlyTurn && (path->angVel*prevAngVel <0 || path->angVel == 0) ) {
