@@ -24,8 +24,9 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR, liftable_shapes
 from pprint import pprint
+from functools import partial
 
 import random
 import math
@@ -55,7 +56,7 @@ class Mother:
     def init_default_state(self):
             self.has_started = False
             self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
-            self.exploration_completed = False
+            self.exploration_completed = None
 
     def load_state(self):
         self.init_default_state()
@@ -297,7 +298,7 @@ class Mother:
     def go_to_pose(self, pose,distance_tol=0.05,angle_tol=0.1):
         #print("go pose = ", type(pose))
         if USING_PATH_PLANNING:
-            self.nav_goal_acchieved = False
+            self.nav_goal_acchieved = None
 
             #Jegvenja
             #Set goal and plan here.
@@ -344,32 +345,142 @@ class Mother:
             rospy.loginfo("class_p > {min_p} = {p}".format(p=
                 class_p > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
             rospy.loginfo("class_label = {0}".format(class_label))
+
+
             if class_p > RECOGNITION_MIN_P:
                 if class_label == "Nothing":
-                    self.classifying_obj.classify(class_label,class_id)
+                    self.classifying_obj.failed_classification_attempt()
+                else:
+                    if CLASSIFYING_BASED_ON_COLOR:
+                        if self.classifying_obj.color.lower() in class_label.lower():
+                            self.classifying_obj.classify(class_las
+        msg = PoseStamped()
+        msg.header.frame_id = MOTHER_WORKING_FRAME
+        msg.header.stamp = rospy.Time.now()
+        msg.pose.position = Point(*[pos[0],pos[1],0])
+        msg.pose.orientation = Quaternion(0,0,0,0)
+        return msg
+
+    def _handle_object_candidate_msg(self, obj_cand_msg):
+        try:
+            obj_cand = MazeObject(obj_cand_msg)
+            if DETECTION_VERBOSE:
+                rospy.loginfo("successfully created maze object")
+        except ExtrapolationException:
+            if DETECTION_VERBOSE:
+                rospy.loginfo("Could not transform because tf sucks")
+            return
+        except ValueError as nan_coord:
+            if DETECTION_VERBOSE:
+                rospy.logwarn(nan_coord)
+            return
+        self.maze_map.add_object(obj_cand)
+        if obj_cand.class_id == TRAP_CLASS_ID:
+            trap_msg = PointStamped()
+            trap_msg.header.frame_id = MOTHER_WORKING_FRAME
+            trap_msg.header.stamp = rospy.Time.now()
+            trap_msg.point = Point(obj_cand.pos[0],obj_cand.pos[1],obj_cand.height)
+            self.trap_pub.publish(trap_msg)
+
+    def go_to_twist(self,twist,distance_tol=0.05,angle_tol=0.1):
+        if USING_PATH_PLANNING:
+            self.nav_goal_acchieved = None
+            request = global_pathRequest()
+            request.pose = twist
+            request.distanceTol = distance_tole
+            request.angleTol = angle_tol
+            response = call_srv(self.global_path_service,request)
+            return response.path_found
+        else:
+            self.nav_goal_acchieved = True
+            return True
+
+
+    def go_to_pose(self, pose,distance_tol=0.05,angle_tol=0.1):
+        #print("go pose = ", type(pose))
+        if USING_PATH_PLANNING:
+            self.nav_goal_acchieved = None
+
+            #Jegvenja
+            #Set goal and plan here.
+            #If no fesable path was found, return false, else true
+            #Using a ros service is probably right in this case.
+
+            # When the nav goad ls achieved and the robot has stoped,
+            # Set self.nav_goal_acchieved = True, in the apropriate callback.
+
+            # If the path following fails call self.set_following_path_to_main_goal()
+            # if not already following in that state, otherwise set self.set_waiting_for_main_goal()
+            request = global_pathRequest()
+            request.pose.linear.x = pose.pose.position.x
+            request.pose.linear.y = pose.pose.position.y
+            request.distanceTol = distance_tol
+            request.angleTol = angle_tol
+            response = call_srv(self.global_path_service,request)
+            return response.path_found
+        else:
+            self.nav_goal_acchieved = True
+            return True
+
+    def navigation_get_distance(self, startPose, goalPose):
+        request = distanceRequest()
+        request.startPose.linear.x = startPose.pose.position.x
+        request.startPose.linear.y = startPose.pose.position.y
+        request.goalPose.linear.x = goalPose.pose.position.x
+        request.goalPose.linear.y = goalPose.pose.position.y
+        response = call_srv(self.navigation_distance_service,request)
+        return response.distance
+
+    def try_classify(self):
+        rospy.loginfo("Trying to classify")
+        print("---------------classifying object---------------")
+        print(self.classifying_obj)
+
+        if self.classifying_obj is not None:
+            resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
+            class_label = resp.class_name.data
+            class_id = resp.class_id.data
+            class_p = resp.probability.data
+            rospy.loginfo("resp.probability = {0}".format(
+                class_p))
+            rospy.loginfo("class_p > {min_p} = {p}".format(p=
+                class_p > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
+            rospy.loginfo("class_label = {0}".format(class_label))
+
+            if class_p > RECOGNITION_MIN_P:
+                if class_label == "Nothing":
+                    self.classifying_obj.failed_classification_attempt()
+                    return False
                 else:
                     if CLASSIFYING_BASED_ON_COLOR:
                         if self.classifying_obj.color.lower() in class_label.lower():
                             self.classifying_obj.classify(class_label,class_id)
+                            return True
+                        else:
+                            self.classifying_obj.failed_classification_attempt()
+                            return False
                     else:
                         if self.classifying_obj.color.lower() in shape_2_allowed_colors[class_label]:
                             self.classifying_obj.classify(self.classifying_obj.color + class_label,class_id)
+                            return True
                         else:
-                            return False  
-                rospy.loginfo("returning true from try classify")
-                return True
-            return False
-
-    def set_following_path_to_main_goal(self):
+                            self.classifying_obj.failed_classification_attempt()
+                            return False
+            else:
+                self.classifying_obj.failed_classification_attempt()
+                return False
+    def set_following_path_to_main_goal(self,activate_next_state):
+        self._fptmg_next_state = activate_next_state
         if self.go_to_pose(self.goal_pose, 0.05,np.pi*2):
             self.mode = "following_path_to_main_goal"
             rospy.loginfo("Following path to main goal")
         else:
             rospy.loginfo("Could not find path to given main goal")
-            self.set_waiting_for_main_goal()
+            self._fptmg_next_state()
 
     def set_following_an_exploration_path(self):
         self.mode = "following_an_exploration_path"
+        self.exploration_completed = None
         if USING_PATH_PLANNING:
             # send a command to generate and follow an exploration path
             request = explorationRequest()
@@ -379,6 +490,7 @@ class Mother:
 
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
+        self.has_started = False
         self.mode = "waiting_for_main_goal"
         rospy.loginfo("Waiting for main goal")
 
@@ -415,15 +527,15 @@ class Mother:
         if ROUND == 1:
             activate_next_state = self.set_following_an_exploration_path
         elif ROUND == 0:
-            activate_next_state = self.set_following_path_to_main_goal
+            activate_next_state = partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)
         elif ROUND == 10:
             activate_next_state = self.set_waiting_for_main_goal
         else:
-            raise NotImplementedError()
+            raise NotImplementedErrorfinnish()
         
         if self.nav_goal_acchieved is not None:
             if self.nav_goal_acchieved:
-                rospy.Rate(1).sleep() 
+                rospy.Rate(1).sleep()
                 if self.try_classify():
                     classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                         x=np.round(self.classifying_obj.pos[0], 2),
@@ -444,11 +556,10 @@ class Mother:
                         rospy.loginfo("{0} is not liftable".format(
                             self.classifying_obj.class_label))
                         activate_next_state()
-                            
+
                     self.classifying_obj = None
                 else:
                     activate_next_state()
-                    self.classifying_obj.classification_attempts += 1
                     self.classifying_obj = None
             else:
                 activate_next_state()
@@ -477,7 +588,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=0.7,max_classification_attempts=0))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.15,0.7),max_classification_attempts=0,no_attempts_within_secs=6))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
@@ -520,29 +631,33 @@ class Mother:
 
                     else:
                         rospy.loginfo("Main goal received")
-                        self.set_following_path_to_main_goal()
+                        self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
 
             elif self.mode == "following_path_to_main_goal":
                 changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
-                if self.nav_goal_acchieved and not changed_mode:
-                    self.has_started = False
-                    self.set_waiting_for_main_goal()
-                    
+                if self.nav_goal_acchieved is not None and not changed_mode:
+                    if self.nav_goal_acchieved:
+                        self._fptmg_next_state()
+                    else:
+                        self.set_following_path_to_main_goal(activate_next_state=self._fptmg_next_state)
 
             elif self.mode == "following_an_exploration_path":
                 changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
-                if self.exploration_completed and not changed_mode:
-                    self.exploration_completed = False
-                    self.goal_pose = None
-                    self.goal_pose = self.initial_pose
-                    self.set_following_path_to_main_goal()
-
+                if self.exploration_completed is not None and not changed_mode:
+                    if self.exploration_completed :
+                        self.exploration_completed = False
+                        self.goal_pose = self.initial_pose
+                        self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
+                    else:
+                        self.set_following_an_exploration_path()
 
             elif self.mode == "following_path_to_object_classification":
-                if self.nav_goal_acchieved:
-                    if not self.set_turning_towards_object(self.classifying_obj):
-                        self.set_following_an_exploration_path()
-                    
+                if self.nav_goal_acchieved is not None:
+                    if self.nav_goal_acchieved:
+                        if not self.set_turning_towards_object(self.classifying_obj):
+                            self.set_following_an_exploration_path()
+                    else:
+                        self.set_following_path_to_object_classification(self.classifying_obj)
             elif self.mode == "turning_towards_object":
                 self.turning_towards_object_update()
 
@@ -577,7 +692,7 @@ class Mother:
 
             if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
                 self.write_state()
-                latest_save_secs = rospy.Time.now().to_sec()
+                last_save_secs = rospy.Time.now().to_sec()
             self.rate.sleep()
             
 
