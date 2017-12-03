@@ -37,7 +37,6 @@ class FilterPublisher
 
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
-    ros::Publisher particle_publisher;
     ros::Publisher stuck_publisher;
 
     ros::Subscriber encoder_subscriber_left;
@@ -765,8 +764,6 @@ int main(int argc, char **argv)
             linear_v_vec.clear();
             most_likely_position_prev = most_likely_position;
 
-
-            
         }
 
         ros::spinOnce();
