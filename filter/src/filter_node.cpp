@@ -59,6 +59,8 @@ class FilterPublisher
     float _start_y;
     float _start_theta;
     int _nr_particles;
+    float linear_v;
+    float angular_w;
     bool RUN_WHILE_STANDING_STILL;
     LocalizationGlobalMap map;
 
@@ -121,6 +123,14 @@ class FilterPublisher
         }
         if(!n.getParam("/filter/general/RUN_WHILE_STANDING_STILL",RUN_WHILE_STANDING_STILL)){
             ROS_ERROR("Filter failed to detect parameter 8");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/general/STUCK_TRESHOLD_SPEED",STUCK_TRESHOLD_SPEED)){
+            ROS_ERROR("Filter failed to detect parameter 9");
+            exit(EXIT_FAILURE);
+        }
+        if(!n.getParam("/filter/general/STUCK_TRESHOLD_DISTANCE",STUCK_TRESHOLD_DISTANCE)){
+            ROS_ERROR("Filter failed to detect parameter 10");
             exit(EXIT_FAILURE);
         }
 
@@ -628,17 +638,27 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
-    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev){
+    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev, vector<float> linearV_vec){
+
+
         float dx = ml_pos.xPos - ml_pos_prev.xPos;
         float dy = ml_pos.yPos - ml_pos_prev.yPos;
-
         float diff = ml_pos_prev.thetaPos - atan2(dy, dx);
-
         float distance = sqrt(pow(ml_pos.xPos - ml_pos_prev.xPos, 2) + pow(ml_pos.yPos - ml_pos_prev.yPos, 2));
         float linear_v_calc = cos(diff)*distance/dt;
-        ROS_INFO("Linear V according to position: [%f]", linear_v_calc);
+        
+        float averageLinearV = 0;
+        for(int i = 0; i < linearV_vec.size(); i++){
+            averageLinearV += linearV_vec[i];
+        }
+        averageLinearV = averageLinearV/linearV_vec.size();
 
-        ROS_INFO("Linear V according to odometry: [%f]", linear_v);
+        if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
+            ROS_INFO("THINK WE ARE STUCK");
+            ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
+        }
+
+
     }
 
 
@@ -661,12 +681,13 @@ class FilterPublisher
     float control_frequency;
     float dt;
     bool first_loop;
-    float linear_v;
-    float angular_w;
+    
 
     float _k_D;
     float _k_V;
     float _k_W;
+    float STUCK_TRESHOLD_SPEED;
+    float STUCK_TRESHOLD_DISTANCE;
 };
 
 int main(int argc, char **argv)
@@ -705,11 +726,14 @@ int main(int argc, char **argv)
     most_likely_position_prev.yPos = 0;
     most_likely_position_prev.thetaPos = 0;
 
+    vector<float> linear_v_vec;
+
 
 
     int count = 0;
     while (filter.n.ok())
     {
+
 
         if(filter._intitialPoseReceived){
             filter.initializeParticles();
@@ -721,9 +745,19 @@ int main(int argc, char **argv)
         most_likely_position = filter.localize();
         filter.publishPosition(most_likely_position);
 
-        filter.checkIfStuck(most_likely_position, most_likely_position_prev);
-        most_likely_position_prev = most_likely_position;
         filter.publish_rviz_particles();
+
+        linear_v_vec.push_back(filter.linear_v);
+
+        if(count % 10 == 0){
+            filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec);
+            linear_v_vec.clear();
+            most_likely_position_prev = most_likely_position;
+
+
+            
+        }
+
         ros::spinOnce();
 
         loop_rate.sleep();
