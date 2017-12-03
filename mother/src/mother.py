@@ -285,7 +285,7 @@ class Mother:
             self.nav_goal_acchieved = None
             request = global_pathRequest()
             request.pose = twist
-            request.distanceTol = distance_tole
+            request.distanceTol = distance_tol
             request.angleTol = angle_tol
             response = call_srv(self.global_path_service,request)
             return response.path_found
