@@ -516,7 +516,7 @@ int main(int argc, char **argv)
       obstacle_publisher.publish(obs.obstacles_found);
 
       
-      if(obs.angular_vel < ANGULAR_VELOCITY_THRESHOLD) {
+      if(obs.angular_vel < obs.ANGULAR_VELOCITY_THRESHOLD) {
         obs.sendBatteries();
       }
     }
