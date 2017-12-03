@@ -1,7 +1,7 @@
 filter:
     particle_params:
-        nr_particles : 500
-        nr_measurements : 8
+        nr_particles : 1000
+        nr_measurements : 7
         using_random_particles : false
         nr_random_particles : 50
         random_particle_spread : 0.1
