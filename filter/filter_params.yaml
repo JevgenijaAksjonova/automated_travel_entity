@@ -12,3 +12,5 @@ filter:
         k_W : 0.5
     general:
         RUN_WHILE_STANDING_STILL : true
+	STUCK_TRESHOLD_DISTANCE : 0.2
+	STUCK_TRESHOLD_SPEED : 0.1
