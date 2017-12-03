@@ -58,6 +58,7 @@ class Mother:
             self.has_started = False
             self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
             self.exploration_completed = None
+            self.mode = "waiting_for_main_goal"
 
     def load_state(self):
         self.init_default_state()
@@ -66,6 +67,7 @@ class Mother:
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
                 self.exploration_completed = state_dict["exploration_completed"]
+                self.mode = state_dict["mode"]
                 print("loaded has_started = ",self.has_started)
                 if self.has_started:
                     self.maze_map.load_maze_objs()
@@ -75,6 +77,7 @@ class Mother:
         state_dict = {
             "has_started":self.has_started,
             "exploration_completed":self.exploration_completed,
+            "mode":self.mode,
         }
         with open(MOTHER_STATE_FILE,"w") as state_file:
             yaml.dump(state_dict,state_file)
@@ -512,15 +515,7 @@ class Mother:
                     self.speak_pub.publish(msg)
                     self.evidence_pub.publish(
                         self.classifying_obj.get_evidence_msg())
-                    if "Cube" in self.classifying_obj.class_label:
-                        rospy.loginfo("Object {0} is liftable".format(
-                            self.classifying_obj.class_label))
-                        self.set_lift_up_object(self.classifying_obj,activate_next_state)
-                    else:
-                        rospy.loginfo("{0} is not liftable".format(
-                            self.classifying_obj.class_label))
-                        activate_next_state()
-
+                    activate_next_state()
                     self.classifying_obj = None
                 else:
                     activate_next_state()
