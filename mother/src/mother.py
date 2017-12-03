@@ -350,7 +350,7 @@ class Mother:
             self.nav_goal_acchieved = None
             request = global_pathRequest()
             request.pose = twist
-            request.distanceTol = distance_tole
+            request.distanceTol = distance_tol
             request.angleTol = angle_tol
             response = call_srv(self.global_path_service,request)
             return response.path_found
@@ -387,10 +387,10 @@ class Mother:
 
     def navigation_get_distance(self, startPose, goalPose):
         request = distanceRequest()
-        request.startPose.linear.x = startPose.pose.position.x
-        request.startPose.linear.y = startPose.pose.position.y
-        request.goalPose.linear.x = goalPose.pose.position.x
-        request.goalPose.linear.y = goalPose.pose.position.y
+        request.startPose.linear.x = startPose[0]
+        request.startPose.linear.y = startPose[1]
+        request.goalPose.linear.x = goalPose[0]
+        request.goalPose.linear.y = goalPose[1]
         response = call_srv(self.navigation_distance_service,request)
         return response.distance
 
@@ -623,7 +623,7 @@ class Mother:
                     if self.exploration_completed :
                         robot_pos = self.pos
                         self.lift_obj = filter(lambda obj: obj.classified and " ".join(obj.class_label.split(" ")[1:]) in liftable_shapes,sorted(
-                            self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(self.obj.pos,robot_pos)))[0]
+                            self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
                         self.goal_pose = self.lift_obj.pose_stamped
                         self.set_following_path_to_main_goal(
                             activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))

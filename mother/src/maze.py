@@ -192,6 +192,7 @@ def tf_transform_point_stamped(pose_stamped_msg, max_iter=3000):
     trans.waitForTransform(
         MOTHER_WORKING_FRAME,
         pose_stamped_msg.header.frame_id,
+        rospy.Time(),
         rospy.Duration(secs=3))
     while ros_sucks and i < max_iter:
         try:
