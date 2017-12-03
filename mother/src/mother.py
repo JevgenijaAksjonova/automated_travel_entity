@@ -537,16 +537,17 @@ class Mother:
                 initial_height = self.lifting_object.height
                 i = 0
                 while i < 10:
-                    trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Duration(secs=3))
+                    trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Time(),rospy.Duration(secs=3))
                     try:
                         i+=1
-                        new_msg = trans.transformPose(msg)
+                        new_msg = trans.transformPose("base_link",msg)
                         break
                     except ExtrapolationException as e:
                         continue
                 req = armPickupServiceRequest()
                 req.requestType = req.requestTypeLift
                 req.pos = new_msg.pose.position
+                print("req.pos =",req.pos)
                 arm_move_success = self.arm_pickup_srv(req).success
                 if arm_move_success:
                     rospy.sleep(rospy.Duration(secs=1))

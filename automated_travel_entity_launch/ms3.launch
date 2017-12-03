@@ -11,5 +11,7 @@
 	<node name="speaker" pkg="ras_espeak" type="espeak_node"/>
 	<include file="$(find camera)/vision.launch" pass_all_args="True"/>
 	<include file="$(find obstacle_detection)/launch/obstacle_detection_node.launch"/>
+    <include file="$(find uarm)/launch/kth_uarm.launch"/>
+    <node name="arm_ontroller" pkg="uarm_controller" type="arm_controller.py" output="screen" respawn="True" respawn_delay="4"/>
 	<node name="mother" pkg="mother" type="mother.py" output="screen" respawn="True" respawn_delay="5"/>
 </launch>
