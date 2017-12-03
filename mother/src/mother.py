@@ -524,7 +524,7 @@ class Mother:
             else:
                 activate_next_state()
 
-    def lift_up_object(self,activate_next_state):
+    def lift_up_object(self,activate_next_state=None):
         if USING_ARM:
             rospy.log("lifting object at {0}".format(self.lifting_obj))
             msg = self.lifting_object.pose_stamped
