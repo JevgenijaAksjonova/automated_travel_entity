@@ -667,7 +667,7 @@ void GlobalPathPlanner::recovery() {
     status_msg.data = 0;
     //statusPub->publish(status_msg);
     //cout << "publishing failed" << endl;
-    explorationStatusPub.publish(status_msg);
+    //explorationStatusPub.publish(status_msg);
 }
 
 
