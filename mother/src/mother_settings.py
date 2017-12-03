@@ -47,6 +47,10 @@ shape_2_allowed_colors = {
     "Star":["purple","orange"],
 }
 
+liftable_shapes = {
+    "Cube"
+}
+
 #Define verboseness of different parts
 
 VISION_VERBOSE = True
@@ -57,3 +61,4 @@ SAVE_PERIOD_SECS = 3
 MOTHER_STATE_FILE = "mother_state.yaml"
 RECOGNITION_MIN_P = 0.6
 CLASSIFYING_BASED_ON_COLOR = False
+ARM_LIFT_ACCEPT_THRESH = 0.03

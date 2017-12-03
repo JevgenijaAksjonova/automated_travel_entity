@@ -24,12 +24,14 @@ from math import atan2
 import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
-from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR, liftable_shapes
+from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR, liftable_shapes,ARM_LIFT_ACCEPT_THRESH
 from pprint import pprint
 from functools import partial
-
+from uarm_controller.srv import armPickupService, armPickupServiceRequest
 import random
 import math
+
+trans = TransformListener()
 
 def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 5):
     #attempts = 0
@@ -45,7 +47,6 @@ class Mother:
     odometry_msg = None
     classifying_obj = None
     i = 0
-    arm_movement_success = None
     lifting_object = None
     object_classification_queue = []
     problem_with_path_following = False
@@ -122,11 +123,6 @@ class Mother:
             callback=self._navigation_status_callback)
 
         rospy.Subscriber(
-            ARM_MOVEMENT_COMPLETE_TOPIC,
-            Bool,
-            callback=self._arm_movement_complete_callback)
-
-        rospy.Subscriber(
             ODOMETRY_TOPIC, Odometry, callback=self._odometry_callback)
 
         #Wait for required services to come online and service handles
@@ -165,7 +161,7 @@ class Mother:
                 "Waiting for service {0}".format(ARM_PICKUP_SERVICE_NAME))
             rospy.wait_for_service(ARM_PICKUP_SERVICE_NAME)
             self.arm_pickup_srv = rospy.ServiceProxy(
-                ARM_PICKUP_SERVICE_NAME, Point, persistent=True)
+                ARM_PICKUP_SERVICE_NAME, armPickupService, persistent=True)
 
         #Other initialisations
 
@@ -175,9 +171,6 @@ class Mother:
 
     def _odometry_callback(self, odom_msg):
         self.odometry = odom_msg
-
-    def _arm_movement_complete_callback(self, success_msg):
-        self.arm_movement_success = success_msg
 
     def _obj_cand_callback(self, obj_cand_msg):
         self.obj_cand_msg = obj_cand_msg
@@ -238,6 +231,7 @@ class Mother:
 
     @property
     def pos(self):
+        #TODO: Listen to pubblished message instead
         msg = PointStamped()
         msg.header.frame_id = "base_link"
         msg.header.stamp = rospy.Time.now()
@@ -329,37 +323,6 @@ class Mother:
         request.goalPose.linear.y = goalPose.pose.position.y
         response = call_srv(self.navigation_distance_service,request)
         return response.distance
-
-    def try_classify(self):
-        rospy.loginfo("Trying to classify")
-        print("---------------classifying object---------------")
-        print(self.classifying_obj)
-
-        if self.classifying_obj is not None:
-            resp = call_srv(self.recognizer_srv,self.classifying_obj.image)
-            class_label = resp.class_name.data
-            class_id = resp.class_id.data
-            class_p = resp.probability.data
-            rospy.loginfo("resp.probability = {0}".format(
-                class_p))
-            rospy.loginfo("class_p > {min_p} = {p}".format(p=
-                class_p > RECOGNITION_MIN_P,min_p = RECOGNITION_MIN_P))
-            rospy.loginfo("class_label = {0}".format(class_label))
-
-
-            if class_p > RECOGNITION_MIN_P:
-                if class_label == "Nothing":
-                    self.classifying_obj.failed_classification_attempt()
-                else:
-                    if CLASSIFYING_BASED_ON_COLOR:
-                        if self.classifying_obj.color.lower() in class_label.lower():
-                            self.classifying_obj.classify(class_las
-        msg = PoseStamped()
-        msg.header.frame_id = MOTHER_WORKING_FRAME
-        msg.header.stamp = rospy.Time.now()
-        msg.pose.position = Point(*[pos[0],pos[1],0])
-        msg.pose.orientation = Quaternion(0,0,0,0)
-        return msg
 
     def _handle_object_candidate_msg(self, obj_cand_msg):
         try:
@@ -469,6 +432,7 @@ class Mother:
             else:
                 self.classifying_obj.failed_classification_attempt()
                 return False
+    
     def set_following_path_to_main_goal(self,activate_next_state):
         self._fptmg_next_state = activate_next_state
         if self.go_to_pose(self.goal_pose, 0.05,np.pi*2):
@@ -564,21 +528,33 @@ class Mother:
             else:
                 activate_next_state()
 
-    def set_lift_up_object(self, lifting_obj,activate_next_state):
+    def lift_up_object(self,activate_next_state):
         if USING_ARM:
-            self.lifting_object = lifting_obj
-            rospy.log("lifting object at {0}".format(lifting_obj))
-            loc = Point()
-            loc.x = self.classifying_obj.pos.x
-            loc.y = self.classifying_obj.pos.y
-            loc.z = self.classifying_obj.pos.z
-            request_ok = self.arm_pickup_srv(loc)
-            self.arm_movement_success = None
-            if request_ok:
-                rospy.loginfo("Arm request was ok")
-            else:
-                rospy.loginfo("requested position out of arm range")
-            self.mode = "lift_up_object"
+            rospy.log("lifting object at {0}".format(self.lifting_obj))
+            msg = self.lifting_object.pose_stamped
+            j = 0
+            while j < 3:
+                initial_height = self.lifting_object.height
+                i = 0
+                while i < 10:
+                    trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Duration(secs=3))
+                    try:
+                        i+=1
+                        new_msg = trans.transformPose(msg)
+                        break
+                    except ExtrapolationException as e:
+                        continue
+                req = armPickupServiceRequest()
+                req.requestType = req.requestTypeLift
+                req.pos = new_msg.pose.position
+                arm_move_success = self.arm_pickup_srv(req).success
+                if arm_move_success:
+                    rospy.sleep(rospy.Duration(secs=1))
+                    if np.abs(initial_height - self.lift_up_object.height) > ARM_LIFT_ACCEPT_THRESH:
+                        req = armPickupServiceRequest()
+                        req.requestType = req.requestTypeStore
+                        activate_next_state()
+                j+=1
         else:
             activate_next_state()
 
@@ -628,7 +604,7 @@ class Mother:
                         rospy.loginfo("Following an exploration path")
                         self.has_started = True
                         self.set_following_an_exploration_path()
-
+                        self.speak_pub.publish(String(data="Search and destroy"))
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
@@ -645,9 +621,12 @@ class Mother:
                 changed_mode = self.classify_if_close(self.set_following_an_exploration_path)
                 if self.exploration_completed is not None and not changed_mode:
                     if self.exploration_completed :
-                        self.exploration_completed = False
-                        self.goal_pose = self.initial_pose
-                        self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
+                        robot_pos = self.pos
+                        self.lift_obj = filter(lambda obj: obj.classified and " ".join(obj.class_label.split(" ")[1:]) in liftable_shapes,sorted(
+                            self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(self.obj.pos,robot_pos)))[0]
+                        self.goal_pose = self.lift_obj.pose_stamped
+                        self.set_following_path_to_main_goal(
+                            activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
                         self.set_following_an_exploration_path()
 
@@ -660,21 +639,6 @@ class Mother:
                         self.set_following_path_to_object_classification(self.classifying_obj)
             elif self.mode == "turning_towards_object":
                 self.turning_towards_object_update()
-
-            elif self.mode == "lift_object":
-                # Enyu do your stuff, not sure what needs to be done to lift something.
-                # The object you should lift up exists int the classifying_obj variable.
-                # That pos is not very exact though so one probably needs to hope that the
-                #  object candidate we can see the object at classifying_obj for now.
-                if self.arm_movement_success is not None:
-                    if self.arm_movement_success:
-                        self.set_following_path_to_main_goal()
-                        self.arm_movement_success = None
-                        self.lifting_object = None
-                        rospy.loginfo("Arm movement success")
-                    else:
-                        rospy.loginfo("Arm movement failed")
-
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
