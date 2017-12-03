@@ -25,7 +25,7 @@ joint0_release = 0.0 #MUST be design
 joint1_release = -8.0 #need to be check
 joint2_release = 84.0 #need to be check
 
-arm_movement_noise = 1
+#arm_movement_noise = 1
 
 def compute_joint_angles(end_effector_goal):
     x,y,z = end_effector_goal   # in the arm frame
@@ -85,14 +85,15 @@ class ArmController(object):
         return resp.pump_status
         
         
-    def handle_lift(self,x,y,z):
-        # From initial position to target
-        print("handle_lift: input x,y,z =",x,y,z)
-        #x += np.random.normal(scale=arm_movement_noise)
-        #y += np.random.normal(scale=arm_movement_noise)
-        #z += np.random.normal(scale=arm_movement_noise)
-        #print("handle_lift: input x,y,z with noise =",x,y,z)        
-
+    def handle_lift(self,x,y,z,mode,noise_variance):
+        # From initial position to target        
+        if mode == 1:
+            x += np.random.normal(scale=noise_variance)
+            y += np.random.normal(scale=noise_variance)
+            #z += np.random.normal(scale=noise_variance)
+            print("Noisy mode: handle_lift: input x,y,z with noise =",x,y,z)        
+        else: # mode == 0
+            print("Normal mode: handle_lift: input x,y,z =",x,y,z)
         pump_result = self.pump_control(True) #bool            
         if pump_result:
             rospy.loginfo("Pump succeed")
@@ -149,14 +150,17 @@ class ArmController(object):
         else:
             rospy.logerr("Arm release failed")  
             return False
-            
+    def check_target_position(self,x,y,z):
+        
     def handle_arm_service_request(self,request):
-        point = request.pos  #unit: m; frame: arm (prefer,but base frame is OK)
-        x = point.x *100.0 #unit: cm ; frame: arm
-        y = point.y *100.0 #unit: cm ; frame: arm
-        z = point.z *100.0 
+        point = request.pos  #unit: m; frame: arm (prefer,but base frame just need to add offset: x:-2;y:0,z:-16)
         if request.requestType == armPickupServiceRequest.requestTypeLift:
-            resp = self.handle_lift(x,y,z)  #1 for finishing
+            x = point.x *100.0 #unit: cm ; frame: arm
+            y = point.y *100.0 #unit: cm ; frame: arm
+            z = point.z *100.0
+            mode = 0
+            noise_variance = 0 # 1 IS A GOOD TRY
+            resp = self.handle_lift(x,y,z,mode,noise_variance)  #1 for finishing
         elif request.requestType == armPickupServiceRequest.requestTypeStore:
             resp = self.handle_store()            
         elif request.requestType == armPickupServiceRequest.reqestTypeRelease:
