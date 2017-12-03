@@ -664,7 +664,7 @@ void GlobalPathPlanner::recovery() {
     }
     std_msgs::Bool status_msg;
     status_msg.data = 0;
-    statusPub.publish(status_msg);
+    statusPub->publish(status_msg);
     explorationStatusPub.publish(status_msg);
 }
 
