@@ -26,6 +26,7 @@ public:
   float DISTANCE_THRESHOLD;
   float CONNECTION_THRESHOLD;
   float WALL_LENGTH_THRESHOLD;
+  float ANGULAR_VELOCITY_THRESHOLD;
 
   float NBINS;
 
@@ -89,6 +90,7 @@ public:
     DISTANCE_THRESHOLD = 0.4;
     CONNECTION_THRESHOLD = 0.04;
     WALL_LENGTH_THRESHOLD = 0.05;
+    ANGULAR_VELOCITY_THRESHOLD = 0.7;
 
     NBINS = 180;
 
@@ -133,6 +135,11 @@ public:
     if (!n.getParam("/obstacle_detection/thresholds/WALL_LENGTH_THRESHOLD", WALL_LENGTH_THRESHOLD))
     {
       ROS_ERROR("Obstacle detection failed to detect thresholds parameter 6");
+      exit(EXIT_FAILURE);
+    }
+    if (!n.getParam("/obstacle_detection/thresholds/ANGULAR_VELOCITY_THRESHOLD", ANGULAR_VELOCITY_THRESHOLD))
+    {
+      ROS_ERROR("Obstacle detection failed to detect thresholds parameter 7");
       exit(EXIT_FAILURE);
     }
 
@@ -335,7 +342,6 @@ public:
 
   void detectWallSegment()
   {
-
     std::vector<float> ranges = obstacles_found.ranges;
     std::vector<float> angles = obstacles_found.angles;
 
@@ -509,10 +515,10 @@ int main(int argc, char **argv)
 
       obstacle_publisher.publish(obs.obstacles_found);
 
-      /*
-      if(obs.angular_vel < 0.7) {
+      
+      if(obs.angular_vel < ANGULAR_VELOCITY_THRESHOLD) {
         obs.sendBatteries();
-      }*/
+      }
     }
 
     loop_rate.sleep();
