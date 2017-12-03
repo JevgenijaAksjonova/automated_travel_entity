@@ -181,6 +181,7 @@ int main(int argc, char **argv)
   double gridCellSize = 0.01;
   double robotRadius = 0.17;
   shared_ptr<GlobalPathPlanner> gpp = make_shared<GlobalPathPlanner>(mapFile, gridCellSize, robotRadius);
+  gpp->statusPub = n.advertise<std_msgs::Bool>("navigation/status", 1);
 
   MapVisualization mapViz(gpp);
   stringstream s;

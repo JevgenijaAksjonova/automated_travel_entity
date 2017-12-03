@@ -63,6 +63,11 @@ public:
     void newWallCallback(const std_msgs::Float32MultiArray::ConstPtr& array);
     void addRobotRadiusToPoint(pair<int, int> xy);
 
+    //recovery
+    void writeNodesToFile();
+    void readNodesFromFile();
+    void recovery();
+    ros::Publisher statusPub;
 
 private:
     float robotRad;
