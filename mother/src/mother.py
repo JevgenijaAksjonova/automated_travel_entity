@@ -428,7 +428,7 @@ class Mother:
                             return False
                     else:
                         if self.classifying_obj.color.lower() in shape_2_allowed_colors[class_label]:
-                            self.classifying_obj.classify(self.classifying_obj.color + class_label,class_id)
+                            self.classifying_obj.classify("{0} {1}".format(self.classifying_obj.color, class_label,class_id).title())
                             return True
                         else:
                             self.classifying_obj.failed_classification_attempt()
