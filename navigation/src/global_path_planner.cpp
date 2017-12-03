@@ -446,6 +446,7 @@ void GlobalPathPlanner::computeExplorationPath() {
         }
     }
 
+
     // find distance between all reachable nodes
     //vector<vector<int> > edges(nodes.size(),vector<int>(nodes.size(),-1));
     // fill in known values
@@ -520,6 +521,10 @@ void GlobalPathPlanner::computeExplorationPath() {
         vector<pair<int, int> > part = getPathGrid(pair<int,int>(nodes[path[i]].x,nodes[path[i]].y), pair<int,int>(nodes[path[i+1]].x,nodes[path[i+1]].y));
         pathGrid.insert(pathGrid.end(), part.begin(), part.end());
         nodeMarks.push_back(pair<int,int>(path[i+1], pathGrid.size()-1));
+    }
+    if (pathGrid.size() == 0) {
+        pair<int,int> pos(nodes[path[0]].x,nodes[path[0]].y);
+        pathGrid.push_back(pos);
     }
     cout << "Path size = " << path.size() << endl;
 
@@ -601,7 +606,7 @@ void GlobalPathPlanner::recalculateExplorationPath(double x, double y) {
         nodes.insert(nodes.begin(),startNode);
         computeExplorationPath();
         mapChanged = false;
-        cout << "Computation finished!! " << endl;
+        //cout << "Computation finished!! " << endl;
     }
 }
 
