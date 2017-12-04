@@ -11,6 +11,7 @@ import colorSegment
 import yaml
 import cv_bridge
 from sensor_msgs.msg import Image as ImageMsg
+from sensor_msgs.msg import CompressedImage as CompMsg
 import cv2
 from colorSegment import color_segment_image
 bridge = cv_bridge.CvBridge()
@@ -25,6 +26,8 @@ def main():
         image = bridge.imgmsg_to_cv2(image_msg)
 
     rospy.Subscriber("/camera/rgb/image_rect_color",ImageMsg,image_callback)
+    comp_img_pub = rospy.Publisher("/hsvdebug", CompMsg, queue_size=1)
+
     rospy.Rate(1).sleep()
     param_file_path = path.join(rospack.get_path("camera"),"param.yaml")
     with open(param_file_path,"r") as param_file:
@@ -58,6 +61,8 @@ def main():
             print("debug_simage.shape =",image.shape)
             _,_,debug_image = color_segment_image(image,return_debug_image=True,hsv_thresholds=hsv_thresh)
             cv2.imshow("wheeh",debug_image)
+            compressed_img = bridge.cv2_to_compressed_imgmsg(debug_image)
+            comp_img_pub.publish(compressed_img)
         
         hsv_thresh[current_color]
         rospy.Rate(1).sleep()
