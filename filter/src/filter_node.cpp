@@ -93,6 +93,7 @@ class FilterPublisher
          map = newMap;
          _navigation_linear_speed = 0;
          _navigation_angular_speed = 0;
+         _laserTime = ros::Time::now();
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
@@ -511,7 +512,7 @@ class FilterPublisher
         float x = ml_pos.xPos;
         float y = ml_pos.yPos;
 
-
+        ROS_INFO("Trying to stamp position with time %f",_laserTime.toSec() );
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
         odom_trans.header.stamp = _laserTime;

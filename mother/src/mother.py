@@ -42,6 +42,62 @@ def call_srv(serviceHandle,request,max_attempts=float("inf"),retry_delay_secs = 
     #        rospy.logerr(se)
     #        rospy.sleep(rospy.Duration(secs=retry_delay_secs))
 
+
+
+
+class stage(object):
+    def __call__(self):
+        raise NotImplementedError("You have to inherit this class and implement call")
+    def update(self):
+        raise NotImplementedError("You have to inherit this class and implement update")
+
+class arm_pickup_stage(stage):
+    def __init__(self,activate_next_state,lift_object,arm_pickup_srv):
+        self.activate_next_state = activate_next_state
+        self.lift_object = lift_object
+        self.arm_pickup_srv = arm_pickup_srv
+
+    def __call__(self):
+        if USING_ARM:
+            rospy.loginfo("lifting object at {0}".format(self.lift_object))
+            msg = self.lift_object.pose_stamped
+            j = 0
+            while j < 3:
+                initial_height = self.lift_object.height
+                i = 0
+                while i < 1000:
+                    trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Time(),rospy.Duration(secs=3))
+                    try:
+                        i+=1
+                        new_msg = trans.transformPose("base_link",msg)
+                        break
+                    except ExtrapolationException as e:
+                        continue
+                req = armPickupServiceRequest()
+                req.requestType = req.requestTypeLift
+                req.pos = new_msg.pose.position
+                print("req.pos =",req.pos)
+                arm_move_success = self.arm_pickup_srv(req).success
+                if arm_move_success:
+                    rospy.sleep(rospy.Duration(secs=1))
+                    if np.abs(initial_height - self.lift_up_object.height) > ARM_LIFT_ACCEPT_THRESH:
+                        req = armPickupServiceRequest()
+                        req.requestType = req.requestTypeStore
+                        self.activate_next_state()
+                j+=1
+        else:
+            self.activate_next_state()
+
+class following_path_to_main_goastage(object):
+
+    def __init__(self,activate_next_state):
+        self.activate_next_state=activate_next_state
+
+    def __call__(self):
+        raise NotImplementedError("You have to inherit this class and implement call")
+    def update(self):
+        pass
+
 class Mother:
 
     odometry_msg = None
@@ -240,7 +296,7 @@ class Mother:
         msg.header.stamp = rospy.Time.now()
         pos = None
         i = 0
-        while pos is None and i < 50:
+        while pos is None and i < 10:
             msg_new = tf_transform_point_stamped(msg)
             if msg_new is not None:
                 pos = msg_new.point
@@ -250,6 +306,8 @@ class Mother:
             i+=1
     def get_pos_as_PoseStamped(self):
         pos = self.pos
+        if pos is None:
+            return None
         msg = PoseStamped()
         msg.header.frame_id = MOTHER_WORKING_FRAME
         msg.header.stamp = rospy.Time.now()
@@ -437,9 +495,9 @@ class Mother:
                 self.classifying_obj.failed_classification_attempt()
                 return False
     
-    def set_following_path_to_main_goal(self,activate_next_state):
+    def set_following_path_to_main_goal(self,activate_next_state,distance_tol = 0.05, angle_tol = np.pi*2):
         self._fptmg_next_state = activate_next_state
-        if self.go_to_pose(self.goal_pose, 0.05,np.pi*2):
+        if self.go_to_pose(self.goal_pose, distance_tol,angle_tol):
             self.mode = "following_path_to_main_goal"
             rospy.loginfo("Following path to main goal")
         else:
@@ -573,7 +631,7 @@ class Mother:
         return False
         
     # Main mother loop
-    def mother_forever(self, rate=5):
+    def mother_forever(self, rate=10):
         self.rate = rospy.Rate(rate)
         self.rate.sleep()
 
@@ -619,11 +677,11 @@ class Mother:
                 if self.exploration_completed is not None and not changed_mode:
                     if self.exploration_completed :
                         robot_pos = self.pos
-                        self.lift_object = filter(lambda obj: obj.shape in liftable_shapes,sorted(
+                        lift_object = filter(lambda obj: obj.shape in liftable_shapes,sorted(
                             self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
-                        self.goal_pose = self.lift_object.pose_stamped
+                        self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
-                            activate_next_state=self.lift_up_object)
+                            activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=None,arm_pickup_srv=self.arm_pickup_srv))
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
