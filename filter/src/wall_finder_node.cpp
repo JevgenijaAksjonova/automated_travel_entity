@@ -757,6 +757,10 @@ class WallFinder
 			float distance = sqrt(pow(_stuckPosition[0] - _stuckPosition_prev[0], 2) + pow(_stuckPosition[1] - _stuckPosition_prev[1], 2));
 			if(distance < 0.15){
 				ROS_INFO("STUCK TWICE!");
+				float x = _stuckPosition[0] + cos(_stuckPosition[2])*0.15;
+		    	float y = _stuckPosition[1] + sin(_stuckPosition[2])*0.15;
+
+				addWall(createWall(x-0.05, y, x+0.05, y, 100, false, FromCamera));
 			}
 		}
     }
