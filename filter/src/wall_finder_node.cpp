@@ -770,6 +770,8 @@ class WallFinder
     }
 
     void visualize_stuck_wall(){
+    	float x = cos(_stuckPosition[2])*0.15;
+    	float y = sin(_stuckPosition[2])*0.15;
 
     	visualization_msgs::MarkerArray found_walls;
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
@@ -796,14 +798,14 @@ class WallFinder
 		wall.color.a = 1.0;             
 
 
-        wall.pose.position.x = _stuckPosition[0];
-        wall.pose.position.y = _stuckPosition[1];
+        wall.pose.position.x = x;
+        wall.pose.position.y = y;
 
         tf::Quaternion q;
         q.setRPY(0.0, 0.0, _stuckPosition[2] - M_PI/2);
         tf::quaternionTFToMsg(q, wall.pose.orientation);
 
-        wall.scale.x = 0.5;
+        wall.scale.x = 0.2;
 
         wall.id = 999;
         found_walls.markers.push_back(wall);
@@ -866,7 +868,7 @@ int main(int argc, char **argv)
 
 
     int count = 0;
-    int unStuckCommands = 10;
+    int unStuckCommands = 20;
     while (wf.n.ok())
     {
     	if(wf._stuck){
