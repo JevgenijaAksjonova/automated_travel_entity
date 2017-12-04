@@ -55,9 +55,9 @@ class ArmController(object):
         self.pump_control(False)
         self.move_to_joints(joint0_init, joint1_init, joint2_init)
 
-    def check_arm_input(self,x,y,z):
+    def check_arm_input(self,x,y,z): #only for lifting up object. Doesn't affect 'init' and 'store'
         xy_dist = sqrt(pow(x, 2) + pow(y, 2))
-        if xy_dist < 30.0 and np.abs(z) < 20.0:
+        if xy_dist < 30.0 and np.abs(z) < 20.0 and xy_dist > 12.0:
             return True
         else: 
             return False  
