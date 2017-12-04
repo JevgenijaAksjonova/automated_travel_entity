@@ -25,6 +25,7 @@ import yaml
 from os import path
 from maze import MazeMap, MazeObject, tf_transform_point_stamped, TRAP_CLASS_ID
 from mother_settings import USING_VISION, OBJECT_CANDIDATES_TOPIC, GOAL_ACHIEVED_TOPIC, GOAL_POSE_TOPIC, ARM_MOVEMENT_COMPLETE_TOPIC, ODOMETRY_TOPIC, RECOGNIZER_SERVICE_NAME, USING_PATH_PLANNING, NAVIGATION_GOAL_TOPIC, NAVIGATION_EXPLORATION_TOPIC, NAVIGATION_STOP_TOPIC, NAVIGATION_DISTANCE_TOPIC, USING_ARM, ARM_PICKUP_SERVICE_NAME, DETECTION_VERBOSE, MOTHER_WORKING_FRAME, ROUND, MAP_P_DECREASE,MAP_P_INCREASE,SAVE_PERIOD_SECS, MOTHER_STATE_FILE, RECOGNITION_MIN_P, shape_2_allowed_colors,NAVIGATION_EXPLORATION_STATUS_TOPIC,CLASSIFYING_BASED_ON_COLOR, liftable_shapes,ARM_LIFT_ACCEPT_THRESH
+from mother_settings import TIME_R1, TIME_R2, TIME_TO_GO_BACK
 from pprint import pprint
 from functools import partial
 from uarm_controller.srv import armPickupService, armPickupServiceRequest
@@ -325,8 +326,8 @@ class Mother:
         request = distanceRequest()
         request.startPose.linear.x = startPose.pose.position.x
         request.startPose.linear.y = startPose.pose.position.y
-        request.goalPose.linear.x = goalPose.pose.position.x
-        request.goalPose.linear.y = goalPose.pose.position.y
+        request.goalPose.linear.x = goalPose[0]
+        request.goalPose.linear.y = goalPose[1]
         response = call_srv(self.navigation_distance_service,request)
         return response.distance
 
@@ -600,7 +601,7 @@ class Mother:
         liftable_objects = filter(lambda obj: obj.shape in liftable_shapes, self.maze_map.maze_objects)
         rospy.loginfo("Number of objects to pick = {0}".format(len(liftable_objects)))
         for obj in liftable_objects:
-            d = self.navigation_get_distance(obj.pos,robot_pos)
+            d = self.navigation_get_distance(robot_pos,obj.pos)
             object_queue.put((d,obj))
         #obj_pos = PoseStamped()
         #obj_pos.pose.position.x = 0.215
@@ -608,6 +609,11 @@ class Mother:
         #d = self.navigation_get_distance(obj_pos,robot_pose)
         #print("Computed distance =", d)
 
+    def finished:
+        if object_lifted:
+            self.drop_object(activate_next_state = finished())
+        else:
+            self.speak_pub.publish(String(data="I am a winner!"))
         
     # Main mother loop
     def mother_forever(self, rate=5):
@@ -625,6 +631,12 @@ class Mother:
         
         
         while not rospy.is_shutdown():
+
+            time = rospy.Time.now().to_sec()
+            #check if time is up
+            if (ROUND == 1 and time - start_time > TIME_R1-TIME_TO_GO_BACK) or (ROUND == 2 and time - start_time > TIME_R2-TIME_TO_GO_BACK):
+                self.go_to_pose = self.initial_pose
+                self.set_following_path_to_main_goal(activate_next_state = self.finished())
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None or self.has_started:
@@ -713,6 +725,7 @@ class Mother:
             
 
 if __name__ == "__main__":
+    start_time = rospy.Time.now().to_sec()
     try:
         rospy.init_node("recognizer_server")
         m = Mother()
