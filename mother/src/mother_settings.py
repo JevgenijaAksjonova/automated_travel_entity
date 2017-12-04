@@ -23,6 +23,10 @@ USING_PATH_PLANNING = True
 USING_ARM = True
 USING_VISION = True
 
+TIME_R1 = 300
+TIME_R2 = 180
+TIME_TO_GO_BACK = 30
+
 ROUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
 
 color_2_rgb = {
