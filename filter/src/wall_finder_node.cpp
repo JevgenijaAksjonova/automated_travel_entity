@@ -34,13 +34,16 @@ class WallFinder
   public:
     ros::NodeHandle n;
 
-    ros::Subscriber lidar_subscriber;
-    ros::Subscriber position_subscriber;
-    ros::Subscriber battery_wall_subcriber;
     ros::Publisher outlier_publisher;
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
+    ros::Publisher tryToGetUnstuck_publisher;
+
+    ros::Subscriber lidar_subscriber;
+    ros::Subscriber position_subscriber;
+    ros::Subscriber battery_wall_subcriber;
     ros::Subscriber goalSet_subscriber;
+    ros::Subscriber stuck_position_subscriber;
 
 
     std::vector<float> ranges;
@@ -55,6 +58,8 @@ class WallFinder
     float _begunMoving;
     float _angular_velocity;
     int _wasTurning;
+    vector<float>_stuckPosition;
+    bool _stuck;
     LocalizationGlobalMap map;
 
     enum WallSource { FromFile, FromCamera, FromLidar };
@@ -93,6 +98,7 @@ class WallFinder
         _thetaPos = 0;
         _begunMoving = false;
         _wasTurning = 3;
+        _stuck = false;
 
         map = newMap;
 
@@ -146,9 +152,12 @@ class WallFinder
         lidar_subscriber = n.subscribe("/scan", 1, &WallFinder::lidarCallback, this);
         position_subscriber = n.subscribe("/filter", 1, &WallFinder::positionCallback, this );
         outlier_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_outliers", 1);
-        wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls_visual", 1);
+        wall_publisher= n.advertise<visualization_msgs::MarkerArray>("/wall_finder_walls_visual", 5);
         wall_array_publisher= n.advertise<std_msgs::Float32MultiArray>("/wall_finder_walls_array", 100);
-        battery_wall_subcriber = n.subscribe("/batteries_found", 100, &WallFinder::batteryWallCallback, this);
+        tryToGetUnstuck_publisher = n.advertise<geometry_msgs::Twist>("/motor_controller/twist", 1);
+
+        battery_wall_subcriber = n.subscribe("/batteries_found", 10, &WallFinder::batteryWallCallback, this);
+        stuck_position_subscriber = n.subscribe("/stuck_position", 1, &WallFinder::stuckCallback, this);
 
         _nr_measurements = nr_measurements;
         readSavedWalls();
@@ -250,6 +259,19 @@ class WallFinder
         }else{
             _wasTurning = 3;
         }
+    }
+
+    void stuckCallback(const std_msgs::Float32MultiArray::ConstPtr& array){
+	    vector<float> stuckPosition;
+	    for(std::vector<float>::const_iterator it = array->data.begin(); it != array->data.end(); ++it){
+	        stuckPosition.push_back(*it);
+	    }
+	    if(stuckPosition.size() != 3){
+	        ROS_INFO("STUCK POSITION HAS WERID DIMENSIONS %lu", stuckPosition.size());
+	    }else{
+	    	_stuck = true;
+	    	_stuckPosition = stuckPosition;
+	    }
     }
 
     vector<pair<float, float>> mapMeasurementsToAngles()
@@ -696,6 +718,24 @@ class WallFinder
 		file.close();
     }
 
+    void tryToGetUnstuck(){
+    	float linear_backing_v = -0.2;
+    	float angular_speed = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/0.6));
+    	angular_speed -= 0.3;
+
+
+
+
+    	geometry_msgs::Twist msg;
+		msg.linear.x = linear_backing_v;
+		msg.linear.y = 0.0;
+		msg.linear.z = 0.0;
+		msg.angular.x = 0.0;
+		msg.angular.y = 0.0;
+		msg.angular.z = angular_speed;
+
+    }
+
   private:
 
     std::vector<float> prob_meas;
@@ -739,8 +779,17 @@ int main(int argc, char **argv)
 
 
     int count = 0;
+    int unStuckCommands = 10;
     while (wf.n.ok())
     {
+    	if(wf._stuck){
+    		wf.tryToGetUnstuck();
+    		unStuckCommands --;
+    		if(unStuckCommands <1){
+    			wf._stuck = false;
+    			unStuckCommands = 10;
+    		}
+    	}
         if(wf._begunMoving == true){
             wf.lookForWalls();
 
