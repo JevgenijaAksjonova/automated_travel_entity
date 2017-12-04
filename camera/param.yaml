@@ -2,24 +2,23 @@ camera:
     debugging: True
     hsv_thresholds:
         #HSV values must be given in the range (0-360,0-255,0-255)
-        blue: { 
-            lower: [0,0,0],
-            upper: [40,255,255]}
-        red : { 
-            lower: [0, 0, 0],
-            upper: [0, 0, 0]}
+        blue: {
+            lower: [18, 110, 40],
+            upper: [35, 255, 230]}
         green: {
-            lower: [0, 0, 0],
-            upper: [0,0,100]}
-        yellow: {
-            lower: [0,0,0],
-            upper: [0, 0,0]}
-        purple: {
-            lower: [0,0,0],
-            upper: [0, 0,0]}
-        red: {
-            lower: [0,0,0],
-            upper: [0, 0,0]}
+            lower: [40, 0, 20],
+            upper: [100, 255, 130]}
+            #lower: [0, 0, 20],
+            #upper: [0, 255, 130]}
         orange: {
-            lower: [0,0,0],
-            upper: [0, 0,0]}
+            lower: [0, 0, 0], 
+            upper: [0, 0, 0]}
+        purple: {
+            lower: [125, 30, 30], 
+            upper: [170, 255, 255]} 
+        red: {
+            lower: [0, 240, 40], 
+            upper: [120, 250, 120]}
+        yellow: {
+            lower: [90, 190, 80], 
+            upper: [100, 255, 240]}

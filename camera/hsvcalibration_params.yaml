@@ -1,0 +1,4 @@
+{blue: {lower: [0, 110, 40], upper: [240, 255, 230]}, green: {lower: [40, 0, 20],
+    upper: [100, 255, 130]}, orange: {lower: [0, 0, 0], upper: [0, 0, 0]}, purple: {
+    lower: [125, 30, 30], upper: [170, 255, 255]}, red: {lower: [0, 240, 40], upper: [
+      30, 250, 120]}, yellow: {lower: [90, 190, 80], upper: [100, 255, 240]}}

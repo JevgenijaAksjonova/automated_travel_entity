@@ -12,7 +12,8 @@ import math
 import yaml
 import Image as PilImage
 
-
+import rospkg
+rospack = rospkg.RosPack()
 
 import random
 pp = pprint.PrettyPrinter(indent=4)
@@ -148,15 +149,19 @@ class ColoredObjectCandidate(ObjectCandidate):
     def score(self):
         return self.distance_from_center * self.contour_area / (4.0 if self.adjusted else 1.0)
 
-default_hsv_thresh = {
-    "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
-    "blue": (np.array([18, 110, 40]), np.array([35, 255, 230])),
-    "yellow": (np.array([90, 190, 80]), np.array([100, 255, 240])),
-    "purple": (np.array([125, 30, 30]), np.array([170, 255, 255])),
-    "red": (np.array([110, 110, 80]), np.array([120, 255, 240])),
-    "orange": (np.array([107, 150, 80]), np.array([115, 255, 240])),
-}
+#default_hsv_thresh = {
+#    "green": (np.array([40, 110, 80]), np.array([85, 255, 230])),
+#    "blue": (np.array([18, 110, 40]), np.array([35, 255, 230])),
+#    "yellow": (np.array([90, 190, 80]), np.array([100, 255, 240])),
+#    "purple": (np.array([125, 30, 30]), np.array([170, 255, 255])),
+#    "red": (np.array([110, 110, 80]), np.array([120, 255, 240])),
+#    "orange": (np.array([107, 150, 80]), np.array([115, 255, 240])),
+#}
 
+param_file_path = path.join(rospack.get_path("camera"),"param.yaml")
+with open(param_file_path,"r") as param_file:
+    default_hsv_thresh = yaml.load(param_file)["camera"]["hsv_thresholds"]
+default_hsv_thresh = {color:(np.array(values["lower"]),np.array(values["upper"])) for color,values in default_hsv_thresh.items()}
 
 _mask_kernel = np.ones((3, 3), np.uint8)
 def compute_mask(image, bounds):
@@ -172,7 +177,7 @@ def compute_mask(image, bounds):
 
 #Process image :D
 def color_segment_image(bgr_image,
-                        depth_image = None,
+                        depth_image,
                         return_debug_image=False,
                         apply_checks=True,
                         hsv_thresholds = default_hsv_thresh):
@@ -204,7 +209,7 @@ def color_segment_image(bgr_image,
             bar_obj.find_depth(depth_image)
             bar_codes.append(bar_obj)
 
-    for color in ["red","green","blue","purple"]:
+    for color in ["blue", "green", "yellow", "purple", "orange", "red"]:
         #if to_many_object_candidates:
             #break
         mask = compute_mask(hsv_image, hsv_thresholds[color])
