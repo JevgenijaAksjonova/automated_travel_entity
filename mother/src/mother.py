@@ -391,14 +391,14 @@ class Mother:
             self.nav_goal_acchieved = True
             return True
 
-    def navigation_get_distance(self, startPose, goalPose):
-        request = distanceRequest()
-        request.startPose.linear.x = startPose[0]
-        request.startPose.linear.y = startPose[1]
-        request.goalPose.linear.x = goalPose[0]
-        request.goalPose.linear.y = goalPose[1]
-        response = call_srv(self.navigation_distance_service,request)
-        return response.distance
+    #def navigation_get_distance(self, startPose, goalPose):
+    #    request = distanceRequest()
+    #    request.startPose.linear.x = startPose[0]
+    #    request.startPose.linear.y = startPose[1]
+    #    request.goalPose.linear.x = goalPose[0]
+    #    request.goalPose.linear.y = goalPose[1]
+    #    response = call_srv(self.navigation_distance_service,request)
+    #    return response.distance
 
     def try_classify(self):
         rospy.loginfo("Trying to classify")
@@ -589,12 +589,24 @@ class Mother:
         return False
 
     def sort_objects(self):
+        while True:
+            self.initial_pose = self.get_pos_as_PoseStamped()
+            if self.initial_pose is not None:
+                break
+        #self.initial_pose = PoseStamped()
+        #self.initial_pose.pose.position.x = 0.215
+        #self.initial_pose.pose.position.y = 0.224
         robot_pose = self.initial_pose
-        liftable_objects = filter(lambda obj: obj.shape in liftable_shapes, self.maze_map.maze_objects))
+        liftable_objects = filter(lambda obj: obj.shape in liftable_shapes, self.maze_map.maze_objects)
         rospy.loginfo("Number of objects to pick = {0}".format(len(liftable_objects)))
         for obj in liftable_objects:
             d = self.navigation_get_distance(obj.pos,robot_pos)
             object_queue.put((d,obj))
+        #obj_pos = PoseStamped()
+        #obj_pos.pose.position.x = 0.215
+        #obj_pos.pose.position.y = 1.224
+        #d = self.navigation_get_distance(obj_pos,robot_pose)
+        #print("Computed distance =", d)
 
         
     # Main mother loop
@@ -631,11 +643,11 @@ class Mother:
                         self.has_started = True
                         self.set_following_an_exploration_path()
                         self.speak_pub.publish(String(data="Search and destroy"))
-                    else if ROUND == 2:
+                    elif ROUND == 2:
                         if object_lifted :
                             self.goal_pose = self.initial_pose
                             self.set_following_path_to_main_goal(activate_next_state=self.drop_object(activate_next_state=self.set_waiting_for_main_goal))
-                        else if not object_queue.empty():
+                        elif not object_queue.empty():
                             robot_pos = self.pos
                             self.lift_object = object_queue.get()
                             self.goal_pose = self.lift_object.pose_stamped
