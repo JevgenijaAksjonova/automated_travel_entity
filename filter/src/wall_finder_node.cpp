@@ -385,7 +385,6 @@ class WallFinder
 
 
             if(outlierRows.size() > 0) {
-                ROS_INFO("--------nr of walls found this iteration: %lu", outlierRows.size());
                 for(int i = 0; i < outlierRows.size(); i++){
                     float rowStartX = outlierRows[i][0].xPos;
                     float rowStartY = outlierRows[i][0].yPos;
@@ -398,7 +397,6 @@ class WallFinder
             }
             forgetWalls();
             if(_wallsFound.size() > 0){
-            	ROS_INFO("Publishing walls");
                 publish_rviz_walls();
                 publish_array_walls();
             }
@@ -672,7 +670,6 @@ class WallFinder
         }
 
         wall_publisher.publish(found_walls);
-		ROS_INFO("Publishing visulalization");
 
     }
 
@@ -737,7 +734,7 @@ class WallFinder
     	float linear_backing_v = -0.2;
     	float angular_speed = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/0.6));
     	angular_speed -= 0.3;
-
+        ROS_INFO("TRYING TO BACK!");
     	geometry_msgs::Twist msg;
 		msg.linear.x = linear_backing_v;
 		msg.linear.y = 0.0;

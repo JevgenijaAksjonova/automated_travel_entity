@@ -692,6 +692,7 @@ class FilterPublisher
             motherWantedToMove = motherWantsToMove_vec[i];
             i++;
         }
+        motherWantedToMove = false;
 
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
@@ -809,7 +810,7 @@ int main(int argc, char **argv)
         linear_v_vec.push_back(filter._navigation_linear_speed);
         motherWantsToMove_vec.push_back(filter._motherWantsToMove);
 
-        if(count % 50 == 0){
+        if(count % 100 == 0){
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
             linear_v_vec.clear();
             motherWantsToMove_vec.clear();
