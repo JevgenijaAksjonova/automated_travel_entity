@@ -15,12 +15,12 @@ NAVIGATION_EXPLORATION_STATUS_TOPIC = "navigation/exploration_status"
 NAVIGATION_STOP_TOPIC = "navigation/obstacles"
 GOAL_ACHIEVED_TOPIC = "navigation/status"
 MOTHER_WORKING_FRAME = "odom"
-ARM_PICKUP_SERVICE_NAME = "/arm/pickup"
+ARM_PICKUP_SERVICE_NAME = "uarm/arm_controller_service"
 ARM_MOVEMENT_COMPLETE_TOPIC = "/arm/done"
 ODOMETRY_TOPIC = "/odometry_node/odom"
 NAVIGATION_DISTANCE_TOPIC = "navigation/distance"
 USING_PATH_PLANNING = True
-USING_ARM = False
+USING_ARM = True
 USING_VISION = True
 
 ROUND = 1 # 1 - the first raund of the contest, 2 - the second raund of the contest
@@ -47,6 +47,10 @@ shape_2_allowed_colors = {
     "Star":["purple","orange"],
 }
 
+liftable_shapes = {
+    "Cube"
+}
+
 #Define verboseness of different parts
 
 VISION_VERBOSE = True
@@ -57,3 +61,4 @@ SAVE_PERIOD_SECS = 3
 MOTHER_STATE_FILE = "mother_state.yaml"
 RECOGNITION_MIN_P = 0.6
 CLASSIFYING_BASED_ON_COLOR = False
+ARM_LIFT_ACCEPT_THRESH = 0.03
