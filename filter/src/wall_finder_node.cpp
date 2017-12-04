@@ -870,11 +870,11 @@ int main(int argc, char **argv)
 
 
     int count = 0;
-    int unStuckCommands = 20;
+    int unStuckCommands = 100;
     while (wf.n.ok())
     {
     	if(wf._stuck){
-    		if(unStuckCommands == 10){
+    		if(unStuckCommands == 100){
     			wf.visualize_stuck_wall();
     		}
     		wf.tryToGetUnstuck();
