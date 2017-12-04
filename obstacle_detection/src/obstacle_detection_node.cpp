@@ -157,7 +157,7 @@ public:
     // Container for original & filtered data
     original_pc = *cloud_msg;
     point_cloud_received = true;
-    cloud_time = cloud_msg->stamp;
+    cloud_time = cloud_msg->header.stamp;
   }
 
   void positionCallback(const nav_msgs::Odometry::ConstPtr& msg) 
