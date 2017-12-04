@@ -879,7 +879,7 @@ int main(int argc, char **argv)
     			wf._stuck = false;
     			unStuckCommands = 10;
     			wf.publishContinueToNavigation();
-
+                wf._stuckPosition_prev = wf._stuckPosition;
     		}
     	}
         if(wf._begunMoving == true){
