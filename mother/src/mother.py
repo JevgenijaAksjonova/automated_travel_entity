@@ -806,7 +806,7 @@ class Mother:
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
-            elif self.mode == "do_nothing"
+            elif self.mode == "do_nothing":
                 pass
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
