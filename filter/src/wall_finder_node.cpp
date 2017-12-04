@@ -38,6 +38,7 @@ class WallFinder
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
     ros::Publisher tryToGetUnstuck_publisher;
+    ros::Publisher emergency_stop_publisher;
 
     ros::Subscriber lidar_subscriber;
     ros::Subscriber position_subscriber;
@@ -160,6 +161,9 @@ class WallFinder
 
         battery_wall_subcriber = n.subscribe("/batteries_found", 10, &WallFinder::batteryWallCallback, this);
         stuck_position_subscriber = n.subscribe("/stuck_position", 1, &WallFinder::stuckCallback, this);
+
+        emergency_stop_publisher = n.advertise<project_msgs::stop>("navigation/obstacles",100);
+
 
         _nr_measurements = nr_measurements;
 
@@ -749,8 +753,16 @@ class WallFinder
 				ROS_INFO("STUCK TWICE!");
 			}
 		}
-		_stuckPosition_prev = _stuckPosition;
+    }
 
+    void publishContinueToNavigation(){
+    	//Publish emergency stop
+        project_msgs::stop msg;
+        msg.stamp = ros::Time::now();
+        msg.stop = false;
+        msg.rollback = true;
+        msg.replan = true;
+        emergency_stop_publisher.publish(msg);
     }
 
     void visualize_stuck_wall(){
@@ -862,6 +874,9 @@ int main(int argc, char **argv)
     		if(unStuckCommands <1){
     			wf._stuck = false;
     			unStuckCommands = 10;
+				wf._stuckPosition_prev = wf._stuckPosition;
+    			publishContinueToNavigation();
+
     		}
     	}
         if(wf._begunMoving == true){
