@@ -71,11 +71,10 @@ class arm_pickup_stage(stage):
                 i = 0
                 while i < 1000:
                     trans.waitForTransform(MOTHER_WORKING_FRAME,"base_link",msg.header.stamp,rospy.Duration(secs=10))
-                    trans.waitForTransform
                     try:
                         i+=1
                         new_msg = trans.transformPose("base_link",msg)
-                        breakb1
+                        break
 
                     except ExtrapolationException as e:
                         print("arm_pickup_stage: ExtrapolationException")
@@ -786,7 +785,7 @@ class Mother:
                         lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
-                            activate_next_state=arm_pickup_stage(activate_next_state=lift_object(activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv)))
+                            activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv))
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
