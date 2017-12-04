@@ -75,7 +75,8 @@ class arm_pickup_stage(stage):
                     try:
                         i+=1
                         new_msg = trans.transformPose("base_link",msg)
-                        break
+                        breakb1
+
                     except ExtrapolationException as e:
                         print("arm_pickup_stage: ExtrapolationException")
                         continue
@@ -126,6 +127,7 @@ class Mother:
             self.exploration_completed = None
             self.mode = "waiting_for_main_goal"
             self.object_lifted = False
+            self.start_time = rospy.Time().now().to_sec()
 
     def load_state(self):
         self.init_default_state()
@@ -135,6 +137,7 @@ class Mother:
                 self.has_started = state_dict["has_started"]
                 self.exploration_completed = state_dict["exploration_completed"]
                 self.mode = state_dict["mode"]
+                self.start_time = state_dict["start_time"]
                 print("loaded has_started = ",self.has_started)
                 if self.has_started:
                     self.maze_map.load_maze_objs()
@@ -145,6 +148,7 @@ class Mother:
             "has_started":self.has_started,
             "exploration_completed":self.exploration_completed,
             "mode":self.mode,
+            "start_time":self.start_time
         }
         with open(MOTHER_STATE_FILE,"w") as state_file:
             yaml.dump(state_dict,state_file)
@@ -698,6 +702,8 @@ class Mother:
             self.speak_pub.publish(String(data="I am a winner!"))
             self.goal_pose = None
             self.has_started = False
+            self.mode = "do_nothing"
+
     # Main mother loop
     def mother_forever(self, rate=3):
         self.rate = rospy.Rate(rate)
@@ -717,9 +723,10 @@ class Mother:
 
             time = rospy.Time.now().to_sec()
             #check if time is up
-            if (ROUND == 1 and time - start_time > TIME_R1-TIME_TO_GO_BACK) or (ROUND == 2 and time - start_time > TIME_R2-TIME_TO_GO_BACK):
+            
+            if (ROUND == 1 and time - self.start_time > TIME_R1-TIME_TO_GO_BACK) or (ROUND == 2 and time - self.start_time > TIME_R2-TIME_TO_GO_BACK):
                 self.go_to_pose = self.initial_pose
-                self.set_following_path_to_main_goal(activate_next_state = self.finished())
+                self.set_following_path_to_main_goal(activate_next_state = self.finished)
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None or self.has_started:
@@ -733,12 +740,13 @@ class Mother:
                         #msg.angular = Vector3(0,0,1.57)
                         #msg.linear = Vector3(robot_pos[0],robot_pos[1],0)   
                         #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
-                    if ROUND == 1:
+                    if ROUND == 1 and not self.exploration_completed:
                         rospy.loginfo("Following an exploration path")
                         self.has_started = True
                         self.set_following_an_exploration_path()
                         self.speak_pub.publish(String(data="Search and destroy"))
-                    elif ROUND == 2:
+                        self.start_time = rospy.Time.now().to_sec()
+                    elif ROUND == 2 or (ROUND == 1 and self.exploration_completed):
                         if self.object_lifted :
                             self.goal_pose = self.initial_pose
                             self.set_following_path_to_main_goal(activate_next_state=self.drop_object(activate_next_state=self.set_waiting_for_main_goal))
@@ -748,6 +756,9 @@ class Mother:
                             self.goal_pose = self.lift_object.pose_stamped
                             self.set_following_path_to_main_goal(activate_next_state=self.lift_up_object(activate_next_state=self.set_waiting_for_main_goal))
                             #self.set_following_path_to_main_goal(activate_next_state=self.set_following_path_to_object_classification)
+                        else:
+                            self.goal_pose = self.initial_pose
+                            self.set_following_path_to_main_goal(activate_next_state=self.finished)
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
@@ -775,7 +786,7 @@ class Mother:
                         lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
-                            activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=None,arm_pickup_srv=self.arm_pickup_srv))
+                            activate_next_state=arm_pickup_stage(activate_next_state=lift_object(activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv)))
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
@@ -795,6 +806,8 @@ class Mother:
             elif self.mode == "handling_emergency_stop":
                 pass
                 #rospy.loginfo("Handling emergency stop")
+            elif self.mode == "do_nothing"
+                pass
             else:
                 raise Exception('invalid mode: \"' + str(self.mode) + "\"")
 
@@ -817,7 +830,6 @@ if __name__ == "__main__":
     #start_time = rospy.Time.now().to_sec()
     try:
         rospy.init_node("recognizer_server")
-        start_time = rospy.Time.now().to_sec()
         m = Mother()
         m.mother_forever()
     except rospy.ROSInterruptException:

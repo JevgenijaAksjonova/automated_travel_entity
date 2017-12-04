@@ -306,7 +306,7 @@ int main(int argc, char **argv)
             }
         //}
     } else if (path->replan) {
-        if (gpp->explorationStatus == 1) {
+        if (gpp->explorationStatus == 1 ) {
             gpp->explorationCallback(true, loc->x, loc->y);
             pair<double, double> g = gpp->explorationPath[gpp->explorationPath.size()-1];
             path->setPath(g.first, g.second, goal.theta, distanceTol, angleTol, gpp->explorationPath);
