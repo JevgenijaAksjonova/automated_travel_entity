@@ -742,14 +742,13 @@ class WallFinder
 		msg.angular.x = 0.0;
 		msg.angular.y = 0.0;
 		msg.angular.z = angular_speed;
-
+        tryToGetUnstuck_publisher;
 		if(_stuckPosition_prev[0] > 0.01){
 			float distance = sqrt(pow(_stuckPosition[0] - _stuckPosition_prev[0], 2) + pow(_stuckPosition[1] - _stuckPosition_prev[1], 2));
 			if(distance < 0.15){
 				ROS_INFO("STUCK TWICE!");
 			}
 		}
-		_stuckPosition_prev = _stuckPosition;
 
     }
 
@@ -862,6 +861,7 @@ int main(int argc, char **argv)
     		if(unStuckCommands <1){
     			wf._stuck = false;
     			unStuckCommands = 10;
+		        wf._stuckPosition_prev =wf._stuckPosition;
     		}
     	}
         if(wf._begunMoving == true){
