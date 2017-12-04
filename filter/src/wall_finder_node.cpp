@@ -750,7 +750,9 @@ class WallFinder
 		msg.angular.x = 0.0;
 		msg.angular.y = 0.0;
 		msg.angular.z = angular_speed;
-        tryToGetUnstuck_publisher;
+		tryToGetUnstuck_publisher.publish(msg);
+
+
 		if(_stuckPosition_prev[0] > 0.01){
 			float distance = sqrt(pow(_stuckPosition[0] - _stuckPosition_prev[0], 2) + pow(_stuckPosition[1] - _stuckPosition_prev[1], 2));
 			if(distance < 0.15){
