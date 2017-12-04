@@ -17,6 +17,7 @@
 
 
 #include "std_msgs/Float32MultiArray.h"
+#include "std_msgs/Bool.h"
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
 
@@ -46,6 +47,7 @@ class FilterPublisher
     ros::Subscriber initalPose_subscriber;
     ros::Subscriber navigation_speed_subscriber;
     ros::Subscriber addedWall_subscriber;
+    ros::Subscriber motherWantsToMove_subscriber;
 
     float pi;
     std::vector<float> dphi_dt;
@@ -71,6 +73,9 @@ class FilterPublisher
     float _navigation_linear_speed;
     float _navigation_angular_speed;
     ros::Time _laserTime;
+    bool _motherWantsToMove;
+
+
     LocalizationGlobalMap map;
 
     //LocalizationGlobalMap map;
@@ -180,8 +185,8 @@ class FilterPublisher
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
         initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
-
         navigation_speed_subscriber = n.subscribe("/motor_controller/twist", 1, &FilterPublisher::navigation_speed_encoder, this);
+        motherWantsToMove_subscriber = n.subscribe("/mother/moving", 1, &FilterPublisher::motherWantsToMoveCallback, this);
 
         //addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
 
@@ -251,6 +256,10 @@ class FilterPublisher
 	    	ROS_INFO("ADDING WALL TO FILTER MAP");
 	    	//map.walls.push_back(wall);
 	    }
+    }
+
+    void motherWantsToMoveCallback(const std_msgs::Bool::ConstPtr &msg){
+        _motherWantsToMove = msg->data;
     }
 
     void initializeParticles()
@@ -507,15 +516,15 @@ class FilterPublisher
 
     void publishPosition(Particle ml_pos)
     {
-        //ros::Time current_time = ros::Time::now();
+        ros::Time current_time = ros::Time::now();
         float theta = ml_pos.thetaPos;
         float x = ml_pos.xPos;
         float y = ml_pos.yPos;
 
-        ROS_INFO("Trying to stamp position with time %f",_laserTime.toSec() );
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
-        odom_trans.header.stamp = _laserTime;
+        //odom_trans.header.stamp = _laserTime;
+        odom_trans.header.stamp = current_time;
         odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
@@ -663,8 +672,7 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
-    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev, vector<float> linearV_vec){
-
+    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev, vector<float> linearV_vec, vector<bool> motherWantsToMove_vec){
 
         float dx = ml_pos.xPos - ml_pos_prev.xPos;
         float dy = ml_pos.yPos - ml_pos_prev.yPos;
@@ -678,13 +686,23 @@ class FilterPublisher
         }
         averageLinearV = averageLinearV/linearV_vec.size();
 
-        if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
+        int i = 0;
+        bool motherWantedToMove = true;
+        while(i < motherWantsToMove_vec.size() && motherWantedToMove ){
+            motherWantedToMove = motherWantsToMove_vec[i];
+            i++;
+        }
+
+        if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
             ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
+            ROS_INFO("Mother wanted to move %d", motherWantedToMove);
+            publish_stuck(ml_pos);
         }
 
 
     }
+
     void publish_stuck(Particle &ml_pos){
 
         //Publish emergency stop
@@ -770,9 +788,7 @@ int main(int argc, char **argv)
     most_likely_position_prev.thetaPos = 0;
 
     vector<float> linear_v_vec;
-
-
-
+    vector<bool> motherWantsToMove_vec;
     int count = 0;
     while (filter.n.ok())
     {
@@ -791,10 +807,12 @@ int main(int argc, char **argv)
         filter.publish_rviz_particles();
 
         linear_v_vec.push_back(filter._navigation_linear_speed);
+        motherWantsToMove_vec.push_back(filter._motherWantsToMove);
 
         if(count % 50 == 0){
-            filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec);
+            filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
             linear_v_vec.clear();
+            motherWantsToMove_vec.clear();
             most_likely_position_prev = most_likely_position;
 
         }
