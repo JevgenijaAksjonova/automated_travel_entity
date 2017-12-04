@@ -385,7 +385,6 @@ class WallFinder
 
 
             if(outlierRows.size() > 0) {
-                ROS_INFO("--------nr of walls found this iteration: %lu", outlierRows.size());
                 for(int i = 0; i < outlierRows.size(); i++){
                     float rowStartX = outlierRows[i][0].xPos;
                     float rowStartY = outlierRows[i][0].yPos;
@@ -398,7 +397,6 @@ class WallFinder
             }
             forgetWalls();
             if(_wallsFound.size() > 0){
-            	ROS_INFO("Publishing walls");
                 publish_rviz_walls();
                 publish_array_walls();
             }
@@ -672,7 +670,6 @@ class WallFinder
         }
 
         wall_publisher.publish(found_walls);
-		ROS_INFO("Publishing visulalization");
 
     }
 

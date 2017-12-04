@@ -692,6 +692,7 @@ class FilterPublisher
             motherWantedToMove = motherWantsToMove_vec[i];
             i++;
         }
+        motherWantedToMove = false;
 
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
