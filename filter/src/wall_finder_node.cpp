@@ -863,12 +863,6 @@ int main(int argc, char **argv)
     loop_rate.sleep();
     loop_rate.sleep();
 
-    wf.publish_rviz_walls();
-    wf.publish_array_walls();
-
-
-
-
     int count = 0;
     int unStuckCommands = 100;
     while (wf.n.ok())
