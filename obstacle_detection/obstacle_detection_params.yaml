@@ -9,3 +9,5 @@ obstacle_detection:
         BIN_THRESHOLD : 1
     visual:
         PUBLISH_MARKERS : true
+    walls:
+        SEND_BATTERIES_WALLS : true

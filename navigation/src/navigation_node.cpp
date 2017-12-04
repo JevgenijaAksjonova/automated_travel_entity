@@ -193,7 +193,7 @@ int main(int argc, char **argv)
   ros::Subscriber locationSub = n.subscribe("/odom", 1, &Location::callback, loc.get());
 
   // Map update
-  ros::Subscriber mapUpdateSub = n.subscribe("/wall_finder_walls_array", 1, &GlobalPathPlanner::newWallCallback, gpp.get());
+  ros::Subscriber mapUpdateSub = n.subscribe("/wall_finder_walls_array", 5, &GlobalPathPlanner::newWallCallback, gpp.get());
 
   // Path
   double pathRad = 0.25;

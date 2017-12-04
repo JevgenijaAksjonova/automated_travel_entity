@@ -38,6 +38,7 @@ public:
   float BIN_THRESHOLD;
 
   bool PUBLISH_MARKERS;
+  bool SEND_BATTERIES_WALLS;
 
   ros::NodeHandle n;
 
@@ -72,6 +73,8 @@ public:
 
   bool point_cloud_received;
 
+  ros::Time cloud_time;
+
   ObstaclePublisher()
   {
     n = ros::NodeHandle("~");
@@ -95,6 +98,7 @@ public:
     NBINS = 180;
 
     PUBLISH_MARKERS = true;
+    SEND_BATTERIES_WALLS = true;
 
     BIN_THRESHOLD = 100;
 
@@ -148,6 +152,14 @@ public:
       ROS_ERROR("Obstacle detection failed to detect visual parameter 1");
       exit(EXIT_FAILURE);
     }
+
+    if (!n.getParam("/obstacle_detection/walls/SEND_BATTERIES_WALLS", SEND_BATTERIES_WALLS))
+    {
+      ROS_ERROR("Obstacle detection failed to detect wall parameter 1");
+      exit(EXIT_FAILURE);
+    }
+
+    
   }
 
   void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
@@ -155,6 +167,7 @@ public:
     // Container for original & filtered data
     original_pc = *cloud_msg;
     point_cloud_received = true;
+    cloud_time = cloud_msg->header.stamp;
   }
 
   void positionCallback(const nav_msgs::Odometry::ConstPtr& msg) 
@@ -248,7 +261,7 @@ public:
     visualization_msgs::MarkerArray all_bins;
     visualization_msgs::Marker bin;
 
-    bin.header.stamp = current_time;
+    bin.header.stamp = cloud_time;
     bin.header.frame_id = "/base_link";
 
     bin.ns = "all_bins";
@@ -316,12 +329,12 @@ public:
       ptStart.point.y = wall_segments[i].first.second;
       ptEnd.point.x = wall_segments[i].second.first;
       ptEnd.point.y = wall_segments[i].second.second;
-      ros::Time now = ros::Time::now();
+      //ros::Time now = ros::Time::now();
       try {
-        listener_2.waitForTransform("odom", "base_link", now, ros::Duration(0.1));
+        listener_2.waitForTransform("odom", "base_link", cloud_time, ros::Duration(0.1));
 
-        ptEnd.header.stamp = now;
-        ptStart.header.stamp = now;
+        ptEnd.header.stamp = cloud_time;
+        ptStart.header.stamp = cloud_time;
         listener_2.transformPoint("odom", ptStart, ptStart_trans);
         listener_2.transformPoint("odom", ptEnd, ptEnd_trans);
 
@@ -410,7 +423,7 @@ public:
     visualization_msgs::Marker wall;
 
     wall.header.frame_id = "/base_link";
-    wall.header.stamp = ros::Time::now();
+    wall.header.stamp = cloud_time;
 
     wall.ns = "obstacle_walls";
     wall.type = visualization_msgs::Marker::CUBE;
@@ -516,7 +529,7 @@ int main(int argc, char **argv)
       obstacle_publisher.publish(obs.obstacles_found);
 
       
-      if(obs.angular_vel < obs.ANGULAR_VELOCITY_THRESHOLD) {
+      if(obs.angular_vel < obs.ANGULAR_VELOCITY_THRESHOLD && obs.SEND_BATTERIES_WALLS) {
         obs.sendBatteries();
       }
     }

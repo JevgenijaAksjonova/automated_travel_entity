@@ -14,3 +14,12 @@ camera:
         yellow: {
             lower: [0,0,0],
             upper: [0, 0,0]}
+        purple: {
+            lower: [0,0,0],
+            upper: [0, 0,0]}
+        red: {
+            lower: [0,0,0],
+            upper: [0, 0,0]}
+        orange: {
+            lower: [0,0,0],
+            upper: [0, 0,0]}

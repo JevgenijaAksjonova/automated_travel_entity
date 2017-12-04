@@ -37,11 +37,14 @@ class FilterPublisher
 
     ros::Publisher filter_publisher;
     ros::Publisher particle_publisher;
+    ros::Publisher stuck_position_publisher;
+    ros::Publisher stuck_wall_publisher;
     ros::Publisher stuck_publisher;
 
     ros::Subscriber encoder_subscriber_left;
     ros::Subscriber encoder_subscriber_right;
     ros::Subscriber initalPose_subscriber;
+    ros::Subscriber navigation_speed_subscriber;
     ros::Subscriber addedWall_subscriber;
 
     float pi;
@@ -65,6 +68,9 @@ class FilterPublisher
     float linear_v;
     float angular_w;
     bool RUN_WHILE_STANDING_STILL;
+    float _navigation_linear_speed;
+    float _navigation_angular_speed;
+    ros::Time _laserTime;
     LocalizationGlobalMap map;
 
     //LocalizationGlobalMap map;
@@ -85,6 +91,8 @@ class FilterPublisher
         float gaussian_particle_noise_spread = 0.1;
          _intitialPoseReceived = false;
          map = newMap;
+         _navigation_linear_speed = 0;
+         _navigation_angular_speed = 0;
 
         
         if(!n.getParam("/filter/particle_params/nr_particles",nr_particles)){
@@ -165,11 +173,15 @@ class FilterPublisher
         filter_publisher = n.advertise<nav_msgs::Odometry>("/filter", 1);
         particle_publisher = n.advertise<visualization_msgs::MarkerArray>("/visual_particles", 1);
         stuck_publisher = n.advertise<project_msgs::stop>("navigation/obstacles",100);
+        stuck_position_publisher = n.advertise<std_msgs::Float32MultiArray>("/stuck_position", 100);
 
         encoder_subscriber_left = n.subscribe("/motorcontrol/encoder/left", 1, &FilterPublisher::encoderCallbackLeft, this);
         encoder_subscriber_right = n.subscribe("/motorcontrol/encoder/right", 1, &FilterPublisher::encoderCallbackRight, this);
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
         initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
+
+        navigation_speed_subscriber = n.subscribe("/motor_controller/twist", 1, &FilterPublisher::navigation_speed_encoder, this);
+
         //addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
 
 
@@ -201,11 +213,18 @@ class FilterPublisher
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
     {
+        _laserTime = msg->header.stamp;
         ranges = msg->ranges;
         angle_increment = msg->angle_increment;
 
         range_min = msg->range_min;
         range_max = msg->range_max;
+    }
+
+    void navigation_speed_encoder(const geometry_msgs::Twist::ConstPtr &msg){
+        _navigation_angular_speed = msg->linear.x; 
+        _navigation_linear_speed = msg->angular.z;
+
     }
 
 
@@ -487,7 +506,7 @@ class FilterPublisher
 
     void publishPosition(Particle ml_pos)
     {
-        ros::Time current_time = ros::Time::now();
+        //ros::Time current_time = ros::Time::now();
         float theta = ml_pos.thetaPos;
         float x = ml_pos.xPos;
         float y = ml_pos.yPos;
@@ -495,7 +514,7 @@ class FilterPublisher
 
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
-        odom_trans.header.stamp = current_time;
+        odom_trans.header.stamp = _laserTime;
         odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
@@ -508,7 +527,7 @@ class FilterPublisher
 
         // Publish odometry message
         nav_msgs::Odometry odom_msg;
-        odom_msg.header.stamp = current_time;
+        odom_msg.header.stamp = _laserTime;
         odom_msg.header.frame_id = "odom";
 
         odom_msg.pose.pose.position.x = x;
@@ -661,15 +680,28 @@ class FilterPublisher
         if(averageLinearV > STUCK_TRESHOLD_SPEED && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
             ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);
-            project_msgs::stop msg;
-            msg.stamp = ros::Time::now();
-            msg.stop = true;
-            msg.reason = 5;
-            stuck_publisher.publish(msg);
         }
 
 
     }
+    void publish_stuck(Particle &ml_pos){
+
+        //Publish emergency stop
+        project_msgs::stop msg;
+        msg.stamp = ros::Time::now();
+        msg.stop = true;
+        msg.reason = 5;
+        stuck_publisher.publish(msg);
+
+        //Publish where we got stuck
+        std_msgs::Float32MultiArray array;
+        array.data.clear();
+        array.data.push_back(ml_pos.xPos);
+        array.data.push_back(ml_pos.yPos);
+        array.data.push_back(ml_pos.thetaPos);
+        stuck_position_publisher.publish(array);
+        }
+
 
 
 
@@ -757,7 +789,7 @@ int main(int argc, char **argv)
 
         filter.publish_rviz_particles();
 
-        linear_v_vec.push_back(filter.linear_v);
+        linear_v_vec.push_back(filter._navigation_linear_speed);
 
         if(count % 50 == 0){
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec);
