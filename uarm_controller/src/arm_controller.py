@@ -55,6 +55,13 @@ class ArmController(object):
         self.pump_control(False)
         self.move_to_joints(joint0_init, joint1_init, joint2_init)
 
+    def check_arm_input(self,x,y,z): #only for lifting up object. Doesn't affect 'init' and 'store'
+        xy_dist = sqrt(pow(x, 2) + pow(y, 2))
+        if xy_dist < 30.0 and np.abs(z) < 20.0 and xy_dist > 12.0:
+            return True
+        else: 
+            return False  
+
     def move_to_joints(self,joint0, joint1, joint2):
         req = MoveToJointsRequest()
         req.j0 = joint0 + joint0_offset
@@ -80,9 +87,13 @@ class ArmController(object):
             return 0 #service failed
     
     def move_arm(self,x,y,z):
-        joint0, joint1, joint2 = compute_joint_angles((x,y,z))
-        return self.move_to_joints(joint0, joint1, joint2)
-    
+        check_angle_success = self.check_arm_input(x,y,z)
+        if check_angle_success:
+            joint0, joint1, joint2 = compute_joint_angles((x,y,z))
+            return self.move_to_joints(joint0, joint1, joint2)
+        else:
+            return False
+
     def pump_control(self,status):    
         req = PumpRequest()
         req.pump_status = status #bool true: open pump; false: close pump
@@ -105,8 +116,7 @@ class ArmController(object):
             rospy.loginfo("Pump succeed")
         else:
             rospy.logerr("Pump service failed")
-
-        self.move_arm(x,y,z+4.0)
+        step0_results = self.move_arm(x,y,z+4.0)
 
         step1_result = self.move_arm(x,y,z-2)
         if step1_result != 0:

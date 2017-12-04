@@ -16,6 +16,10 @@
 #include <fstream>
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
+#include "std_msgs/Bool.h"
+#include <project_msgs/stop.h>
+
+
 
 #include "std_msgs/Float32MultiArray.h"
 
@@ -38,6 +42,7 @@ class WallFinder
     ros::Publisher wall_publisher;
     ros::Publisher wall_array_publisher;
     ros::Publisher tryToGetUnstuck_publisher;
+    ros::Publisher emergency_stop_publisher;
 
     ros::Subscriber lidar_subscriber;
     ros::Subscriber position_subscriber;
@@ -59,6 +64,8 @@ class WallFinder
     float _angular_velocity;
     int _wasTurning;
     vector<float>_stuckPosition;
+    vector<float>_stuckPosition_prev;
+
     bool _stuck;
     LocalizationGlobalMap map;
 
@@ -101,7 +108,7 @@ class WallFinder
         _stuck = false;
 
         map = newMap;
-
+        _stuckPosition_prev = {0,0,0};
 
         if(!n.getParam("/wall_finder/nr_measurements",nr_measurements)){
             ROS_ERROR("wf failed to detect parameter1");
@@ -159,8 +166,10 @@ class WallFinder
         battery_wall_subcriber = n.subscribe("/batteries_found", 10, &WallFinder::batteryWallCallback, this);
         stuck_position_subscriber = n.subscribe("/stuck_position", 1, &WallFinder::stuckCallback, this);
 
+        emergency_stop_publisher = n.advertise<project_msgs::stop>("navigation/obstacles",100);
+
+
         _nr_measurements = nr_measurements;
-        readSavedWalls();
 
     }
 
@@ -179,7 +188,7 @@ class WallFinder
 	        return;
 	    }
 	    string line;
-
+	    ROS_INFO("Reading saved file:");
 	    while (getline(file, line)){
 	        if (line[0] == '#') {
 	            // comment -> skip
@@ -187,23 +196,36 @@ class WallFinder
 	        }
 
 	        vector<float> wall;
-	        int enumVal;
 	        WallSource source;
 	        bool published = false;
 
 	        istringstream line_stream(line);
 	        // x1, y1, x2, y2
-	        line_stream >> wall[0] >> wall[1] >> wall[2] >> wall[3] >> enumVal;
 
-	        switch(enumVal){
-	        	case 1 : source = FromFile;
-	        	case 2 : source = FromLidar;
-	        	case 3 : source = FromCamera;
- 	        }
- 	        if(FromFile){
+	        float first;
+	        float second;
+	        float third;
+	        float fourth;
+	        int last;
+	        line_stream >> first;
+	        line_stream >> second;
+	        line_stream >> third;
+	        line_stream >> fourth;
+	        line_stream >> last;
+
+	        ROS_INFO("Loaded saved wall: [%f] [%f] [%f] [%f] [%d]",first, second, third, fourth, last);
+
+
+	        if(last == 1) source = FromFile;
+	        if(last == 2) source = FromLidar;
+	        if(last == 3) source == FromCamera;
+
+ 	        if(source == FromFile){
  	        	published = true;
  	        }
-            Wall w = createWall(wall[0], wall[1], wall[2], wall[3], 1000, published, source);
+
+            Wall w = createWall(first, second, third, fourth, 1000, published, source);
+
             _wallsFound.push_back(w);
  	    }
     }
@@ -371,7 +393,6 @@ class WallFinder
 
 
             if(outlierRows.size() > 0) {
-                ROS_INFO("--------nr of walls found this iteration: %lu", outlierRows.size());
                 for(int i = 0; i < outlierRows.size(); i++){
                     float rowStartX = outlierRows[i][0].xPos;
                     float rowStartY = outlierRows[i][0].yPos;
@@ -397,7 +418,7 @@ class WallFinder
         bool wallIsInsideMap = true;
         bool robotInsideWall = false;
         int i = 0;
-        ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
+        //ROS_INFO("Trying to add wall [%f] [%f] [%f] [%f]", w.xStart, w.yStart, w.xEnd, w.yEnd);
         while(wallIsNew && !robotInsideWall && i < _wallsFound.size()){
             wallIsNew = checkIfNewWall(w, _wallsFound[i], i);
            robotInsideWall = checkIfRobotInsideWall(w);
@@ -473,10 +494,10 @@ class WallFinder
 
         float centerDistance = calculateLinePointDistance(x, y, x1, y1, x2, y2);
         float angleDifference =  (abs(wNew.angle - wOld.angle)); 
-        ROS_INFO("ANGLE DIFFERENCE wnew [%f] wold[%f] diff [%f]", wNew.angle, wOld.angle, angleDifference);
-        ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
-        ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
-        ROS_INFO("ANGLE DIFFERENCE wnew [%f] wold[%f] diff [%f]", wNew.angle, wOld.angle, angleDifference);
+        //ROS_INFO("ANGLE DIFFERENCE wnew [%f] wold[%f] diff [%f]", wNew.angle, wOld.angle, angleDifference);
+        //ROS_INFO("Comparing to wall %d,  [%f] [%f] [%f] [%f]", i, wOld.xStart, wOld.yStart, wOld.xEnd, wOld.yEnd);
+        //ROS_INFO("Distance to old wall %d is %f", i, centerDistance);
+        //ROS_INFO("ANGLE DIFFERENCE wnew [%f] wold[%f] diff [%f]", wNew.angle, wOld.angle, angleDifference);
 
         if(centerDistance > 0.05 && angleDifference > M_PI/5){
             return true;
@@ -484,15 +505,15 @@ class WallFinder
         if(centerDistance > 0.15){
             return true;
         }
-        ROS_INFO("Wall is the same angle difference : %f", angleDifference);
-        ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
+        //ROS_INFO("Wall is the same angle difference : %f", angleDifference);
+        //ROS_INFO("Previoud points %d",_wallsFound[i].nrAgreeingPoints);
         if(wNew.length >wOld.length){ //Assume longer is better.
-            ROS_INFO("Updating wall %d", i);
-            ROS_INFO("Published before = %d", _wallsFound[i].published);
+            //ROS_INFO("Updating wall %d", i);
+            //ROS_INFO("Published before = %d", _wallsFound[i].published);
             _wallsFound[i] = wNew;
             _wallsFound[i].nrAgreeingPoints += wOld.nrAgreeingPoints;
             _wallsFound[i].published = wOld.published;
-            ROS_INFO("Published = %d", _wallsFound[i].published);
+            //ROS_INFO("Published = %d", _wallsFound[i].published);
         }else{
             _wallsFound[i].nrAgreeingPoints += wNew.nrAgreeingPoints;
         }
@@ -608,7 +629,6 @@ class WallFinder
         visualization_msgs::MarkerArray found_walls;
         for(int i = 0; i < _wallsFound.size(); i++){
             Wall w = _wallsFound[i];
-            //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
             if(w.nrAgreeingPoints > MIN_POINTS && !w.published){
 
                 visualization_msgs::Marker wall;
@@ -658,6 +678,7 @@ class WallFinder
         }
 
         wall_publisher.publish(found_walls);
+
     }
 
     void publish_array_walls(){
@@ -674,7 +695,6 @@ class WallFinder
                 wall_array_publisher.publish(array);
                 _wallsFound[i].published = true;
                 ROS_INFO("*********************Published wall %d [%f] [%f] [%f] [%f]******************'", i, w.xStart, w.yStart, w.xEnd, w.yEnd);
-
                 saveWallsToFile();
             }
         }
@@ -689,7 +709,7 @@ class WallFinder
     	vector<string> wallsToBeSaved;
 
     	for(int i = 0; i < _wallsFound.size(); i++){
-    		if(_wallsFound[i].published){
+    		if(_wallsFound[i].published && _wallsFound[i].source != FromFile){
     			wallsToBeSaved.push_back(wallToString(_wallsFound[i]));
     		}
     	}
@@ -698,13 +718,12 @@ class WallFinder
     }
 
     string wallToString(Wall &w){
-    	int enumVal;
-    	switch(w.source){
-    		case FromFile : enumVal =1;
-    		case FromLidar : enumVal = 2;
-    		case FromCamera : enumVal = 3;
+    	int enumVal = 0;
+    	int source = static_cast<int>(w.source);
+    	if(source > 3 || source < 0){
+    		ROS_ERROR("INVALID SOURCE ID");
     	}
-    	string wallString = to_string(w.xStart) + " " + to_string(w.yStart) +" "+ to_string(w.xEnd) + " "+ to_string(w.yEnd) + " " + to_string(enumVal);
+    	string wallString = to_string(w.xStart) + " " + to_string(w.yStart) +" "+ to_string(w.xEnd) + " "+ to_string(w.yEnd) + " " + to_string(source);
     	return wallString;
     }
 
@@ -719,13 +738,11 @@ class WallFinder
     }
 
     void tryToGetUnstuck(){
+
     	float linear_backing_v = -0.2;
     	float angular_speed = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/0.6));
     	angular_speed -= 0.3;
-
-
-
-
+        ROS_INFO("TRYING TO BACK!");
     	geometry_msgs::Twist msg;
 		msg.linear.x = linear_backing_v;
 		msg.linear.y = 0.0;
@@ -734,6 +751,22 @@ class WallFinder
 		msg.angular.y = 0.0;
 		msg.angular.z = angular_speed;
 
+		if(_stuckPosition_prev[0] > 0.01){
+			float distance = sqrt(pow(_stuckPosition[0] - _stuckPosition_prev[0], 2) + pow(_stuckPosition[1] - _stuckPosition_prev[1], 2));
+			if(distance < 0.15){
+				ROS_INFO("STUCK TWICE!");
+			}
+		}
+    }
+
+    void publishContinueToNavigation(){
+    	//Publish emergency stop
+        project_msgs::stop msg;
+        msg.stamp = ros::Time::now();
+        msg.stop = false;
+        msg.rollback = true;
+        msg.replan = true;
+        emergency_stop_publisher.publish(msg);
     }
 
     void visualize_stuck_wall(){
@@ -818,6 +851,17 @@ int main(int argc, char **argv)
     wf.addKnownWalls();
 
     ros::Rate loop_rate(frequency);
+    wf.readSavedWalls();
+
+    loop_rate.sleep();
+    loop_rate.sleep();
+    loop_rate.sleep();
+    loop_rate.sleep();
+    loop_rate.sleep();
+
+    wf.publish_rviz_walls();
+    wf.publish_array_walls();
+
 
 
 
@@ -834,6 +878,9 @@ int main(int argc, char **argv)
     		if(unStuckCommands <1){
     			wf._stuck = false;
     			unStuckCommands = 10;
+				wf._stuckPosition_prev = wf._stuckPosition;
+    			wf.publishContinueToNavigation();
+
     		}
     	}
         if(wf._begunMoving == true){

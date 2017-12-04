@@ -10,7 +10,7 @@ from os import path
 from os import remove as remove_file
 import rospy
 from geometry_msgs.msg import TransformStamped
-from tf import TransformListener, ExtrapolationException
+from tf import TransformListener, ExtrapolationException, LookupException, ConnectivityException
 trans = TransformListener()
 from visualization_msgs.msg import Marker
 from ras_msgs.msg import RAS_Evidence
@@ -185,15 +185,29 @@ class MazeMap:
             self.add_object(maze_object, was_observed=False)
 
 
-def tf_transform_point_stamped(pose_stamped_msg, max_iter=3000):
+def tf_transform_point_stamped(pose_stamped_msg, max_iter=99999999):
     i = 0
     ros_sucks = True
     obj_cand_msg_new = None
-    trans.waitForTransform(
-        MOTHER_WORKING_FRAME,
-        pose_stamped_msg.header.frame_id,
-        rospy.Time(),
-        rospy.Duration(secs=3))
+    #print("max_iter =",max_iter)
+    #print("tf_transform_point_stamped: pose_stamped_msg =",pose_stamped_msg)
+    #print("before wait")
+    try:
+        trans.waitForTransform(
+            MOTHER_WORKING_FRAME,
+            pose_stamped_msg.header.frame_id,
+            rospy.Time(),
+            rospy.Duration(secs=10))
+    except LookupException as e:
+        print("tf_transform_point_stamped: LookupException msg: ")
+        print(e)
+        return None
+    except ConnectivityException as e:
+        print("tf_transform_point_stamped: ConnectivityException, msg:")
+        print(e)
+        return None
+
+    #print("tf_transform_point_stamped: after wait")
     while ros_sucks and i < max_iter:
         try:
             obj_cand_msg_new = trans.transformPoint(MOTHER_WORKING_FRAME,
@@ -202,6 +216,7 @@ def tf_transform_point_stamped(pose_stamped_msg, max_iter=3000):
         except ExtrapolationException:
             pass
         i += 1
+    #print("tf_transform_point_stamped returnoing:" ,obj_cand_msg_new)
     return obj_cand_msg_new
 
 
