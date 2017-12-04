@@ -736,6 +736,49 @@ class WallFinder
 
     }
 
+    void visualize_stuck_wall(){
+
+    	visualization_msgs::MarkerArray found_walls;
+            //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
+        visualization_msgs::Marker wall;
+
+        wall.header.frame_id = "/odom";
+        wall.header.stamp = ros::Time::now();
+
+        wall.ns = "global_wall";
+        wall.type = visualization_msgs::Marker::CUBE;
+        wall.action = visualization_msgs::Marker::ADD;
+
+        wall.pose.position.z = 0.1;
+
+        // Set the scale of the marker -- 1x1x1 here means 1m on a side
+        //marker.scale.x = 1.0;
+        wall.scale.y = 0.01;
+        wall.scale.z = 0.3;
+
+        // Set the color -- be sure to set alpha to something non-zero!
+    	wall.color.r = 1.0f;
+    	wall.color.g = 0.0f;
+    	wall.color.b = 1.0f;
+		wall.color.a = 1.0;             
+
+
+        wall.pose.position.x = _stuckPosition[0];
+        wall.pose.position.y = _stuckPosition[1];
+
+        tf::Quaternion q;
+        q.setRPY(0.0, 0.0, _stuckPosition[2] - M_PI/2);
+        tf::quaternionTFToMsg(q, wall.pose.orientation);
+
+        wall.scale.x = 0.5;
+
+        wall.id = 999;
+        found_walls.markers.push_back(wall);
+
+		wall_publisher.publish(found_walls);
+
+    }
+
   private:
 
     std::vector<float> prob_meas;
@@ -783,6 +826,9 @@ int main(int argc, char **argv)
     while (wf.n.ok())
     {
     	if(wf._stuck){
+    		if(unStuckCommands == 10){
+    			wf.visualize_stuck_wall();
+    		}
     		wf.tryToGetUnstuck();
     		unStuckCommands --;
     		if(unStuckCommands <1){
