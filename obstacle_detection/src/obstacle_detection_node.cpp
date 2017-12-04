@@ -38,6 +38,7 @@ public:
   float BIN_THRESHOLD;
 
   bool PUBLISH_MARKERS;
+  bool SEND_BATTERIES_WALLS;
 
   ros::NodeHandle n;
 
@@ -97,6 +98,7 @@ public:
     NBINS = 180;
 
     PUBLISH_MARKERS = true;
+    SEND_BATTERIES_WALLS = true;
 
     BIN_THRESHOLD = 100;
 
@@ -150,6 +152,14 @@ public:
       ROS_ERROR("Obstacle detection failed to detect visual parameter 1");
       exit(EXIT_FAILURE);
     }
+
+    if (!n.getParam("/obstacle_detection/walls/SEND_BATTERIES_WALLS", SEND_BATTERIES_WALLS))
+    {
+      ROS_ERROR("Obstacle detection failed to detect wall parameter 1");
+      exit(EXIT_FAILURE);
+    }
+
+    
   }
 
   void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
@@ -519,7 +529,7 @@ int main(int argc, char **argv)
       obstacle_publisher.publish(obs.obstacles_found);
 
       
-      if(obs.angular_vel < obs.ANGULAR_VELOCITY_THRESHOLD) {
+      if(obs.angular_vel < obs.ANGULAR_VELOCITY_THRESHOLD && obs.SEND_BATTERIES_WALLS) {
         obs.sendBatteries();
       }
     }
