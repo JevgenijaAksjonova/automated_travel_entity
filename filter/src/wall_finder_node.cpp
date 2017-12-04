@@ -737,7 +737,7 @@ class WallFinder
     	float linear_backing_v = -0.2;
     	float angular_speed = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/0.6));
     	angular_speed -= 0.3;
-
+        ROS_INFO("TRYING TO BACK!");
     	geometry_msgs::Twist msg;
 		msg.linear.x = linear_backing_v;
 		msg.linear.y = 0.0;
