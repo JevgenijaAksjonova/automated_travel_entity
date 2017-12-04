@@ -30,6 +30,7 @@ from functools import partial
 from uarm_controller.srv import armPickupService, armPickupServiceRequest
 import random
 import math
+import Queue as Q
 
 trans = TransformListener()
 
@@ -49,6 +50,7 @@ class Mother:
     i = 0
     lift_object = None
     object_classification_queue = []
+    object_queue = Q.PriorityQueue()
     problem_with_path_following = False
     nav_goal_acchieved = True
     stop_info = stop()
@@ -390,7 +392,6 @@ class Mother:
             return True
 
     def navigation_get_distance(self, startPose, goalPose):
-        return 1
         request = distanceRequest()
         request.startPose.linear.x = startPose[0]
         request.startPose.linear.y = startPose[1]
@@ -551,10 +552,24 @@ class Mother:
                     if np.abs(initial_height - self.lift_up_object.height) > ARM_LIFT_ACCEPT_THRESH:
                         req = armPickupServiceRequest()
                         req.requestType = req.requestTypeStore
+                        object_lifted = True
                         activate_next_state()
                 j+=1
+            object_lifted = False
         else:
+            object_lifted = True
             activate_next_state()
+
+    def drop_object(self,activate_next_state=None):
+        if USING_ARM:
+            rospy.loginfo("dropping object at {0}".format(self.lift_object))
+            # dropping object code
+            object_lifted = False
+            activate_next_state()
+        else:
+            object_lifted = False
+            activate_next_state()
+
 
     def set_testing_turning(self):
         self.mode = "testing_turning"
@@ -572,11 +587,24 @@ class Mother:
                 return True
                 #self.set_following_an_exploration_path()
         return False
+
+    def sort_objects(self):
+        robot_pose = self.initial_pose
+        liftable_objects = filter(lambda obj: obj.shape in liftable_shapes, self.maze_map.maze_objects))
+        rospy.loginfo("Number of objects to pick = {0}".format(len(liftable_objects)))
+        for obj in liftable_objects:
+            d = self.navigation_get_distance(obj.pos,robot_pos)
+            object_queue.put((d,obj))
+
         
     # Main mother loop
     def mother_forever(self, rate=5):
         self.rate = rospy.Rate(rate)
         self.rate.sleep()
+
+        if (ROUND == 2):
+            rospy.loginfo("ROUND 2: Sorting objects")
+            self.sort_objects()
 
         self.set_waiting_for_main_goal()
         rospy.loginfo("Entering mother loop")
@@ -603,6 +631,16 @@ class Mother:
                         self.has_started = True
                         self.set_following_an_exploration_path()
                         self.speak_pub.publish(String(data="Search and destroy"))
+                    else if ROUND == 2:
+                        if object_lifted :
+                            self.goal_pose = self.initial_pose
+                            self.set_following_path_to_main_goal(activate_next_state=self.drop_object(activate_next_state=self.set_waiting_for_main_goal))
+                        else if not object_queue.empty():
+                            robot_pos = self.pos
+                            self.lift_object = object_queue.get()
+                            self.goal_pose = self.lift_object.pose_stamped
+                            self.set_following_path_to_main_goal(activate_next_state=self.lift_up_object(activate_next_state=self.set_waiting_for_main_goal))
+                            #self.set_following_path_to_main_goal(activate_next_state=self.set_following_path_to_object_classification)
                     else:
                         rospy.loginfo("Main goal received")
                         self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
@@ -635,6 +673,8 @@ class Mother:
                     if self.nav_goal_acchieved:
                         if not self.set_turning_towards_object(self.classifying_obj):
                             self.set_following_an_exploration_path()
+                        else :
+                            pass # lift object
                     else:
                         self.set_following_path_to_object_classification(self.classifying_obj)
             elif self.mode == "turning_towards_object":
