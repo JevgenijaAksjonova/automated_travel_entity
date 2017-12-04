@@ -70,6 +70,7 @@ class FilterPublisher
     bool RUN_WHILE_STANDING_STILL;
     float _navigation_linear_speed;
     float _navigation_angular_speed;
+    ros::time _laserTime;
     LocalizationGlobalMap map;
 
     //LocalizationGlobalMap map;
@@ -212,6 +213,7 @@ class FilterPublisher
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
     {
+        ros::time _laserTime = msg->header.stamp;
         ranges = msg->ranges;
         angle_increment = msg->angle_increment;
 
@@ -504,7 +506,7 @@ class FilterPublisher
 
     void publishPosition(Particle ml_pos)
     {
-        ros::Time current_time = ros::Time::now();
+        //ros::Time current_time = ros::Time::now();
         float theta = ml_pos.thetaPos;
         float x = ml_pos.xPos;
         float y = ml_pos.yPos;
@@ -512,7 +514,7 @@ class FilterPublisher
 
         geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(theta);
         geometry_msgs::TransformStamped odom_trans;
-        odom_trans.header.stamp = current_time;
+        odom_trans.header.stamp = _laserTime;
         odom_trans.header.frame_id = "odom";
         odom_trans.child_frame_id = "base_link";
 
