@@ -70,7 +70,7 @@ class FilterPublisher
     bool RUN_WHILE_STANDING_STILL;
     float _navigation_linear_speed;
     float _navigation_angular_speed;
-    ros::time _laserTime;
+    ros::Time _laserTime;
     LocalizationGlobalMap map;
 
     //LocalizationGlobalMap map;
@@ -213,7 +213,7 @@ class FilterPublisher
 
     void lidarCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
     {
-        ros::time _laserTime = msg->header.stamp;
+        _laserTime = msg->header.stamp;
         ranges = msg->ranges;
         angle_increment = msg->angle_increment;
 
@@ -527,7 +527,7 @@ class FilterPublisher
 
         // Publish odometry message
         nav_msgs::Odometry odom_msg;
-        odom_msg.header.stamp = current_time;
+        odom_msg.header.stamp = _laserTime;
         odom_msg.header.frame_id = "odom";
 
         odom_msg.pose.pose.position.x = x;
