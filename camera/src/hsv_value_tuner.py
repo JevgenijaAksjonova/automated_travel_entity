@@ -58,7 +58,7 @@ class the_class:
                     continue
                 print("debug_simage.shape =", self.image.shape)
                 _,_,debug_image = color_segment_image(self.image,return_debug_image=True,hsv_thresholds=hsv_thresh)
-                cv2.imshow("wheeh",debug_image)
+                #cv2.imshow("wheeh",debug_image)
                 compressed_img = bridge.cv2_to_compressed_imgmsg(debug_image)
                 comp_img_pub.publish(compressed_img)
             
