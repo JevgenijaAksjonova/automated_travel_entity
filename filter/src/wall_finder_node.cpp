@@ -772,8 +772,8 @@ class WallFinder
     }
 
     void visualize_stuck_wall(){
-    	float x = cos(_stuckPosition[2])*0.15;
-    	float y = sin(_stuckPosition[2])*0.15;
+    	float x = _stuckPosition[0] + cos(_stuckPosition[2])*0.15;
+    	float y = _stuckPosition[1] + sin(_stuckPosition[2])*0.15;
 
     	visualization_msgs::MarkerArray found_walls;
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
