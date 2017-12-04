@@ -783,9 +783,10 @@ class Mother:
             
 
 if __name__ == "__main__":
-    start_time = rospy.Time.now().to_sec()
+    #start_time = rospy.Time.now().to_sec()
     try:
         rospy.init_node("recognizer_server")
+        start_time = rospy.Time.now().to_sec()
         m = Mother()
         m.mother_forever()
     except rospy.ROSInterruptException:
