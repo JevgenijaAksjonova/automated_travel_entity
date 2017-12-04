@@ -62,19 +62,26 @@ class arm_pickup_stage(stage):
     def __call__(self):
         if USING_ARM:
             rospy.loginfo("lifting object at {0}".format(self.lift_object))
-            msg = self.lift_object.pose_stamped
             j = 0
             while j < 3:
+                j+=1
+                msg = self.lift_object.pose_stamped
+
                 initial_height = self.lift_object.height
                 i = 0
                 while i < 1000:
-                    trans.waitForTransform(msg.header.frame_id,MOTHER_WORKING_FRAME,rospy.Time(),rospy.Duration(secs=3))
+                    trans.waitForTransform(MOTHER_WORKING_FRAME,"base_link",msg.header.stamp,rospy.Duration(secs=10))
+                    trans.waitForTransform
                     try:
                         i+=1
                         new_msg = trans.transformPose("base_link",msg)
                         break
                     except ExtrapolationException as e:
+                        print("arm_pickup_stage: ExtrapolationException")
                         continue
+                else:
+                    print("Mother: failed to transform arm coordinaties",j)
+                    break
                 req = armPickupServiceRequest()
                 req.requestType = req.requestTypeLift
                 req.pos = new_msg.pose.position
@@ -82,11 +89,11 @@ class arm_pickup_stage(stage):
                 arm_move_success = self.arm_pickup_srv(req).success
                 if arm_move_success:
                     rospy.sleep(rospy.Duration(secs=1))
-                    if np.abs(initial_height - self.lift_up_object.height) > ARM_LIFT_ACCEPT_THRESH:
+                    if np.abs(initial_height - self.lift_object.height) > ARM_LIFT_ACCEPT_THRESH:
                         req = armPickupServiceRequest()
                         req.requestType = req.requestTypeStore
                         self.activate_next_state()
-                j+=1
+            self.activate_next_state()
         else:
             self.activate_next_state()
 
@@ -118,6 +125,7 @@ class Mother:
             self.maze_map = MazeMap(self.map_pub,MAP_P_INCREASE,MAP_P_DECREASE)
             self.exploration_completed = None
             self.mode = "waiting_for_main_goal"
+            self.object_lifted = False
 
     def load_state(self):
         self.init_default_state()
@@ -381,11 +389,26 @@ class Mother:
             return True
 
     def navigation_get_distance(self, startPose, goalPose):
+        
+        if type(startPose) is np.ndarray:
+            start_x = startPose[0]
+            start_y = startPose[1]
+        else:
+            start_x = startPose.pose.position.x
+            start_y = startPose.pose.position.y
+        
+        if type(goalPose) is np.ndarray:
+            goal_x = goalPose[0]
+            goal_y = goalPose[1]
+        else:
+            goal_x = goalPose.pose.position.x
+            goal_y = goalPose.pose.position.y
+        
         request = distanceRequest()
-        request.startPose.linear.x = startPose.pose.position.x
-        request.startPose.linear.y = startPose.pose.position.y
-        request.goalPose.linear.x = goalPose[0]
-        request.goalPose.linear.y = goalPose[1]
+        request.startPose.linear.x = start_x
+        request.startPose.linear.y = start_y
+        request.goalPose.linear.x = goal_x
+        request.goalPose.linear.y = goal_y
         response = call_srv(self.navigation_distance_service,request)
         return response.distance
 
@@ -560,7 +583,7 @@ class Mother:
         elif ROUND == 10:
             activate_next_state = self.set_waiting_for_main_goal
         else:
-            raise NotImplementedErrorfinnish()
+            raise NotImplementedError()
         
         if self.nav_goal_acchieved is not None:
             if self.nav_goal_acchieved:
@@ -611,22 +634,22 @@ class Mother:
                     if np.abs(initial_height - self.lift_up_object.height) > ARM_LIFT_ACCEPT_THRESH:
                         req = armPickupServiceRequest()
                         req.requestType = req.requestTypeStore
-                        object_lifted = True
+                        self.object_lifted = True
                         activate_next_state()
                 j+=1
-            object_lifted = False
+            self.object_lifted = False
         else:
-            object_lifted = True
+            self.object_lifted = True
             activate_next_state()
 
     def drop_object(self,activate_next_state=None):
         if USING_ARM:
             rospy.loginfo("dropping object at {0}".format(self.lift_object))
             # dropping object code
-            object_lifted = False
+            self.object_lifted = False
             activate_next_state()
         else:
-            object_lifted = False
+            self.object_lifted = False
             activate_next_state()
 
 
@@ -667,14 +690,16 @@ class Mother:
         #d = self.navigation_get_distance(obj_pos,robot_pose)
         #print("Computed distance =", d)
 
-    def finished():
-        if object_lifted:
+    def finished(self):
+        print("in finnish")
+        if self.object_lifted:
             self.drop_object(activate_next_state = finished())
         else:
             self.speak_pub.publish(String(data="I am a winner!"))
-        
+            self.goal_pose = None
+            self.has_started = False
     # Main mother loop
-    def mother_forever(self, rate=10):
+    def mother_forever(self, rate=3):
         self.rate = rospy.Rate(rate)
         self.rate.sleep()
 
@@ -714,12 +739,12 @@ class Mother:
                         self.set_following_an_exploration_path()
                         self.speak_pub.publish(String(data="Search and destroy"))
                     elif ROUND == 2:
-                        if object_lifted :
+                        if self.object_lifted :
                             self.goal_pose = self.initial_pose
                             self.set_following_path_to_main_goal(activate_next_state=self.drop_object(activate_next_state=self.set_waiting_for_main_goal))
-                        elif not object_queue.empty():
+                        elif not self.object_queue.empty():
                             robot_pos = self.pos
-                            self.lift_object = object_queue.get()
+                            self.lift_object = self.object_queue.get()
                             self.goal_pose = self.lift_object.pose_stamped
                             self.set_following_path_to_main_goal(activate_next_state=self.lift_up_object(activate_next_state=self.set_waiting_for_main_goal))
                             #self.set_following_path_to_main_goal(activate_next_state=self.set_following_path_to_object_classification)
@@ -740,8 +765,14 @@ class Mother:
                 if self.exploration_completed is not None and not changed_mode:
                     if self.exploration_completed :
                         robot_pos = self.pos
-                        lift_object = filter(lambda obj: obj.shape in liftable_shapes,sorted(
-                            self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(obj.pos,robot_pos)))[0]
+                        lift_objects = filter(lambda obj: obj.shape in liftable_shapes,sorted(
+                            self.maze_map.maze_objects,key=lambda obj: self.navigation_get_distance(robot_pos,obj.pos)))
+                        if len(lift_objects) == 0:
+                            rospy.loginfo("No liftable objects")
+                            self.goal_pose = self.initial_pose
+                            self.set_following_path_to_main_goal(activate_next_state=self.finished)
+                            continue
+                        lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
                             activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=None,arm_pickup_srv=self.arm_pickup_srv))
