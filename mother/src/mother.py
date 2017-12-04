@@ -667,7 +667,7 @@ class Mother:
         #d = self.navigation_get_distance(obj_pos,robot_pose)
         #print("Computed distance =", d)
 
-    def finished:
+    def finished():
         if object_lifted:
             self.drop_object(activate_next_state = finished())
         else:
