@@ -16,6 +16,10 @@
 #include <fstream>
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
+#include "std_msgs/Bool.h"
+#include <project_msgs/stop.h>
+
+
 
 #include "std_msgs/Float32MultiArray.h"
 
@@ -875,7 +879,7 @@ int main(int argc, char **argv)
     			wf._stuck = false;
     			unStuckCommands = 10;
 				wf._stuckPosition_prev = wf._stuckPosition;
-    			publishContinueToNavigation();
+    			wf.publishContinueToNavigation();
 
     		}
     	}
