@@ -209,7 +209,7 @@ def color_segment_image(bgr_image,
             bar_obj.find_depth(depth_image)
             bar_codes.append(bar_obj)
 
-    for color in ["blue", "green", "yellow", "purple", "orange", "red"]:
+    for color in ["blue", "green", "purple", "red"]:
         #if to_many_object_candidates:
             #break
         mask = compute_mask(hsv_image, hsv_thresholds[color])
