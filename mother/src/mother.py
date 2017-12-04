@@ -135,6 +135,7 @@ class Mother:
         self.init_default_state()
         if path.isfile(MOTHER_STATE_FILE):
             with open(MOTHER_STATE_FILE,"r") as state_file:
+                rospy.loginfo("-------------------------------------------------------Mother: loading state")
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
                 self.exploration_completed = state_dict["exploration_completed"]
@@ -144,7 +145,7 @@ class Mother:
                 if self.has_started:
                     self.maze_map.load_maze_objs()
         else:
-            print("No state file found")    
+            print("-----------------------------------No state file found")    
     def write_state(self):
         state_dict = {
             "has_started":self.has_started,
@@ -826,9 +827,9 @@ class Mother:
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.maze_map.update(exclude_set={self.classifying_obj})
 
-            if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
-                self.write_state()
-                last_save_secs = rospy.Time.now().to_sec()
+            
+            self.write_state()
+            #last_save_secs = rospy.Time.now().to_sec()
 
             if self.mode in ["turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
                 pass
