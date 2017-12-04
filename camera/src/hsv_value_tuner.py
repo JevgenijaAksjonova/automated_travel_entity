@@ -37,7 +37,8 @@ class the_class:
         hsv_thresh = {color:(np.array(values["lower"]),np.array(values["upper"])) for color,values in hsv_thresh.items()}
         current_color = "red"
         while True:
-            print("current color = ", current_color)
+            print("\nCurrent color: {0}".format(current_color))
+            print("Current HSV values: (lower {0})  (upper {1})".format(hsv_thresh[current_color][0], hsv_thresh[current_color][1]))
             print("Give color values as [h|s|v] [000 - 255] [000-255] or select new color from Blue, Green, Yellow, Purple, Orange, Red")
             input_strs = raw_input(">").lower().split(" ")
             if input_strs[0] in ["blue", "green", "yellow", "purple", "orange", "red"]:
@@ -80,7 +81,7 @@ class the_class:
                 hsv_thresh[current_color] = (lower_threshes,upper_threshes)
                 if not (0 <= lower and lower <= 255) or not (0 <= upper and upper <= 255):
                     continue
-                print("debug_simage.shape =", self.image.shape)
+                #print("debug_simage.shape =", self.image.shape)
                 _,_,debug_image = color_segment_image(self.image,self.depth_image,return_debug_image=True,apply_checks=False,hsv_thresholds=hsv_thresh)
                 #cv2.imshow("wheeh",debug_image)
                 compressed_img = bridge.cv2_to_compressed_imgmsg(debug_image)
