@@ -530,9 +530,15 @@ class Mother:
                 self.classifying_obj.failed_classification_attempt()
                 return False
     
-    def set_following_path_to_main_goal(self,activate_next_state,distance_tol = 0.05, angle_tol = np.pi*2):
+    def set_following_path_to_main_goal(self,activate_next_state,distance_tol = 0.05, angle_tol = np.pi*2,goal_pose=None):
+        if goal_pose is not None:
+            if type(goal_pose) is MazeObject:
+                goal_pose = goal_pose.pose_stamped
+        else:
+            goal_pose = self.goal_pose
+
         self._fptmg_next_state = activate_next_state
-        if self.go_to_pose(self.goal_pose, distance_tol,angle_tol):
+        if self.go_to_pose(goal_pose, distance_tol,angle_tol):
             self.mode = "following_path_to_main_goal"
             rospy.loginfo("Following path to main goal")
         else:
@@ -797,8 +803,14 @@ class Mother:
                         lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
-                            distance_tol = 0.25,
-                            activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv))
+                            distance_tol = 1,
+                            activate_next_state=partial(
+                                self.set_following_path_to_main_goal,
+                                goal_pose=lift_object,
+                                distance_tol = 0.3,
+                                activate_next_state=arm_pickup_stage(
+                                    lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv)))
+                            
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
                     else:
@@ -836,7 +848,7 @@ class Mother:
             self.write_state()
             #last_save_secs = rospy.Time.now().to_sec()
 
-            if self.mode in ["following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
+            if self.mode in ["do_nothing","turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
                 print("Mother: publishing move = True")
                 self.move_pub.publish(True)
             else:
