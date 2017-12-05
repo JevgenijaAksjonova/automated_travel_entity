@@ -146,7 +146,7 @@ void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
     if (stop && move &&(!onlyTurn)) {
         move = false;
         string msg = "STOP!";
-        ROS_INFO("%s/n", msg.c_str());
+        ROS_WARN("%s/n", msg.c_str());
     // if stop = false, handle start logic
     } else if (stop == false && move == false) {
         if (msg->rollback) {
