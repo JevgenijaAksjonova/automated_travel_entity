@@ -9,6 +9,8 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage
+from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped
 import pprint
 from image_geometry import PinholeCameraModel
 pp = pprint.PrettyPrinter(indent=4)
@@ -33,6 +35,11 @@ class ObjectDetector:
         self._have_received_depth = False
         self._has_received_cam_info = False
 
+        ##########################################
+        self._has_received_odom = False
+        self._has_received_start = False
+        ##########################################
+
         self.obj_cand_pub = rospy.Publisher(
             "/camera/object_candidates", PosAndImage, queue_size=10)
 
@@ -53,6 +60,12 @@ class ObjectDetector:
         self.info_sub = rospy.Subscriber("/camera/rgb/camera_info", CameraInfo,
                                          self.info_callback)
         self.camera_model = PinholeCameraModel()
+
+        ################################################################################################
+        self.start_sub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.start_callback)
+
+        self.odom_sub = rospy.Subscriber("/filter", Twist, self.odom_callback)
+        ################################################################################################
 
         if DEBUGGING:
             self.dbg_object_image = rospy.Publisher(
@@ -80,6 +93,17 @@ class ObjectDetector:
     def info_callback(self, info_message):
         self.camera_model.fromCameraInfo(info_message)
         self._has_received_cam_info = True
+
+    ########################################################
+    # Check angular velocity and block spotter if turning
+    def odom_callback(self, odom_message):
+        self.angular_velocity = odom_message.angular.z
+        self._has_received_odom = True
+
+    # Check if Nav Goal is set to turn on spotter
+    def start_callback(self, start_message):
+        self._has_received_start = True
+    ########################################################
 
     #Process image :D
     def image_processing(self):
@@ -155,7 +179,10 @@ class ObjectDetector:
         rate = rospy.Rate(rate)
         rate.sleep()
         while not rospy.is_shutdown():
-            self.image_processing()
+            ##############################################
+            if self.angular_velocity < 0.7 and self._has_received_start:
+                self.image_processing()
+            ##############################################
             rate.sleep()
 
 
@@ -166,6 +193,7 @@ def main():
     rospy.init_node("object_candidate_spotter")
 
     spotter = ObjectDetector()
+
     spotter.detect_forever()
 
 
