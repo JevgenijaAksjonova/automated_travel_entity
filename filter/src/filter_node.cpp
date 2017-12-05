@@ -73,7 +73,7 @@ class FilterPublisher
     float _navigation_linear_speed;
     float _navigation_angular_speed;
     ros::Time _laserTime;
-    bool _motherWantsToMove;
+    bool _motherWantsToMove = false;
 
 
     LocalizationGlobalMap map;
@@ -688,12 +688,16 @@ class FilterPublisher
 
         int i = 0;
         bool motherWantedToMove = true;
+        int motherWantToMoveCount = 0;
         while(i < motherWantsToMove_vec.size() && motherWantedToMove ){
             if(!motherWantsToMove_vec[i]){
                 motherWantedToMove = false;
+            }else{
+                motherWantToMoveCount++;
             }
             i++;
         }
+        ROS_INFO("motherWantsToMove_vec.size() = [%d], motherWantedToMove = [%d], motherWantToMoveCount = [%d]",(int)motherWantsToMove_vec.size(),motherWantedToMove,motherWantToMoveCount);
         motherWantedToMove = (motherWantsToMove_vec.size() > 25) && motherWantedToMove;
         ROS_INFO("Average linear V [%f], distance moved [%f]", averageLinearV, distance);
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){

@@ -598,7 +598,7 @@ class Mother:
         
         if self.nav_goal_acchieved is not None:
             if self.nav_goal_acchieved:
-                rospy.Rate(1).sleep()
+                rospy.Rate(2).sleep()
                 if self.try_classify():
                     classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
                         x=np.round(self.classifying_obj.pos[0], 2),
@@ -670,7 +670,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.20,0.7),max_classification_attempts=1,no_attempts_within_secs=20))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.20,0.6),max_classification_attempts=1,no_attempts_within_secs=20))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
@@ -836,8 +836,12 @@ class Mother:
             self.write_state()
             #last_save_secs = rospy.Time.now().to_sec()
 
-            if self.mode in ["turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
+            if self.mode in ["following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
+                print("Mother: publishing move = True")
                 self.move_pub.publish(True)
+            else:
+                print("Mother: publish move = False")
+                self.move_pub.publish(False)
             i += 1
             
             self.rate.sleep()
