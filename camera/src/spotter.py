@@ -9,7 +9,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage
-from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
 import pprint
 from image_geometry import PinholeCameraModel
@@ -64,7 +64,7 @@ class ObjectDetector:
         ################################################################################################
         self.start_sub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.start_callback)
 
-        self.odom_sub = rospy.Subscriber("/filter", Twist, self.odom_callback)
+        self.odom_sub = rospy.Subscriber("/filter", Odometry, self.odom_callback)
         ################################################################################################
 
         if DEBUGGING:
@@ -97,7 +97,7 @@ class ObjectDetector:
     ########################################################
     # Check angular velocity and block spotter if turning
     def odom_callback(self, odom_message):
-        self.angular_velocity = odom_message.angular.z
+        self.angular_velocity = odom_message.twist.angular.z
         self._has_received_odom = True
 
     # Check if Nav Goal is set to turn on spotter
