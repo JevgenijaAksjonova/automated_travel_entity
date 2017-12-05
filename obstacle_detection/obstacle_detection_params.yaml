@@ -10,4 +10,4 @@ obstacle_detection:
     visual:
         PUBLISH_MARKERS : true
     walls:
-        SEND_BATTERIES_WALLS : true
+        SEND_BATTERIES_WALLS : false

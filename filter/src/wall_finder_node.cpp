@@ -750,11 +750,17 @@ class WallFinder
 		msg.angular.x = 0.0;
 		msg.angular.y = 0.0;
 		msg.angular.z = angular_speed;
+		tryToGetUnstuck_publisher.publish(msg);
+
 
 		if(_stuckPosition_prev[0] > 0.01){
 			float distance = sqrt(pow(_stuckPosition[0] - _stuckPosition_prev[0], 2) + pow(_stuckPosition[1] - _stuckPosition_prev[1], 2));
 			if(distance < 0.15){
 				ROS_INFO("STUCK TWICE!");
+				float x = _stuckPosition[0] + cos(_stuckPosition[2])*0.15;
+		    	float y = _stuckPosition[1] + sin(_stuckPosition[2])*0.15;
+
+				addWall(createWall(x-0.05, y, x+0.05, y, 100, false, FromCamera));
 			}
 		}
     }
@@ -770,8 +776,8 @@ class WallFinder
     }
 
     void visualize_stuck_wall(){
-    	float x = cos(_stuckPosition[2])*0.15;
-    	float y = sin(_stuckPosition[2])*0.15;
+    	float x = _stuckPosition[0] + cos(_stuckPosition[2])*0.15;
+    	float y = _stuckPosition[1] + sin(_stuckPosition[2])*0.15;
 
     	visualization_msgs::MarkerArray found_walls;
             //ROS_INFO("Wall %d: center x %f y %f nrPoints %d", i, w.xCenter, w.yCenter, w.nrAgreeingPoints);
@@ -861,18 +867,12 @@ int main(int argc, char **argv)
     loop_rate.sleep();
     loop_rate.sleep();
 
-    wf.publish_rviz_walls();
-    wf.publish_array_walls();
-
-
-
-
     int count = 0;
     int unStuckCommands = 20;
     while (wf.n.ok())
     {
     	if(wf._stuck){
-    		if(unStuckCommands == 10){
+    		if(unStuckCommands == 20){
     			wf.visualize_stuck_wall();
     		}
     		wf.tryToGetUnstuck();
@@ -880,9 +880,8 @@ int main(int argc, char **argv)
     		if(unStuckCommands <1){
     			wf._stuck = false;
     			unStuckCommands = 10;
-				wf._stuckPosition_prev = wf._stuckPosition;
     			wf.publishContinueToNavigation();
-
+                wf._stuckPosition_prev = wf._stuckPosition;
     		}
     	}
         if(wf._begunMoving == true){

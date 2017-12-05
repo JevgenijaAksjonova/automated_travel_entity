@@ -693,7 +693,7 @@ class FilterPublisher
             i++;
         }
         motherWantedToMove = false;
-
+        ROS_INFO("Average linear V [%f], distance moved [%f]", averageLinearV, distance);
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
             ROS_INFO("average Linear V [%f], distance moved [%f]", averageLinearV, distance);

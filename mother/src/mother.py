@@ -92,7 +92,10 @@ class arm_pickup_stage(stage):
                     if np.abs(initial_height - self.lift_object.height) > ARM_LIFT_ACCEPT_THRESH:
                         req = armPickupServiceRequest()
                         req.requestType = req.requestTypeStore
-                        self.activate_next_state()
+                        break
+            req = armPickupServiceRequest()
+            req.requestType = req.requestTypeStore
+            self.arm_pickup_srv(req)
             self.activate_next_state()
         else:
             self.activate_next_state()
@@ -132,6 +135,7 @@ class Mother:
         self.init_default_state()
         if path.isfile(MOTHER_STATE_FILE):
             with open(MOTHER_STATE_FILE,"r") as state_file:
+                rospy.loginfo("-------------------------------------------------------Mother: loading state")
                 state_dict = yaml.load(state_file.read())
                 self.has_started = state_dict["has_started"]
                 self.exploration_completed = state_dict["exploration_completed"]
@@ -141,7 +145,7 @@ class Mother:
                 if self.has_started:
                     self.maze_map.load_maze_objs()
         else:
-            print("No state file found")    
+            print("-----------------------------------No state file found")    
     def write_state(self):
         state_dict = {
             "has_started":self.has_started,
@@ -297,7 +301,7 @@ class Mother:
             elif stop_msg.reason == 4:
                 msg.replan = True
                 msg.rollback = False
-            else :
+            else:
                 msg.replan = True
                 msg.rollback = True
             if stop_msg.reason == 1 or stop_msg.reason == 2 or stop_msg.reason == 3 or stop_msg.reason == 4:
@@ -545,7 +549,6 @@ class Mother:
 
     def set_waiting_for_main_goal(self):
         self.goal_pose = None
-        self.has_started = False
         self.mode = "waiting_for_main_goal"
         rospy.loginfo("Waiting for main goal")
 
@@ -685,8 +688,8 @@ class Mother:
         liftable_objects = filter(lambda obj: obj.shape in liftable_shapes, self.maze_map.maze_objects)
         rospy.loginfo("Number of objects to pick = {0}".format(len(liftable_objects)))
         for obj in liftable_objects:
-            d = self.navigation_get_distance(robot_pos,obj.pos)
-            object_queue.put((d,obj))
+            d = self.navigation_get_distance(robot_pose,obj.pos)
+            self.object_queue.put((d,obj))
         #obj_pos = PoseStamped()
         #obj_pos.pose.position.x = 0.215
         #obj_pos.pose.position.y = 1.224
@@ -696,7 +699,7 @@ class Mother:
     def finished(self):
         print("in finnish")
         if self.object_lifted:
-            self.drop_object(activate_next_state = finished())
+            self.drop_object(activate_next_state = self.finished)
         else:
             self.speak_pub.publish(String(data="I am a winner!"))
             self.goal_pose = None
@@ -716,8 +719,12 @@ class Mother:
         rospy.loginfo("Entering mother loop")
     
         last_save_secs = rospy.Time.now().to_sec()
-        
-        
+        while True:
+            if self.goal_pose is not None or self.has_started:
+                self.initial_pose = self.get_pos_as_PoseStamped()
+                if self.initial_pose is not None:
+                    break
+            
         while not rospy.is_shutdown():
 
             time = rospy.Time.now().to_sec()
@@ -729,16 +736,13 @@ class Mother:
 
             if self.mode == "waiting_for_main_goal":
                 if self.goal_pose is not None or self.has_started:
-                    while True:
-                        self.initial_pose = self.get_pos_as_PoseStamped()
-                        if self.initial_pose is not None:
-                            break
                     #robot_pos = self.pos 
                     #if robot_pos is not None:
                         #msg = Twist()
                         #msg.angular = Vector3(0,0,1.57)
                         #msg.linear = Vector3(robot_pos[0],robot_pos[1],0)   
                         #print("go_to_twist =",self.go_to_twist(msg,distance_tol=100000))
+                    print("waiting_for_main_goal")
                     if ROUND == 1 and not self.exploration_completed:
                         rospy.loginfo("Following an exploration path")
                         self.has_started = True
@@ -747,15 +751,18 @@ class Mother:
                         self.start_time = rospy.Time.now().to_sec()
                     elif ROUND == 2 or (ROUND == 1 and self.exploration_completed):
                         if self.object_lifted :
+                            print("Lifted object, go home now")
                             self.goal_pose = self.initial_pose
                             self.set_following_path_to_main_goal(activate_next_state=self.drop_object(activate_next_state=self.set_waiting_for_main_goal))
                         elif not self.object_queue.empty():
+                            print("Queue not empty, pick next")
                             robot_pos = self.pos
                             self.lift_object = self.object_queue.get()
                             self.goal_pose = self.lift_object.pose_stamped
                             self.set_following_path_to_main_goal(activate_next_state=self.lift_up_object(activate_next_state=self.set_waiting_for_main_goal))
                             #self.set_following_path_to_main_goal(activate_next_state=self.set_following_path_to_object_classification)
                         else:
+                            print("Object NOT lifted, go home now")
                             self.goal_pose = self.initial_pose
                             self.set_following_path_to_main_goal(activate_next_state=self.finished)
                     else:
@@ -785,6 +792,7 @@ class Mother:
                         lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
+                            distance_tol = 0.25,
                             activate_next_state=arm_pickup_stage(lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv))
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
@@ -819,9 +827,13 @@ class Mother:
             #rospy.loginfo("\tLifting object = {lifting}".format(lifting=self.lifting_object))
             self.maze_map.update(exclude_set={self.classifying_obj})
 
-            if rospy.Time.now().to_sec() - last_save_secs > SAVE_PERIOD_SECS:
-                self.write_state()
-                last_save_secs = rospy.Time.now().to_sec()
+            
+            self.write_state()
+            #last_save_secs = rospy.Time.now().to_sec()
+
+            if self.mode in ["turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
+                pass
+            
             self.rate.sleep()
             
 
