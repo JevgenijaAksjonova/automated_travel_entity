@@ -689,8 +689,8 @@ class FilterPublisher
         int i = 0;
         bool motherWantedToMove = true;
         int motherWantToMoveCount = 0;
-        while(i < motherWantsToMove_vec.size() && motherWantedToMove ){
-            if(!motherWantsToMove_vec[i]){
+        while(i < motherWantsToMove_vec.size()){
+            if(!motherWantsToMove_vec.at(i)){
                 motherWantedToMove = false;
             }else{
                 motherWantToMoveCount++;
@@ -820,6 +820,7 @@ int main(int argc, char **argv)
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
             linear_v_vec.clear();
             most_likely_position_prev = most_likely_position;
+            ROS_INFO("WIll now clear");
             motherWantsToMove_vec.clear();
         }
         ros::spinOnce();
