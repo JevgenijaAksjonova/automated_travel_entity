@@ -836,7 +836,7 @@ class Mother:
             self.write_state()
             #last_save_secs = rospy.Time.now().to_sec()
 
-            if self.mode in ["following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
+            if self.mode in ["do_nothing","turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
                 print("Mother: publishing move = True")
                 self.move_pub.publish(True)
             else:
