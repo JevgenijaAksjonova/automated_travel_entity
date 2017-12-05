@@ -135,10 +135,13 @@ class ObjectDetector:
             else:
                 object_candidates, bar_codes = ret_val
             print("object_candidates = {0}".format(object_candidates))
-            for oc in object_candidates + bar_codes:
-                print("sending oc = {0}".format(oc))
-                oc_msg = self.get_oc_message(oc)
-                self.obj_cand_pub.publish(oc_msg)
+            ##########################
+            if self._has_received_odom and self.angular_velocity < 0.7 and self._has_received_start:
+            ###########################
+                for oc in object_candidates + bar_codes:
+                    print("sending oc = {0}".format(oc))
+                    oc_msg = self.get_oc_message(oc)
+                    self.obj_cand_pub.publish(oc_msg)
 
         self._have_received_image = False
         self._have_received_depth = False
@@ -180,8 +183,7 @@ class ObjectDetector:
         rate.sleep()
         while not rospy.is_shutdown():
             ##############################################
-            if self.angular_velocity < 0.7 and self._has_received_start:
-                self.image_processing()
+            self.image_processing()
             ##############################################
             rate.sleep()
 
