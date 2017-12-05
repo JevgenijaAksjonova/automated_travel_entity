@@ -73,7 +73,8 @@ class FilterPublisher
     float _navigation_linear_speed;
     float _navigation_angular_speed;
     ros::Time _laserTime;
-    bool _motherWantsToMove = false;
+    int _motherWantsToMove = 0;
+    int _motherWantsToMoveMsgCount = 0;
 
 
     LocalizationGlobalMap map;
@@ -259,7 +260,11 @@ class FilterPublisher
     }
 
     void motherWantsToMoveCallback(const std_msgs::Bool::ConstPtr &msg){
-        _motherWantsToMove = msg->data;
+        _motherWantsToMoveMsgCount+=1;
+        if(msg->data){
+            _motherWantsToMove+= 1;
+        }
+        
     }
 
     void initializeParticles()
@@ -672,7 +677,7 @@ class FilterPublisher
         particle_publisher.publish(all_particles);
     }
 
-    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev, vector<float> linearV_vec, vector<bool> motherWantsToMove_vec){
+    void checkIfStuck(Particle &ml_pos, Particle &ml_pos_prev, vector<float> linearV_vec){
 
         float dx = ml_pos.xPos - ml_pos_prev.xPos;
         float dy = ml_pos.yPos - ml_pos_prev.yPos;
@@ -687,18 +692,8 @@ class FilterPublisher
         averageLinearV = averageLinearV/linearV_vec.size();
 
         int i = 0;
-        bool motherWantedToMove = true;
-        int motherWantToMoveCount = 0;
-        while(i < motherWantsToMove_vec.size()){
-            if(!motherWantsToMove_vec.at(i)){
-                motherWantedToMove = false;
-            }else{
-                motherWantToMoveCount++;
-            }
-            i++;
-        }
-        ROS_INFO("motherWantsToMove_vec.size() = [%d], motherWantedToMove = [%d], motherWantToMoveCount = [%d]",(int)motherWantsToMove_vec.size(),motherWantedToMove,motherWantToMoveCount);
-        motherWantedToMove = (motherWantsToMove_vec.size() > 25) && motherWantedToMove;
+        bool motherWantedToMove = _motherWantsToMoveMsgCount > 10 && _motherWantsToMove == _motherWantsToMoveMsgCount;
+        ROS_INFO("_motherWantsToMoveMsgCount = [%d], motherWantedToMove = [%d], _motherWantsToMove = [%d]",_motherWantsToMoveMsgCount,motherWantedToMove,_motherWantsToMove);
         ROS_INFO("Average linear V [%f], distance moved [%f]", averageLinearV, distance);
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
@@ -795,7 +790,6 @@ int main(int argc, char **argv)
     most_likely_position_prev.thetaPos = 0;
 
     vector<float> linear_v_vec;
-    vector<bool> motherWantsToMove_vec;
     int count = 0;
     while (filter.n.ok())
     {
@@ -814,13 +808,11 @@ int main(int argc, char **argv)
         filter.publish_rviz_particles();
 
         linear_v_vec.push_back(filter._navigation_linear_speed);
-        motherWantsToMove_vec.push_back(filter._motherWantsToMove);
 
         if(count % 100 == 0){
-            filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
+            filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec);
             linear_v_vec.clear();
             most_likely_position_prev = most_likely_position;
-            motherWantsToMove_vec.clear();
         }
         ros::spinOnce();
 
