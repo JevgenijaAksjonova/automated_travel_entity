@@ -530,7 +530,7 @@ class Mother:
                 self.classifying_obj.failed_classification_attempt()
                 return False
     
-    def set_following_path_to_main_goal(self,activate_next_state,distance_tol = 0.05, angle_tol = np.pi*2,goal_pose=None):
+    def set_following_path_to_main_goal(self,activate_next_state,distance_tol = 0.10, angle_tol = np.pi*2,goal_pose=None):
         if goal_pose is not None:
             if type(goal_pose) is MazeObject:
                 goal_pose = goal_pose.pose_stamped
@@ -580,14 +580,14 @@ class Mother:
         msg = Twist()
         msg.angular = Vector3(0,0,theta)
         msg.linear = Vector3(robot_pos[0],robot_pos[1],0)
-        if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.2):
-            self.mode = "turning_towards_object"
-            self.classifying_obj = classifying_obj
-            rospy.loginfo("We were able to find a way to turn")
-            return True
-        else:
-            rospy.loginfo("Was not able to find way to turn to that object")
-            return False
+        #if self.go_to_twist(msg,distance_tol=100000,angle_tol=0.2):
+        self.mode = "turning_towards_object"
+        self.classifying_obj = classifying_obj
+        rospy.loginfo("We were able to find a way to turn")
+        return True
+        #else:
+        #    rospy.loginfo("Was not able to find way to turn to that object")
+        #    return False
 
     def turning_towards_object_update(self):
         if ROUND == 1:
@@ -602,28 +602,28 @@ class Mother:
         else:
             raise NotImplementedError()
         
-        if self.nav_goal_acchieved is not None:
-            if self.nav_goal_acchieved:
-                rospy.Rate(2).sleep()
-                if self.try_classify():
-                    classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
-                        x=np.round(self.classifying_obj.pos[0], 2),
-                        y=np.round(self.classifying_obj.pos[1], 2),
-                        label=self.classifying_obj.class_label,
-                        frame=MOTHER_WORKING_FRAME)
-                    msg = String()
-                    msg.data = classification_msg
-                    rospy.loginfo(classification_msg)
-                    self.speak_pub.publish(msg)
-                    self.evidence_pub.publish(
-                        self.classifying_obj.get_evidence_msg())
-                    activate_next_state()
-                    self.classifying_obj = None
-                else:
-                    activate_next_state()
-                    self.classifying_obj = None
-            else:
-                activate_next_state()
+        #if self.nav_goal_acchieved is not None:
+            #if self.nav_goal_acchieved:
+        rospy.Rate(2).sleep()
+        if self.try_classify():
+            classification_msg = "classified {label} at x = {x} and y = {y} in {frame} frame".format(
+                x=np.round(self.classifying_obj.pos[0], 2),
+                y=np.round(self.classifying_obj.pos[1], 2),
+                label=self.classifying_obj.class_label,
+                frame=MOTHER_WORKING_FRAME)
+            msg = String()
+            msg.data = classification_msg
+            rospy.loginfo(classification_msg)
+            self.speak_pub.publish(msg)
+            self.evidence_pub.publish(
+                self.classifying_obj.get_evidence_msg())
+            activate_next_state()
+            self.classifying_obj = None
+            #    else:
+            #        activate_next_state()
+            #        self.classifying_obj = None
+        else:
+            activate_next_state()
 
     def lift_up_object(self,activate_next_state=None):
         if USING_ARM:
@@ -730,7 +730,7 @@ class Mother:
         rospy.loginfo("Entering mother loop")
         i = 0
         last_save_secs = rospy.Time.now().to_sec()
-        while True:
+        while not rospy.is_shutdown():
             if self.goal_pose is not None or self.has_started:
                 self.initial_pose = self.get_pos_as_PoseStamped()
                 if self.initial_pose is not None:
@@ -803,13 +803,8 @@ class Mother:
                         lift_object = lift_objects[0]
                         self.goal_pose = lift_object.pose_stamped
                         self.set_following_path_to_main_goal(
-                            distance_tol = 1,
-                            activate_next_state=partial(
-                                self.set_following_path_to_main_goal,
-                                goal_pose=lift_object,
-                                distance_tol = 0.3,
-                                activate_next_state=arm_pickup_stage(
-                                    lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv)))
+                            activate_next_state=arm_pickup_stage(
+                                    lift_object=lift_object,activate_next_state=self.set_waiting_for_main_goal,arm_pickup_srv=self.arm_pickup_srv),distance_tol =0.25)
                             
                         #self.set_following_path_to_main_goal(
                         #    activate_next_state=partial(self.lift_up_object,activate_next_state=partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)))
