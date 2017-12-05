@@ -73,7 +73,7 @@ class FilterPublisher
     float _navigation_linear_speed;
     float _navigation_angular_speed;
     ros::Time _laserTime;
-    bool _motherWantsToMove;
+    bool _motherWantsToMove = ;
 
 
     LocalizationGlobalMap map;
@@ -816,7 +816,7 @@ int main(int argc, char **argv)
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
             linear_v_vec.clear();
             most_likely_position_prev = most_likely_position;
-
+            motherWantsToMove_vec.clear();
         }
         ros::spinOnce();
 
