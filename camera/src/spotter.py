@@ -97,7 +97,7 @@ class ObjectDetector:
     ########################################################
     # Check angular velocity and block spotter if turning
     def odom_callback(self, odom_message):
-        self.angular_velocity = odom_message.twist.angular.z
+        self.angular_velocity = odom_message.twist.twist.angular.z
         self._has_received_odom = True
 
     # Check if Nav Goal is set to turn on spotter
