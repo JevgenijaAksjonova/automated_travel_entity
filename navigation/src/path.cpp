@@ -143,6 +143,7 @@ void Path::followPath(double x, double y, double theta) {
 void Path::obstaclesCallback(const project_msgs::stop::ConstPtr& msg) {
     bool stop = msg->stop;
     // if stop = true, handle stop logic
+    ROS_ERROR("in obstaclesCallback");
     if (stop && move &&(!onlyTurn)) {
         move = false;
         string msg = "STOP!";
