@@ -186,7 +186,7 @@ class FilterPublisher
         lidar_subscriber = n.subscribe("/scan", 1, &FilterPublisher::lidarCallback, this);
         initalPose_subscriber = n.subscribe("/initialpose", 1 ,&FilterPublisher::initialPoseCallback, this);
         navigation_speed_subscriber = n.subscribe("/motor_controller/twist", 1, &FilterPublisher::navigation_speed_encoder, this);
-        motherWantsToMove_subscriber = n.subscribe("/mother/moving", 1, &FilterPublisher::motherWantsToMoveCallback, this);
+        motherWantsToMove_subscriber = n.subscribe("/mother/moving", 3, &FilterPublisher::motherWantsToMoveCallback, this);
 
         //addedWall_subscriber = n.subscribe("/wall_finder_walls_array", 1, &FilterPublisher::addedWallCallback, this);
 
@@ -689,10 +689,12 @@ class FilterPublisher
         int i = 0;
         bool motherWantedToMove = true;
         while(i < motherWantsToMove_vec.size() && motherWantedToMove ){
-            motherWantedToMove = motherWantsToMove_vec[i];
+            if(!motherWantsToMove_vec[i]){
+                motherWantedToMove = false;
+            }
             i++;
         }
-        motherWantedToMove = false;
+        motherWantedToMove = (motherWantsToMove_vec.size() > 25) && motherWantedToMove;
         ROS_INFO("Average linear V [%f], distance moved [%f]", averageLinearV, distance);
         if((averageLinearV > STUCK_TRESHOLD_SPEED || motherWantedToMove) && distance < STUCK_TRESHOLD_DISTANCE){
             ROS_INFO("THINK WE ARE STUCK");
@@ -813,11 +815,9 @@ int main(int argc, char **argv)
         if(count % 100 == 0){
             filter.checkIfStuck(most_likely_position, most_likely_position_prev, linear_v_vec, motherWantsToMove_vec);
             linear_v_vec.clear();
-            motherWantsToMove_vec.clear();
             most_likely_position_prev = most_likely_position;
 
         }
-
         ros::spinOnce();
 
         loop_rate.sleep();

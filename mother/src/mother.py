@@ -177,6 +177,8 @@ class Mother:
 
         self.map_pub = rospy.Publisher("mother/objects", Marker, queue_size=20)
 
+        self.move_pub = rospy.Publisher("/mother/moving",Bool,queue_size=3)
+
         self.load_state()
 
         #Subscribers
@@ -583,7 +585,10 @@ class Mother:
 
     def turning_towards_object_update(self):
         if ROUND == 1:
-            activate_next_state = self.set_following_an_exploration_path
+            if self.exploration_completed:
+                activate_next_state = self.set_following_path_to_main_goal(activate_next_state=self.finished)
+            else:
+                activate_next_state = self.set_following_an_exploration_path
         elif ROUND == 0:
             activate_next_state = partial(self.set_following_path_to_main_goal,activate_next_state=self.set_waiting_for_main_goal)
         elif ROUND == 10:
@@ -665,7 +670,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.15,0.7),max_classification_attempts=1,no_attempts_within_secs=6))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.20,0.7),max_classification_attempts=1,no_attempts_within_secs=20))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
@@ -717,7 +722,7 @@ class Mother:
 
         self.set_waiting_for_main_goal()
         rospy.loginfo("Entering mother loop")
-    
+        i = 0
         last_save_secs = rospy.Time.now().to_sec()
         while True:
             if self.goal_pose is not None or self.has_started:
@@ -725,13 +730,13 @@ class Mother:
                 if self.initial_pose is not None:
                     break
             
+        i=0
         while not rospy.is_shutdown():
 
             time = rospy.Time.now().to_sec()
             #check if time is up
-            
             if (ROUND == 1 and time - self.start_time > TIME_R1-TIME_TO_GO_BACK) or (ROUND == 2 and time - self.start_time > TIME_R2-TIME_TO_GO_BACK):
-                self.go_to_pose = self.initial_pose
+                self.goal_pose = self.initial_pose
                 self.set_following_path_to_main_goal(activate_next_state = self.finished)
 
             if self.mode == "waiting_for_main_goal":
@@ -770,8 +775,8 @@ class Mother:
                         self.set_following_path_to_main_goal(activate_next_state=self.set_waiting_for_main_goal)
 
             elif self.mode == "following_path_to_main_goal":
-                changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
-                if self.nav_goal_acchieved is not None and not changed_mode:
+                #changed_mode = self.classify_if_close(self.set_following_path_to_main_goal)
+                if self.nav_goal_acchieved is not None: #and not changed_mode:
                     if self.nav_goal_acchieved:
                         self._fptmg_next_state()
                     else:
@@ -832,7 +837,8 @@ class Mother:
             #last_save_secs = rospy.Time.now().to_sec()
 
             if self.mode in ["turning_towards_object","following_path_to_object_classification","following_an_exploration_path","following_path_to_main_goal"]:
-                pass
+                self.move_pub.publish(True)
+            i += 1
             
             self.rate.sleep()
             
