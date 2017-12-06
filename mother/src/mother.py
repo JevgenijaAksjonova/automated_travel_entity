@@ -676,7 +676,7 @@ class Mother:
     #Returns true if the mother mode has been changed.
     def classify_if_close(self,set_continue_state):
         self.object_classification_queue = list(
-            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.20,0.6),max_classification_attempts=1,no_attempts_within_secs=20))
+            self.maze_map.get_unclassified_objects(robot_pos=self.pos,distance_thresh=(0.20,0.7),max_classification_attempts=1,no_attempts_within_secs=20))
         if len(self.object_classification_queue) > 0:
             classifying_obj = self.object_classification_queue.pop()
             #print("setting turning towards object")
