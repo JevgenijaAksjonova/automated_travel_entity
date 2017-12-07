@@ -41,6 +41,10 @@ In addition to MS1, MS2 and MS3, meeting this milestone means that:
 
 - You should be able to find a good path to the gate and get out, clearly showing that the robot is able to use information that was gathered via mapping the environment (rubble, objects, etc) when it plans the path.
 
+## Launch
+
+roslaunch automated_travel_entity_launch ms3.launch
+
 
 
 
